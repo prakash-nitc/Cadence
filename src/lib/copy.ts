@@ -8,6 +8,7 @@
  * Kept out of `engine/` so the engines stay value-in, value-out.
  */
 import type { Cut, Degradation } from '../engine/capacity';
+import type { Verdict } from '../engine/feasibility';
 import { formatDuration, toHHMM } from './time';
 
 const list = (items: string[]): string => items.join(', ');
@@ -83,4 +84,19 @@ export function ruleForDate(rules: string[], date: string): string {
   if (rules.length === 0) return '';
   const days = Math.floor(Date.parse(`${date}T00:00:00`) / 86_400_000);
   return rules[((days % rules.length) + rules.length) % rules.length] ?? '';
+}
+
+/**
+ * The verdict shown before a plan can be saved — SPEC §4.2.
+ *
+ * > 7h 10m committed against 8h 30m available. Within slack.
+ *
+ * States the position and stops. Exceeding the slack warns; it never blocks.
+ */
+export function verdictLine(verdict: Verdict): string {
+  const head = `${formatDuration(verdict.committedMinutes)} committed against ${formatDuration(verdict.availableMinutes)} available.`;
+
+  if (verdict.status === 'within') return `${head} Within slack.`;
+  if (verdict.status === 'overSlack') return `${head} Past the slack line.`;
+  return `${head} Over capacity.`;
 }

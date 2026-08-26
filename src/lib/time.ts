@@ -5,7 +5,13 @@
  * or from a stored preference (`dayEnd`). Nothing else in the app is allowed to name
  * a clock time — SPEC §0.2.
  */
-import { addMinutes as fnsAddMinutes, differenceInMinutes, format, startOfDay } from 'date-fns';
+import {
+  addDays as fnsAddDays,
+  addMinutes as fnsAddMinutes,
+  differenceInMinutes,
+  format,
+  startOfDay,
+} from 'date-fns';
 
 export const MINUTE_MS = 60_000;
 
@@ -30,6 +36,10 @@ export function atTimeOn(on: Date | number, hhmm: string): Date {
 
 export function addMinutes(at: Date | number, minutes: number): Date {
   return fnsAddMinutes(at, minutes);
+}
+
+export function addDays(at: Date | number, days: number): Date {
+  return fnsAddDays(at, days);
 }
 
 export function minutesBetween(from: Date | number, to: Date | number): number {
