@@ -45,7 +45,7 @@ export default function App() {
           ) : (
             <>
               {tab === 'Now' ? <Now now={now} prefs={prefs} /> : null}
-              {tab === 'Day' ? <Day now={now} /> : null}
+              {tab === 'Day' ? <Day now={now} prefs={prefs} /> : null}
               {tab === 'Plan' ? <Plan /> : null}
               {tab === 'Progress' ? <Progress /> : null}
               {tab === 'Settings' ? <Settings /> : null}

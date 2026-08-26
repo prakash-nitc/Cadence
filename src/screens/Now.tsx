@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { RULES } from '../config/schedule.config';
+import { BurnDown } from '../components/BurnDown';
+import { CommitmentRow } from '../components/CommitmentRow';
 import { BlockProgress, Countdown } from '../components/Countdown';
 import { ContainmentPrompt } from '../components/ContainmentPrompt';
+import { ScoreBadge } from '../components/ScoreBadge';
 import { StartDay } from '../components/StartDay';
+import { Triage } from '../components/Triage';
 import {
   blockAt,
   freeMinutesUntilNext,
@@ -11,23 +15,32 @@ import {
   nextBlock,
   unconfirmed,
 } from '../engine/boundaries';
+import { burnDown, projectDay } from '../engine/scoring';
 import { freeTimeLine, pullForwardWarning, ruleForDate } from '../lib/copy';
+import { blockPassed, blockPriority, gateLabel, runwayMinutes } from '../lib/dayScoring';
 import type { Prefs } from '../lib/prefs';
 import { formatDuration, toHHMM } from '../lib/time';
 import { useDay } from '../store/dayStore';
 
 const PUSH_OPTIONS = [15, 30, 60];
 
-/**
- * Now — SPEC §3.1. Read at arm's length in under two seconds.
- *
- * Commitments, the burn-down strip and the live projected score belong here too, and
- * arrive with commitments in session 3.
- */
+/** Now — SPEC §3.1. Read at arm's length in under two seconds. */
 export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
-  const { date, day, savedTemplates, startDay, closeBlock, skipBlock, push, startNextEarly } =
-    useDay();
+  const {
+    date,
+    day,
+    commitments,
+    savedTemplates,
+    startDay,
+    closeBlock,
+    skipBlock,
+    push,
+    startNextEarly,
+    setDone,
+    dropCommitment,
+  } = useDay();
   const [confirmingEarly, setConfirmingEarly] = useState(false);
+  const [triaging, setTriaging] = useState(false);
 
   if (!date) return null;
 
@@ -39,6 +52,7 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
         prefs={prefs}
         saved={savedTemplates}
         planned={day?.plannedAt != null}
+        commitmentCount={commitments.length}
         onStart={(anchor, templateId) => void startDay(anchor, templateId, prefs)}
       />
     );
@@ -49,14 +63,38 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
   const next = nextBlock(day.blocks, now);
   const free = freeMinutesUntilNext(day.blocks, now);
   const rule = ruleForDate(RULES, date);
+  const planned = day.plannedAt !== null;
 
-  const running =
-    current && !isResolved(current) && current.kind !== 'gap' ? current : null;
+  const running = current && !isResolved(current) && current.kind !== 'gap' ? current : null;
 
   // While the past is unanswered the prompt owns the screen, but the block that is
   // actually running still gets named — otherwise Now reports the wrong thing to do.
   const inProgress = waiting.length === 0 ? running : null;
   const heldBack = waiting.length > 0 && running && running !== waiting[0] ? running : null;
+
+  const runway = runwayMinutes(day.blocks, now);
+  const burn = burnDown(commitments, runway);
+  const projected = projectDay(commitments, prefs, planned, blockPassed(day.blocks, now));
+  const labelFor = gateLabel(commitments, day.blocks);
+
+  const blockCommitments = (blockId: string): typeof commitments =>
+    commitments.filter((commitment) => commitment.blockId === blockId);
+
+  if (triaging) {
+    return (
+      <Triage
+        commitments={commitments}
+        prefs={prefs}
+        planned={planned}
+        availableMinutes={runway}
+        priorityOf={blockPriority(day.blocks)}
+        labelFor={labelFor}
+        onDone={(id, done) => void setDone(id, done)}
+        onDrop={(id, reason, displacedBy) => void dropCommitment(id, reason, displacedBy)}
+        onClose={() => setTriaging(false)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -83,14 +121,23 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
           </div>
 
           <div className="mt-3">
-            <BlockProgress
-              startsAt={inProgress.startsAt}
-              endsAt={inProgress.endsAt}
-              now={now}
-            />
+            <BlockProgress startsAt={inProgress.startsAt} endsAt={inProgress.endsAt} now={now} />
           </div>
 
-          {inProgress.detail ? (
+          {blockCommitments(inProgress.blockId).length > 0 ? (
+            <div className="mt-4 border-t border-edge pt-2">
+              {blockCommitments(inProgress.blockId).map((commitment) => (
+                <CommitmentRow
+                  key={commitment.id}
+                  commitment={commitment}
+                  onDone={(done) => void setDone(commitment.id, done)}
+                  onDrop={(reason, displacedBy) =>
+                    void dropCommitment(commitment.id, reason, displacedBy)
+                  }
+                />
+              ))}
+            </div>
+          ) : inProgress.detail ? (
             <p className="mt-3 text-sm text-muted">{inProgress.detail}</p>
           ) : null}
 
@@ -111,7 +158,7 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
             </button>
           </div>
 
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted">Push remaining</span>
             {PUSH_OPTIONS.map((minutes) => (
               <button
@@ -123,6 +170,13 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
                 +{minutes}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setTriaging(true)}
+              className="ml-auto border border-edge px-2.5 py-1.5 text-xs text-muted hover:border-muted hover:text-text"
+            >
+              Triage day
+            </button>
           </div>
         </section>
       ) : null}
@@ -188,6 +242,20 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
           )}
         </section>
       ) : null}
+
+      {commitments.length > 0 ? (
+        <section className="space-y-3 border-t border-edge pt-3">
+          <BurnDown result={burn} onTriage={() => setTriaging(true)} />
+          <ScoreBadge result={projected} labelFor={labelFor} projected />
+        </section>
+      ) : (
+        <section className="border-t border-edge pt-3">
+          <p className="text-sm text-muted">
+            Nothing committed to today. A day with no commitments scores red whatever gets
+            done — add them on the Day screen.
+          </p>
+        </section>
+      )}
 
       {heldBack ? (
         <section className="border-t border-edge pt-3">

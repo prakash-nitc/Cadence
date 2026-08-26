@@ -23,12 +23,22 @@ interface StartDayProps {
   prefs: Prefs;
   saved: SavedTemplate[];
   planned: boolean;
+  /** Commitments already waiting on this day, planned the night before. */
+  commitmentCount: number;
   onStart: (anchor: Date, templateId: string) => void;
 }
 
 const NOON_HOUR = 12;
 
-export function StartDay({ date, now, prefs, saved, planned, onStart }: StartDayProps) {
+export function StartDay({
+  date,
+  now,
+  prefs,
+  saved,
+  planned,
+  commitmentCount,
+  onStart,
+}: StartDayProps) {
   const suggested = useMemo(() => suggestedTemplate(new Date(now)), [now]);
   const [templateId, setTemplateId] = useState<string>(suggested);
   const [anchorTime, setAnchorTime] = useState<string>(() => toHHMM(now));
@@ -52,9 +62,11 @@ export function StartDay({ date, now, prefs, saved, planned, onStart }: StartDay
       <header>
         <h1 className="font-display text-2xl tracking-display text-text">Day not started</h1>
         <p className="mt-1 text-sm text-muted">
-          {planned
-            ? 'Planned last night. Anchor it to lay the blocks out.'
-            : 'No plan for this day. Anchoring lays the blocks out from now.'}
+          {commitmentCount > 0
+            ? `${commitmentCount} ${commitmentCount === 1 ? 'commitment' : 'commitments'} waiting. Anchor the day to lay the blocks out.`
+            : planned
+              ? 'Planned, with nothing committed to. Anchor it to lay the blocks out.'
+              : 'No plan for this day. Anchoring lays the blocks out from now.'}
         </p>
       </header>
 
