@@ -1,21 +1,36 @@
 import { create } from 'zustand';
 import { FIXED_WINDOWS } from '../config/schedule.config';
 import {
+  commitmentsFor,
+  deleteCommitment,
   getDay,
   listSavedTemplates,
   putDay,
+  putCommitments,
   resolveActiveDate,
 } from '../db/repo';
-import type { DayRecord, SavedTemplate } from '../db/schema';
+import type { CommitmentRecord, DayRecord, SavedTemplate } from '../db/schema';
 import { pullForward, pushRemaining, resolveBlock } from '../engine/boundaries';
 import { planDay } from '../engine/capacity';
+import { statusForProgress } from '../engine/scoring';
 import { describeDegradation } from '../lib/copy';
 import type { Prefs } from '../lib/prefs';
 import { blocksForTemplate } from '../lib/templates';
 
+/** What a new commitment needs; everything else is derived. */
+export interface NewCommitment {
+  blockId: string | null;
+  label: string;
+  targetType: CommitmentRecord['targetType'];
+  target: number;
+  plannedMinutes: number;
+  tags: string[];
+}
+
 interface DayState {
   date: string | null;
   day: DayRecord | null;
+  commitments: CommitmentRecord[];
   savedTemplates: SavedTemplate[];
   loaded: boolean;
 
@@ -31,6 +46,15 @@ interface DayState {
   push: (minutes: number, at: number) => Promise<void>;
   startNextEarly: (minutes: number, at: number) => Promise<void>;
   setPlacementMode: (on: boolean) => Promise<void>;
+
+  addCommitment: (input: NewCommitment, at: number) => Promise<void>;
+  setDone: (id: string, done: number) => Promise<void>;
+  dropCommitment: (
+    id: string,
+    reason: 'skipped' | 'avoided' | 'displaced',
+    displacedBy: string | null,
+  ) => Promise<void>;
+  removeCommitment: (id: string) => Promise<void>;
 }
 
 /**
@@ -52,16 +76,38 @@ export const useDay = create<DayState>((set, get) => {
     blocks,
   });
 
+  /** Apply a change to one commitment, persist it, and mirror it in the store. */
+  const writeCommitment = async (
+    id: string,
+    change: (commitment: CommitmentRecord) => CommitmentRecord,
+  ): Promise<void> => {
+    const current = get().commitments.find((commitment) => commitment.id === id);
+    if (!current) return;
+
+    const next = change(current);
+    await putCommitments([next]);
+    set({
+      commitments: get().commitments.map((commitment) =>
+        commitment.id === id ? next : commitment,
+      ),
+    });
+  };
+
   return {
     date: null,
     day: null,
+    commitments: [],
     savedTemplates: [],
     loaded: false,
 
     load: async (now) => {
       const date = await resolveActiveDate(now);
-      const [day, savedTemplates] = await Promise.all([getDay(date), listSavedTemplates()]);
-      set({ date, day, savedTemplates, loaded: true });
+      const [day, commitments, savedTemplates] = await Promise.all([
+        getDay(date),
+        commitmentsFor(date),
+        listSavedTemplates(),
+      ]);
+      set({ date, day, commitments, savedTemplates, loaded: true });
     },
 
     startDay: async (anchor, templateId, prefs) => {
@@ -133,6 +179,58 @@ export const useDay = create<DayState>((set, get) => {
       const { day } = get();
       if (!day) return;
       await commit({ ...day, placementMode: on });
+    },
+
+    addCommitment: async (input, at) => {
+      const { date, day, commitments } = get();
+      if (!date) return;
+
+      const record: CommitmentRecord = {
+        id: crypto.randomUUID(),
+        dayDate: date,
+        blockId: input.blockId,
+        label: input.label,
+        targetType: input.targetType,
+        target: input.target,
+        done: 0,
+        plannedMinutes: input.plannedMinutes,
+        tags: input.tags,
+        status: 'open',
+        displacedBy: null,
+        movedCount: 0,
+        originDate: date,
+      };
+
+      await putCommitments([record]);
+      set({ commitments: [...commitments, record] });
+
+      // Committing to something is what makes a day planned. Until then it scores red
+      // regardless of what got done — SPEC §4.1. Session 4's evening flow sets this the
+      // night before, which is the intended path; this covers a day committed to late.
+      if (day && day.plannedAt === null) await commit({ ...day, plannedAt: at });
+    },
+
+    setDone: async (id, done) => {
+      await writeCommitment(id, (commitment) => {
+        const next = { ...commitment, done: Math.max(0, done) };
+        // Progress never resurrects a dropped commitment — a drop is deliberate.
+        return { ...next, status: statusForProgress(next) };
+      });
+    },
+
+    dropCommitment: async (id, reason, displacedBy) => {
+      // Dropping requires a reason and the distinction is the whole point — SPEC §4.1.
+      // Displaced leaves scoring entirely; skipped and avoided score zero.
+      await writeCommitment(id, (commitment) => ({
+        ...commitment,
+        status: reason,
+        displacedBy: reason === 'displaced' ? displacedBy : null,
+      }));
+    },
+
+    removeCommitment: async (id) => {
+      await deleteCommitment(id);
+      set({ commitments: get().commitments.filter((commitment) => commitment.id !== id) });
     },
   };
 });
