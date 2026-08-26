@@ -121,3 +121,37 @@ export async function putSavedTemplate(template: SavedTemplate): Promise<void> {
 export async function deleteSavedTemplate(id: string): Promise<void> {
   await db.savedTemplates.delete(id);
 }
+
+/** Every commitment on days in a range, inclusive. Used for history and carry-overs. */
+export async function commitmentsBetween(
+  fromDate: string,
+  toDate: string,
+): Promise<CommitmentRecord[]> {
+  return db.commitments.where('dayDate').between(fromDate, toDate, true, true).toArray();
+}
+
+/**
+ * Total logged against a tag across all time, counting only `count` targets.
+ *
+ * Drives "which DSA topic am I on" — config orders the topics and gives each a target
+ * but no dates, so progress is the only honest way to say which one is current.
+ * Filtered in memory: `tags` is an array, and a multi-entry index for one derived
+ * number is not worth the schema.
+ */
+export async function countedDoneForTag(tag: string): Promise<number> {
+  const all = await db.commitments.toArray();
+  return all
+    .filter((entry) => entry.targetType === 'count' && entry.tags.includes(tag))
+    .reduce((sum, entry) => sum + entry.done, 0);
+}
+
+/** Replace a day's commitments wholesale — replanning is not appending. */
+export async function replaceCommitments(
+  dayDate: string,
+  commitments: CommitmentRecord[],
+): Promise<void> {
+  await db.transaction('rw', db.commitments, async () => {
+    await db.commitments.where('dayDate').equals(dayDate).delete();
+    if (commitments.length > 0) await db.commitments.bulkPut(commitments);
+  });
+}
