@@ -22,6 +22,16 @@ import type { Prefs } from '../lib/prefs';
 import { blocksForTemplate } from '../lib/templates';
 import { toHHMM } from '../lib/time';
 
+/**
+ * Notes on a day's layout that outlive a re-anchor.
+ *
+ * `degradation` is otherwise a description of the current layout and is rewritten each
+ * time the day is laid. A restart is a fact about the day rather than about a layout, so
+ * it has to survive the next one — recording it and then wiping it would be worse than
+ * not recording it at all.
+ */
+const RESTART_NOTE = 'Day restarted at';
+
 /** What a new commitment needs; everything else is derived. */
 export interface NewCommitment {
   blockId: string | null;
@@ -55,6 +65,17 @@ interface DayState {
    * stays exactly as it was — re-planning the afternoon must not erase the morning.
    */
   relayDay: (from: Date, blocks: BlockDef[], prefs: Prefs) => Promise<void>;
+  /**
+   * Throw the day's layout away and go back to Start day.
+   *
+   * Discards the anchor, the blocks and their marks, and the push log — all of which
+   * describe a schedule the user is abandoning. Keeps the commitments and `plannedAt`,
+   * because what you committed to is not the same thing as when you meant to do it.
+   *
+   * The reset is written into the day's notes rather than erasing the fact it happened.
+   * Restarting a mis-laid morning is legitimate; quietly rewriting history is not.
+   */
+  resetDay: (at: number) => Promise<void>;
   saveTemplate: (name: string, blocks: BlockDef[], at: number) => Promise<string>;
   removeTemplate: (id: string) => Promise<void>;
   closeBlock: (blockId: string, status: 'contained' | 'overran', at: number) => Promise<void>;
@@ -162,9 +183,12 @@ export const useDay = create<DayState>((set, get) => {
         anchorAt: anchor.getTime(),
         template: templateId,
         blocks,
-        degradation: degradation
-          ? describeDegradation(degradation, anchor, prefs.gymCutoffHour)
-          : [`Arranged at ${toHHMM(anchor)}. ${customBlocks?.length ?? 0} blocks, as laid out.`],
+        degradation: [
+          ...(existing?.degradation ?? []).filter((line) => line.startsWith(RESTART_NOTE)),
+          ...(degradation
+            ? describeDegradation(degradation, anchor, prefs.gymCutoffHour)
+            : [`Arranged at ${toHHMM(anchor)}. ${customBlocks?.length ?? 0} blocks, as laid out.`]),
+        ],
         pushes: existing?.pushes ?? [],
       });
     },
@@ -230,6 +254,22 @@ export const useDay = create<DayState>((set, get) => {
         ],
       });
       void prefs;
+    },
+
+    resetDay: async (at) => {
+      const { day } = get();
+      if (!day) return;
+
+      await commit({
+        ...day,
+        anchorAt: null,
+        blocks: [],
+        pushes: [],
+        degradation: [
+          ...day.degradation.filter((line) => line.startsWith(RESTART_NOTE)),
+          `${RESTART_NOTE} ${toHHMM(at)}. Previous layout discarded.`,
+        ],
+      });
     },
 
     saveTemplate: async (name, blocks, at) => {

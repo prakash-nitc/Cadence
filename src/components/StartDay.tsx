@@ -45,15 +45,22 @@ export function StartDay({
 }: StartDayProps) {
   const suggested = useMemo(() => suggestedTemplate(new Date(now)), [now]);
   const [templateId, setTemplateId] = useState<string>(suggested);
-  const [anchorTime, setAnchorTime] = useState<string>(() => toHHMM(now));
+  // Only once the user picks a time does it stop tracking the clock. Freezing it at
+  // mount meant leaving this screen open and tapping Start day 40 minutes later
+  // silently backdated the day to when the screen happened to load — SPEC §2.1 says
+  // never silently backdate, and that includes backdating to a stale render.
+  const [pickedTime, setPickedTime] = useState<string | null>(null);
+  const anchorTime = pickedTime ?? toHHMM(now);
+  const setAnchorTime = setPickedTime;
   const [building, setBuilding] = useState(false);
 
   const afterNoon = new Date(now).getHours() >= NOON_HOUR;
 
   const anchor = useMemo(() => {
-    const parsed = new Date(`${date}T${anchorTime}:00`);
+    if (pickedTime === null) return new Date(now);
+    const parsed = new Date(`${date}T${pickedTime}:00`);
     return Number.isNaN(parsed.getTime()) ? new Date(now) : parsed;
-  }, [date, anchorTime, now]);
+  }, [date, pickedTime, now]);
 
   const preview = useMemo(() => {
     const template = blocksForTemplate(templateId, saved);

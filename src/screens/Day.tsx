@@ -33,9 +33,11 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
     removeCommitment,
     setPlacementMode,
     relayDay,
+    resetDay,
     saveTemplate,
   } = useDay();
   const [relaying, setRelaying] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   if (!day?.anchorAt) {
     return (
@@ -110,6 +112,48 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
             Re-arrange what has not happened yet. Everything already marked stays as it is.
           </span>
         </button>
+
+        {resetting ? (
+          <div className="border border-fail bg-panel p-3">
+            <p className="text-sm text-text">
+              Start the day over from Start day.
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              Discards the current layout and every block mark on it. Your commitments and
+              today’s plan are kept, and the restart is recorded on the day.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  void resetDay(now);
+                  setResetting(false);
+                }}
+                className="border border-fail px-3 py-2 text-sm text-fail hover:bg-fail/10"
+              >
+                Discard the layout
+              </button>
+              <button
+                type="button"
+                onClick={() => setResetting(false)}
+                className="border border-edge px-3 py-2 text-sm text-text"
+              >
+                Keep it
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setResetting(true)}
+            className="w-full border border-edge px-3 py-2 text-left text-sm text-muted hover:border-fail hover:text-fail"
+          >
+            Start the day over
+            <span className="mt-0.5 block text-xs text-muted">
+              Back to Start day. Commitments are kept; the layout is discarded.
+            </span>
+          </button>
+        )}
 
         <button
           type="button"
