@@ -83,12 +83,25 @@ export interface PrefRecord {
   value: unknown;
 }
 
+/**
+ * Which milestone sub-items have been ticked — SPEC §4.4.
+ *
+ * The milestones themselves are config; only the ticking is user data. Keyed by
+ * `date|label` so a roadmap swap does not silently inherit the last one's progress.
+ */
+export interface MilestoneProgress {
+  key: string;
+  checked: string[];
+  doneAt: number | null;
+}
+
 export class CadenceDB extends Dexie {
   days!: Table<DayRecord, string>;
   commitments!: Table<CommitmentRecord, string>;
   logs!: Table<LogRecord, string>;
   savedTemplates!: Table<SavedTemplate, string>;
   prefs!: Table<PrefRecord, string>;
+  milestoneProgress!: Table<MilestoneProgress, string>;
 
   constructor() {
     super('cadence');
@@ -98,6 +111,10 @@ export class CadenceDB extends Dexie {
       logs: 'date',
       savedTemplates: 'id, createdAt',
       prefs: 'key',
+    });
+
+    this.version(2).stores({
+      milestoneProgress: 'key',
     });
   }
 }

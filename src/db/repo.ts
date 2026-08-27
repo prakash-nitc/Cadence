@@ -10,6 +10,7 @@ import {
   type CommitmentRecord,
   type DayRecord,
   type LogRecord,
+  type MilestoneProgress,
   type PrefRecord,
   type SavedTemplate,
 } from './schema';
@@ -154,4 +155,20 @@ export async function replaceCommitments(
     await db.commitments.where('dayDate').equals(dayDate).delete();
     if (commitments.length > 0) await db.commitments.bulkPut(commitments);
   });
+}
+
+// ─── Milestones ───────────────────────────────────────────────────────────────
+
+export async function listMilestoneProgress(): Promise<MilestoneProgress[]> {
+  return db.milestoneProgress.toArray();
+}
+
+export async function putMilestoneProgress(record: MilestoneProgress): Promise<void> {
+  await db.milestoneProgress.put(record);
+}
+
+// ─── Logs over a range ────────────────────────────────────────────────────────
+
+export async function logsBetween(fromDate: string, toDate: string): Promise<LogRecord[]> {
+  return db.logs.where('date').between(fromDate, toDate, true, true).toArray();
 }
