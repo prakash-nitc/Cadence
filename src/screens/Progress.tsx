@@ -68,10 +68,17 @@ export function Progress({ prefs }: { prefs: Prefs }) {
 
   const weekFrom = startOfWeek(date);
   const weekTo = dateKey(addDays(new Date(`${weekFrom}T12:00:00`), 6));
-  const daysLeftInWeek = Math.max(
+  const calendarDaysLeft = Math.max(
     0,
     Math.round((Date.parse(`${weekTo}T12:00:00`) - Date.parse(`${date}T12:00:00`)) / 86_400_000) + 1,
   );
+
+  // A placement day is not a day the week can pace work across — SPEC §4.6 re-paces
+  // around it rather than counting it as a hole the user failed to fill.
+  const placementDaysLeft = days.filter(
+    (entry) => entry.placementMode && entry.date >= date && entry.date <= weekTo,
+  ).length;
+  const daysLeftInWeek = Math.max(0, calendarDaysLeft - placementDaysLeft);
 
   const dailyCapacityHours = committableMinutes(FULL_DAY) / 60;
 

@@ -53,6 +53,7 @@ interface BlockRowProps {
     displacedBy: string | null,
   ) => void;
   onRemoveCommitment?: (id: string) => void;
+  placementMode?: boolean;
 }
 
 export function BlockRow({
@@ -64,6 +65,7 @@ export function BlockRow({
   onDone,
   onDrop,
   onRemoveCommitment,
+  placementMode = false,
 }: BlockRowProps) {
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -145,6 +147,7 @@ export function BlockRow({
               commitment={commitment}
               onDone={(done) => onDone(commitment.id, done)}
               onDrop={(reason, displacedBy) => onDrop(commitment.id, reason, displacedBy)}
+              placementMode={placementMode}
               {...(onRemoveCommitment
                 ? { onRemove: () => onRemoveCommitment(commitment.id) }
                 : {})}

@@ -3,12 +3,15 @@ import { FIXED_WINDOWS } from '../config/schedule.config';
 import {
   commitmentsFor,
   deleteCommitment,
+  deleteSavedTemplate,
   getDay,
   listSavedTemplates,
   putDay,
   putCommitments,
+  putSavedTemplate,
   resolveActiveDate,
 } from '../db/repo';
+import type { BlockDef } from '../config/schedule.config';
 import type { CommitmentRecord, DayRecord, SavedTemplate } from '../db/schema';
 import { pullForward, pushRemaining, resolveBlock } from '../engine/boundaries';
 import { planDay } from '../engine/capacity';
@@ -35,7 +38,18 @@ interface DayState {
   loaded: boolean;
 
   load: (now: number) => Promise<void>;
-  startDay: (anchor: Date, templateId: string, prefs: Prefs) => Promise<void>;
+  /**
+   * `blocks` overrides the template lookup — a custom day or a quick carve is a set of
+   * blocks that exists nowhere but on this day.
+   */
+  startDay: (
+    anchor: Date,
+    templateId: string,
+    prefs: Prefs,
+    customBlocks?: BlockDef[],
+  ) => Promise<void>;
+  saveTemplate: (name: string, blocks: BlockDef[], at: number) => Promise<string>;
+  removeTemplate: (id: string) => Promise<void>;
   closeBlock: (blockId: string, status: 'contained' | 'overran', at: number) => Promise<void>;
   skipBlock: (blockId: string, at: number) => Promise<void>;
   correctBlock: (
@@ -110,11 +124,11 @@ export const useDay = create<DayState>((set, get) => {
       set({ date, day, commitments, savedTemplates, loaded: true });
     },
 
-    startDay: async (anchor, templateId, prefs) => {
+    startDay: async (anchor, templateId, prefs, customBlocks) => {
       const { date, savedTemplates } = get();
       if (!date) return;
 
-      const template = blocksForTemplate(templateId, savedTemplates);
+      const template = customBlocks ?? blocksForTemplate(templateId, savedTemplates);
       if (!template) throw new Error(`Unknown template: ${templateId}`);
 
       const { blocks, degradation } = planDay(anchor, template, FIXED_WINDOWS, prefs);
@@ -179,6 +193,18 @@ export const useDay = create<DayState>((set, get) => {
       const { day } = get();
       if (!day) return;
       await commit({ ...day, placementMode: on });
+    },
+
+    saveTemplate: async (name, blocks, at) => {
+      const id = `saved:${crypto.randomUUID()}`;
+      await putSavedTemplate({ id, name, blocks, createdAt: at });
+      set({ savedTemplates: await listSavedTemplates() });
+      return id;
+    },
+
+    removeTemplate: async (id) => {
+      await deleteSavedTemplate(id);
+      set({ savedTemplates: await listSavedTemplates() });
     },
 
     addCommitment: async (input, at) => {

@@ -32,6 +32,7 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
     commitments,
     savedTemplates,
     startDay,
+    saveTemplate,
     closeBlock,
     skipBlock,
     push,
@@ -53,7 +54,10 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
         saved={savedTemplates}
         planned={day?.plannedAt != null}
         commitmentCount={commitments.length}
-        onStart={(anchor, templateId) => void startDay(anchor, templateId, prefs)}
+        onStart={(anchor, templateId, blocks) =>
+          void startDay(anchor, templateId, prefs, blocks)
+        }
+        onSaveTemplate={(name, blocks) => void saveTemplate(name, blocks, now)}
       />
     );
   }

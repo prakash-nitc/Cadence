@@ -28,6 +28,7 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
     setDone,
     dropCommitment,
     removeCommitment,
+    setPlacementMode,
   } = useDay();
 
   if (!day?.anchorAt) {
@@ -66,6 +67,30 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
           </h1>
           <span className="font-mono text-xs text-muted">Anchored {toHHMM(day.anchorAt)}</span>
         </div>
+
+        <button
+          type="button"
+          role="switch"
+          aria-checked={day.placementMode}
+          aria-label="Placement mode"
+          onClick={() => void setPlacementMode(!day.placementMode)}
+          className={`flex w-full items-center gap-3 border px-3 py-2 text-left ${
+            day.placementMode ? 'border-signal' : 'border-edge'
+          } bg-panel`}
+        >
+          <span
+            className={`h-3.5 w-3.5 shrink-0 border ${
+              day.placementMode ? 'border-signal bg-signal' : 'border-edge'
+            }`}
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm text-text">Placement mode</span>
+            <span className="block text-xs text-muted">
+              Drops default to displaced, weekly targets re-pace around the day, and the
+              grid marks it. A day in an interview is not a lapse in discipline.
+            </span>
+          </span>
+        </button>
 
         <DayBar
           blocks={day.blocks}
@@ -144,6 +169,7 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
             onDone={(id, done) => void setDone(id, done)}
             onDrop={(id, reason, displacedBy) => void dropCommitment(id, reason, displacedBy)}
             onRemoveCommitment={(id) => void removeCommitment(id)}
+            placementMode={day.placementMode}
           />
         ))}
       </section>

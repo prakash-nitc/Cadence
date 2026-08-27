@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
-import { FIXED_WINDOWS } from '../config/schedule.config';
+import { FIXED_WINDOWS, type BlockDef } from '../config/schedule.config';
 import type { SavedTemplate } from '../db/schema';
 import { planDay } from '../engine/capacity';
 import { describeDegradation } from '../lib/copy';
 import type { Prefs } from '../lib/prefs';
 import { blocksForTemplate, suggestedTemplate } from '../lib/templates';
 import { toHHMM } from '../lib/time';
+import { availableMinutes } from '../engine/capacity';
+import { CustomDay } from './CustomDay';
 import { TemplatePicker } from './TemplatePicker';
 
 /**
@@ -25,7 +27,8 @@ interface StartDayProps {
   planned: boolean;
   /** Commitments already waiting on this day, planned the night before. */
   commitmentCount: number;
-  onStart: (anchor: Date, templateId: string) => void;
+  onStart: (anchor: Date, templateId: string, blocks?: BlockDef[]) => void;
+  onSaveTemplate: (name: string, blocks: BlockDef[]) => void;
 }
 
 const NOON_HOUR = 12;
@@ -38,10 +41,12 @@ export function StartDay({
   planned,
   commitmentCount,
   onStart,
+  onSaveTemplate,
 }: StartDayProps) {
   const suggested = useMemo(() => suggestedTemplate(new Date(now)), [now]);
   const [templateId, setTemplateId] = useState<string>(suggested);
   const [anchorTime, setAnchorTime] = useState<string>(() => toHHMM(now));
+  const [building, setBuilding] = useState(false);
 
   const afterNoon = new Date(now).getHours() >= NOON_HOUR;
 
@@ -56,6 +61,18 @@ export function StartDay({
     const { degradation } = planDay(anchor, template, FIXED_WINDOWS, prefs);
     return describeDegradation(degradation, anchor, prefs.gymCutoffHour);
   }, [templateId, saved, anchor, prefs]);
+
+  if (building) {
+    return (
+      <CustomDay
+        seed={blocksForTemplate(templateId, saved) ?? []}
+        availableMinutes={availableMinutes(anchor, prefs.dayEnd)}
+        onUse={(blocks, label) => onStart(anchor, label, blocks)}
+        onSaveTemplate={onSaveTemplate}
+        onCancel={() => setBuilding(false)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -117,6 +134,14 @@ export function StartDay({
         className="w-full border border-signal bg-signal/10 py-4 font-display text-lg tracking-display text-signal hover:bg-signal/20"
       >
         Start day
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setBuilding(true)}
+        className="w-full border border-edge py-2.5 text-sm text-muted hover:border-muted hover:text-text"
+      >
+        Build custom, or carve a short day
       </button>
     </div>
   );

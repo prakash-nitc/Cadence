@@ -36,9 +36,16 @@ interface CommitmentRowProps {
   onDone: (done: number) => void;
   onDrop: (reason: 'skipped' | 'avoided' | 'displaced', displacedBy: string | null) => void;
   onRemove?: () => void;
+  placementMode?: boolean;
 }
 
-export function CommitmentRow({ commitment, onDone, onDrop, onRemove }: CommitmentRowProps) {
+export function CommitmentRow({
+  commitment,
+  onDone,
+  onDrop,
+  onRemove,
+  placementMode = false,
+}: CommitmentRowProps) {
   const [dropping, setDropping] = useState(false);
   const dropped = isDropped(commitment);
   const completion = completionOf(commitment);
@@ -138,6 +145,7 @@ export function CommitmentRow({ commitment, onDone, onDrop, onRemove }: Commitme
             setDropping(false);
           }}
           onCancel={() => setDropping(false)}
+          placementMode={placementMode}
           {...(onRemove ? { onRemove } : {})}
         />
       ) : null}

@@ -32,10 +32,18 @@ interface DropReasonProps {
   onPick: (reason: 'skipped' | 'avoided' | 'displaced', displacedBy: string | null) => void;
   onCancel: () => void;
   onRemove?: () => void;
+  /** On a placement day every drop defaults to displaced — SPEC §4.6. */
+  placementMode?: boolean;
 }
 
-export function DropReason({ current, onPick, onCancel, onRemove }: DropReasonProps) {
-  const [displacing, setDisplacing] = useState(false);
+export function DropReason({
+  current,
+  onPick,
+  onCancel,
+  onRemove,
+  placementMode = false,
+}: DropReasonProps) {
+  const [displacing, setDisplacing] = useState(placementMode);
 
   if (displacing) {
     return (
@@ -58,7 +66,7 @@ export function DropReason({ current, onPick, onCancel, onRemove }: DropReasonPr
           onClick={() => setDisplacing(false)}
           className="mt-3 text-xs text-muted underline-offset-2 hover:underline"
         >
-          Back
+          {placementMode ? 'It was not displaced' : 'Back'}
         </button>
       </div>
     );
