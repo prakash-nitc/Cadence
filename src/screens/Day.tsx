@@ -31,6 +31,7 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
     setDone,
     dropCommitment,
     removeCommitment,
+    editCommitment,
     setPlacementMode,
     relayDay,
     resetDay,
@@ -256,6 +257,7 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
             onDone={(id, done) => void setDone(id, done)}
             onDrop={(id, reason, displacedBy) => void dropCommitment(id, reason, displacedBy)}
             onRemoveCommitment={(id) => void removeCommitment(id)}
+            onEditCommitment={(id, edit) => void editCommitment(id, edit)}
             placementMode={day.placementMode}
           />
         ))}
@@ -274,6 +276,7 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
                   void dropCommitment(commitment.id, reason, displacedBy)
                 }
                 onRemove={() => void removeCommitment(commitment.id)}
+                onEdit={(edit) => void editCommitment(commitment.id, edit)}
               />
             ))}
           </div>

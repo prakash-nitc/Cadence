@@ -39,6 +39,7 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
     startNextEarly,
     setDone,
     dropCommitment,
+    editCommitment,
   } = useDay();
   const [confirmingEarly, setConfirmingEarly] = useState(false);
   const [triaging, setTriaging] = useState(false);
@@ -150,6 +151,7 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
                   onDrop={(reason, displacedBy) =>
                     void dropCommitment(commitment.id, reason, displacedBy)
                   }
+                  onEdit={(edit) => void editCommitment(commitment.id, edit)}
                 />
               ))}
             </div>

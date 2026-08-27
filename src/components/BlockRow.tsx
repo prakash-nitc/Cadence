@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { CommitmentRecord } from '../db/schema';
 import { allowedCorrections, viewStatus, type BlockView } from '../engine/boundaries';
 import type { ScheduledBlock } from '../engine/layout';
-import type { NewCommitment } from '../store/dayStore';
+import type { CommitmentEdit, NewCommitment } from '../store/dayStore';
 import { formatDuration, toHHMM } from '../lib/time';
 import { AddCommitment } from './AddCommitment';
 import { CommitmentRow } from './CommitmentRow';
@@ -53,6 +53,7 @@ interface BlockRowProps {
     displacedBy: string | null,
   ) => void;
   onRemoveCommitment?: (id: string) => void;
+  onEditCommitment?: (id: string, edit: CommitmentEdit) => void;
   placementMode?: boolean;
 }
 
@@ -65,6 +66,7 @@ export function BlockRow({
   onDone,
   onDrop,
   onRemoveCommitment,
+  onEditCommitment,
   placementMode = false,
 }: BlockRowProps) {
   const [open, setOpen] = useState(false);
@@ -141,6 +143,19 @@ export function BlockRow({
 
       {commitments.length > 0 && onDone && onDrop ? (
         <div className="pb-2 pl-3 pr-1">
+          {(() => {
+            // Resizing a block does not resize what was committed to it. Say so, rather
+            // than leaving the arithmetic to be noticed at 10 PM.
+            const weight = commitments
+              .filter((commitment) => commitment.status !== 'displaced')
+              .reduce((sum, commitment) => sum + commitment.plannedMinutes, 0);
+            return weight > block.minutes ? (
+              <p className="mb-1.5 font-mono text-xs text-warn">
+                {formatDuration(weight)} committed to a {formatDuration(block.minutes)} block.
+              </p>
+            ) : null;
+          })()}
+
           {commitments.map((commitment) => (
             <CommitmentRow
               key={commitment.id}
@@ -150,6 +165,9 @@ export function BlockRow({
               placementMode={placementMode}
               {...(onRemoveCommitment
                 ? { onRemove: () => onRemoveCommitment(commitment.id) }
+                : {})}
+              {...(onEditCommitment
+                ? { onEdit: (edit: CommitmentEdit) => onEditCommitment(commitment.id, edit) }
                 : {})}
             />
           ))}

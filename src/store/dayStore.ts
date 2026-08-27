@@ -33,6 +33,13 @@ import { minutesBetween, toHHMM } from '../lib/time';
 const RESTART_NOTE = 'Day restarted at';
 
 /** What a new commitment needs; everything else is derived. */
+/** The three fields of a commitment that are a plan rather than a record. */
+export interface CommitmentEdit {
+  label: string;
+  target: number;
+  plannedMinutes: number;
+}
+
 export interface NewCommitment {
   blockId: string | null;
   label: string;
@@ -91,6 +98,14 @@ interface DayState {
 
   addCommitment: (input: NewCommitment, at: number) => Promise<void>;
   setDone: (id: string, done: number) => Promise<void>;
+  /**
+   * Re-plan a commitment: its name, its target, or what it is worth.
+   *
+   * Resizing a block leaves its commitments carrying the old weight, and deleting and
+   * re-adding one just to change a number is friction with no honesty benefit — the same
+   * edit was always possible, only slower.
+   */
+  editCommitment: (id: string, edit: CommitmentEdit) => Promise<void>;
   dropCommitment: (
     id: string,
     reason: 'skipped' | 'avoided' | 'displaced',
@@ -332,6 +347,19 @@ export const useDay = create<DayState>((set, get) => {
       await writeCommitment(id, (commitment) => {
         const next = { ...commitment, done: Math.max(0, done) };
         // Progress never resurrects a dropped commitment — a drop is deliberate.
+        return { ...next, status: statusForProgress(next) };
+      });
+    },
+
+    editCommitment: async (id, edit) => {
+      await writeCommitment(id, (commitment) => {
+        const next = {
+          ...commitment,
+          label: edit.label.trim() || commitment.label,
+          target: Math.max(commitment.targetType === 'binary' ? 1 : 1, edit.target),
+          plannedMinutes: Math.max(0, edit.plannedMinutes),
+        };
+        // Changing the target changes what "done" means, so the status follows it.
         return { ...next, status: statusForProgress(next) };
       });
     },
