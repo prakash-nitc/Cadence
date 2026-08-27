@@ -54,6 +54,8 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
         prefs={prefs}
         saved={savedTemplates}
         planned={day?.plannedAt != null}
+        plannedBlocks={day?.plannedBlocks ?? null}
+        plannedAnchor={day?.plannedAnchor ?? null}
         commitmentCount={commitments.length}
         onStart={(anchor, templateId, blocks) =>
           void startDay(anchor, templateId, prefs, blocks)

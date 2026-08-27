@@ -21,6 +21,10 @@ import { TemplatePicker } from './TemplatePicker';
  */
 interface StartDayProps {
   date: string;
+  /** The arrangement decided last night, if there was one. */
+  plannedBlocks: BlockDef[] | null;
+  /** The wake time that plan assumed, to seed the picker. */
+  plannedAnchor: string | null;
   now: number;
   prefs: Prefs;
   saved: SavedTemplate[];
@@ -35,6 +39,8 @@ const NOON_HOUR = 12;
 
 export function StartDay({
   date,
+  plannedBlocks,
+  plannedAnchor,
   now,
   prefs,
   saved,
@@ -72,7 +78,7 @@ export function StartDay({
   if (building) {
     return (
       <CustomDay
-        seed={blocksForTemplate(templateId, saved) ?? []}
+        seed={plannedBlocks ?? blocksForTemplate(templateId, saved) ?? []}
         anchor={anchor}
         availableMinutes={availableMinutes(anchor, prefs.dayEnd)}
         onUse={(blocks, label) => onStart(anchor, label, blocks)}
@@ -86,6 +92,11 @@ export function StartDay({
     <div className="space-y-6">
       <header>
         <h1 className="font-display text-2xl tracking-display text-text">Day not started</h1>
+        {plannedAnchor ? (
+          <p className="mt-1 font-mono text-xs text-muted">
+            Planned to start at {plannedAnchor}. Starting now anchors it at {toHHMM(now)}.
+          </p>
+        ) : null}
         <p className="mt-1 text-sm text-muted">
           {commitmentCount > 0
             ? `${commitmentCount} ${commitmentCount === 1 ? 'commitment' : 'commitments'} waiting. Anchor the day to lay the blocks out.`
@@ -117,7 +128,9 @@ export function StartDay({
       ) : null}
 
       <section>
-        <h2 className="mb-1 text-xs uppercase tracking-block text-muted">Start from</h2>
+        <h2 className="mb-1 text-xs uppercase tracking-block text-muted">
+          {plannedBlocks ? 'Or start from something else' : 'Start from'}
+        </h2>
         <p className="mb-2 text-xs text-muted">
           A template is the ideal day, not a rule. Take it as it is, or arrange it.
         </p>
@@ -141,10 +154,14 @@ export function StartDay({
 
       <button
         type="button"
-        onClick={() => onStart(anchor, templateId)}
+        onClick={() =>
+          plannedBlocks
+            ? onStart(anchor, 'planned', plannedBlocks)
+            : onStart(anchor, templateId)
+        }
         className="w-full border border-signal bg-signal/10 py-4 font-display text-lg tracking-display text-signal hover:bg-signal/20"
       >
-        Start day
+        {plannedBlocks ? 'Start the day you planned' : 'Start day'}
       </button>
 
       <button

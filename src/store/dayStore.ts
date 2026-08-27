@@ -193,6 +193,8 @@ export const useDay = create<DayState>((set, get) => {
           band: null,
           gatePassed: null,
           plannedAt: null,
+          plannedBlocks: null,
+          plannedAnchor: null,
         }),
         date,
         anchorAt: anchor.getTime(),

@@ -291,8 +291,10 @@ export function BlockBuilder({ blocks, onChange, anchor, availableMinutes }: Blo
         </button>
       </div>
 
+      {/* Named specifically: the feasibility verdict below also says "available", but
+          means committable work time, not the length of the day. */}
       <p className={`font-mono text-xs ${over > 0 ? 'text-fail' : 'text-muted'}`}>
-        {formatDuration(total)} against {formatDuration(availableMinutes)} available
+        {formatDuration(total)} laid, {formatDuration(availableMinutes)} until day end
         {over > 0 ? ` — over by ${formatDuration(over)}` : ''}
       </p>
     </div>

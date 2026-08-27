@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { BlockBuilder } from '../components/BlockBuilder';
 import { CommitmentRow } from '../components/CommitmentRow';
 import { PlanItemRow } from '../components/PlanItemRow';
 import { TemplatePicker } from '../components/TemplatePicker';
@@ -9,6 +10,8 @@ import { suggestionsFor } from '../lib/roadmap';
 import type { Prefs } from '../lib/prefs';
 import { blocksForTemplate, suggestedTemplate } from '../lib/templates';
 import { addDays, formatDuration } from '../lib/time';
+import { availableMinutes } from '../engine/capacity';
+import type { BlockDef } from '../config/schedule.config';
 import { useDay } from '../store/dayStore';
 import { usePlan, type PlanItem } from '../store/planStore';
 
@@ -69,10 +72,24 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
   const [templateId, setTemplateId] = useState<string>(defaultTemplate);
   useEffect(() => setTemplateId(defaultTemplate), [defaultTemplate]);
 
-  const templateBlocks = useMemo(
+  // The wake time the plan assumes. Not the anchor — that is still whenever Start day is
+  // actually tapped tomorrow — but without it the plan cannot show real clock times, and
+  // "which slot" is not answerable.
+  const [wakeAt, setWakeAt] = useState('05:45');
+
+  const seeded = useMemo(
     () => blocksForTemplate(templateId, savedTemplates) ?? [],
     [templateId, savedTemplates],
   );
+
+  // Arranged blocks are the plan. A template only seeds them.
+  const [templateBlocks, setTemplateBlocks] = useState<BlockDef[]>(seeded);
+  useEffect(() => setTemplateBlocks(seeded), [seeded]);
+
+  const plannedAnchor = useMemo(() => {
+    const parsed = new Date(`${tomorrow ?? '2026-01-01'}T${wakeAt}:00`);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }, [tomorrow, wakeAt]);
 
   const composed = useMemo<PlanItem[]>(() => {
     if (!tomorrow) return [];
@@ -308,16 +325,55 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
           Plan tomorrow — {tomorrow}
         </h2>
 
-        <TemplatePicker
-          value={templateId}
-          saved={savedTemplates}
-          onChange={setTemplateId}
-          suggested={defaultTemplate}
-        />
+        <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
+          <label className="block">
+            <span className="block text-xs uppercase tracking-block text-muted">Wake at</span>
+            <input
+              type="time"
+              value={wakeAt}
+              onChange={(event) => setWakeAt(event.target.value)}
+              aria-label="Wake at"
+              className="mt-1 w-full border border-edge bg-panel px-2 py-2 font-mono text-lg text-text focus:border-signal focus:outline-none"
+            />
+          </label>
+          <p className="self-end pb-1 text-xs text-muted">
+            The plan assumes this. Tomorrow the day still starts when you tap Start day —
+            this only decides the shape and shows you the real times.
+          </p>
+        </div>
 
+        <div>
+          <h3 className="mb-1 text-xs uppercase tracking-block text-muted">Start from</h3>
+          <p className="mb-2 text-xs text-muted">
+            An ideal day to work from. Arrange it below into the day you actually want.
+          </p>
+          <TemplatePicker
+            value={templateId}
+            saved={savedTemplates}
+            onChange={setTemplateId}
+            suggested={defaultTemplate}
+          />
+        </div>
+
+        <div>
+          <h3 className="mb-2 text-xs uppercase tracking-block text-muted">
+            Tomorrow, slot by slot
+          </h3>
+          <BlockBuilder
+            blocks={templateBlocks}
+            onChange={setTemplateBlocks}
+            anchor={plannedAnchor}
+            availableMinutes={availableMinutes(plannedAnchor, prefs.dayEnd)}
+          />
+        </div>
+
+        <h3 className="mb-2 text-xs uppercase tracking-block text-muted">
+          What gets finished
+        </h3>
         {items.length === 0 ? (
           <p className="text-sm text-muted">
-            No suggestions for this template. Add commitments on the Day screen tomorrow.
+            Nothing suggested for these blocks. You can add commitments tomorrow on the Day
+            screen.
           </p>
         ) : (
           <div className="border border-edge bg-panel">
@@ -375,7 +431,7 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
           type="button"
           disabled={chosen.length === 0}
           onClick={() => {
-            void savePlan(templateId, items, now);
+            void savePlan(templateId, items, now, { blocks: templateBlocks, wakeAt });
             setPlanSaved(true);
           }}
           className="w-full border border-signal bg-signal/10 py-3 font-display text-base tracking-display text-signal hover:bg-signal/20 disabled:border-edge disabled:bg-transparent disabled:text-muted"

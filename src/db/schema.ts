@@ -41,6 +41,17 @@ export interface DayRecord {
   gatePassed: boolean | null;
   /** Null means the day was never planned, which is red regardless — SPEC §4.1. */
   plannedAt: number | null;
+  /**
+   * The arrangement decided the night before, if there was one. Held as durations, so
+   * it lays out from whatever the real anchor turns out to be.
+   */
+  plannedBlocks: BlockDef[] | null;
+  /**
+   * The wake time the plan assumed, 'HH:mm'. A planning assumption, not the anchor —
+   * SPEC §2.1 is clear that the anchor is when Start day is actually tapped. This only
+   * seeds the picker and lets the plan show real clock times while it is being made.
+   */
+  plannedAnchor: string | null;
 }
 
 export interface CommitmentRecord {
@@ -116,6 +127,9 @@ export class CadenceDB extends Dexie {
     this.version(2).stores({
       milestoneProgress: 'key',
     });
+
+    // Days gain a planned arrangement. Existing rows simply have neither field.
+    this.version(3).stores({});
   }
 }
 

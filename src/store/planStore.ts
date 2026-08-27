@@ -8,6 +8,7 @@ import {
   putLog,
   replaceCommitments,
 } from '../db/repo';
+import type { BlockDef } from '../config/schedule.config';
 import type { CommitmentRecord, DayRecord, LogRecord } from '../db/schema';
 import type { Prefs } from '../lib/prefs';
 import { addDays, dateKey } from '../lib/time';
@@ -51,7 +52,12 @@ interface PlanState {
 
   load: (today: string, prefs: Prefs) => Promise<void>;
   saveLog: (today: string, input: LogInput, at: number) => Promise<void>;
-  savePlan: (templateId: string, items: PlanItem[], at: number) => Promise<void>;
+  savePlan: (
+    templateId: string,
+    items: PlanItem[],
+    at: number,
+    arrangement?: { blocks: BlockDef[]; wakeAt: string },
+  ) => Promise<void>;
 }
 
 /**
@@ -104,7 +110,7 @@ export const usePlan = create<PlanState>((set, get) => ({
     set({ todayLog: log });
   },
 
-  savePlan: async (templateId, items, at) => {
+  savePlan: async (templateId, items, at, arrangement) => {
     const { tomorrow, tomorrowDay } = get();
     if (!tomorrow) return;
 
@@ -142,11 +148,15 @@ export const usePlan = create<PlanState>((set, get) => ({
         score: null,
         band: null,
         gatePassed: null,
+        plannedBlocks: null,
+        plannedAnchor: null,
       }),
       date: tomorrow,
       template: templateId,
       // This is what makes the day planned. An unplanned day is red regardless — §4.1.
       plannedAt: at,
+      plannedBlocks: arrangement ? arrangement.blocks : null,
+      plannedAnchor: arrangement ? arrangement.wakeAt : null,
     };
 
     await putDay(day);

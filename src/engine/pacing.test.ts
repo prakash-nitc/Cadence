@@ -32,6 +32,8 @@ const day = (date: string, over: Partial<DayRecord> = {}): DayRecord => ({
   band: null,
   gatePassed: null,
   plannedAt: Date.parse(`${date}T21:00:00`),
+  plannedBlocks: null,
+  plannedAnchor: null,
   ...over,
 });
 
