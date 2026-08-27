@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Nav, type Tab } from './components/Nav';
+import { notifier } from './lib/notify';
 import { useNow } from './lib/useNow';
 import { Day } from './screens/Day';
 import { Now } from './screens/Now';
@@ -14,7 +15,7 @@ export default function App() {
   const now = useNow(1000);
 
   const { prefs, loaded: prefsLoaded, load: loadPrefs } = usePrefs();
-  const { loaded: dayLoaded, load: loadDay, date } = useDay();
+  const { loaded: dayLoaded, load: loadDay, date, day } = useDay();
 
   useEffect(() => {
     void loadPrefs();
@@ -32,6 +33,15 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', recheck);
   }, [loadDay]);
 
+  // Re-armed on every change to the laid day, so a push, a skip or a triage moves the
+  // notifications with the boundaries. scheduleDay cancels first — duplicate stacks are
+  // the classic bug here (SPEC §7).
+  const blocks = day?.blocks;
+  useEffect(() => {
+    if (!prefs || !blocks) return;
+    void notifier.scheduleDay(blocks, prefs);
+  }, [blocks, prefs]);
+
   const ready = prefsLoaded && dayLoaded && prefs !== null && date !== null;
 
   return (
@@ -48,7 +58,7 @@ export default function App() {
               {tab === 'Day' ? <Day now={now} prefs={prefs} /> : null}
               {tab === 'Plan' ? <Plan now={now} prefs={prefs} /> : null}
               {tab === 'Progress' ? <Progress prefs={prefs} /> : null}
-              {tab === 'Settings' ? <Settings /> : null}
+              {tab === 'Settings' ? <Settings prefs={prefs} /> : null}
             </>
           )}
         </div>

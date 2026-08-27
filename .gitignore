@@ -21,3 +21,6 @@ npm-debug.log*
 
 # TS incremental build info
 *.tsbuildinfo
+
+# vite-plugin-pwa dev output
+dev-dist/

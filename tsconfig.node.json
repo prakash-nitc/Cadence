@@ -11,7 +11,8 @@
     "noEmit": true,
     "strict": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    "types": ["vite-plugin-pwa/client"]
   },
   "include": ["vite.config.ts"]
 }
