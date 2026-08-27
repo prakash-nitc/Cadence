@@ -20,7 +20,7 @@ import { statusForProgress } from '../engine/scoring';
 import { describeDegradation } from '../lib/copy';
 import type { Prefs } from '../lib/prefs';
 import { blocksForTemplate } from '../lib/templates';
-import { toHHMM } from '../lib/time';
+import { minutesBetween, toHHMM } from '../lib/time';
 
 /**
  * Notes on a day's layout that outlive a re-anchor.
@@ -242,12 +242,27 @@ export const useDay = create<DayState>((set, get) => {
       // Keep the record of everything already answered for, then lay the new shape
       // from `from`. Commitments attach by block id, so anything whose block survives
       // stays attached and anything else falls back to the day's unattached list.
-      const settled = day.blocks.filter((block) => isResolved(block));
+      //
+      // A settled block is clipped to end at `from`. Closing a block early and then
+      // re-laying otherwise left the old block running past the start of the new plan,
+      // so the timeline showed two blocks occupying the same minutes. What the user
+      // actually did is recorded in `actualEndedAt`; the scheduled end has no business
+      // extending into a stretch of day that is being re-planned.
+      const cut = from.getTime();
+      const settled = day.blocks
+        .filter((block) => isResolved(block) && block.startsAt < cut)
+        .map((block) =>
+          block.endsAt > cut
+            ? { ...block, endsAt: cut, minutes: minutesBetween(block.startsAt, cut) }
+            : block,
+        );
+
       const relaid = layoutDay(from, blocks, FIXED_WINDOWS);
 
       await commit({
         ...day,
-        blocks: [...settled, ...relaid],
+        // Chronological, so the timeline reads in the order the day happens.
+        blocks: [...settled, ...relaid].sort((a, b) => a.startsAt - b.startsAt),
         degradation: [
           ...day.degradation,
           `Re-laid at ${toHHMM(from)}. ${blocks.length} blocks from here.`,

@@ -415,3 +415,57 @@ describe('statusForProgress', () => {
     }
   });
 });
+
+describe('projectDay — capped by the day that is left', () => {
+  const commitments = [
+    c('recall', 20, 1, 1, { tags: ['recall'] }),
+    c('dsa_deep', 180, 4, 0, { tags: ['dsa'] }),
+    c('spring_1', 100, 100, 0, { tags: ['spring'] }),
+    c('log', 20, 1, 0, { tags: ['log'] }),
+  ];
+  const nothingPassed = (): boolean => false;
+
+  it('still reads 100 when the day has room for everything', () => {
+    expect(projectDay(commitments, prefs, true, nothingPassed, 400).score).toBe(100);
+  });
+
+  it('cannot claim more than the runway holds', () => {
+    // 300 minutes owed, 150 left: recall is done, dsa gets 150 of its 180.
+    // 20 + 150 + 0 + 0 = 170 of 320 = 53.
+    const result = projectDay(commitments, prefs, true, nothingPassed, 150);
+    expect(result.score).toBe(53);
+  });
+
+  it('gives the same total whatever the order — weight is minutes', () => {
+    // Distributing a fixed runway across minute-weighted commitments always earns the
+    // same total. Order cannot flatter the percentage, which is the point.
+    const reversed = [...commitments].reverse();
+    expect(projectDay(reversed, prefs, true, nothingPassed, 150).score).toBe(
+      projectDay(commitments, prefs, true, nothingPassed, 150).score,
+    );
+  });
+
+  it('but does change which commitments are reachable', () => {
+    // Chronologically the log is last and does not fit, so the gate fails on it.
+    expect(projectDay(commitments, prefs, true, nothingPassed, 150).failedGates).toEqual(['log']);
+    // Put it first and the runway reaches it.
+    const logFirst = [...commitments].reverse();
+    expect(projectDay(logFirst, prefs, true, nothingPassed, 150).failedGates).toEqual([]);
+  });
+
+  it('credits nothing extra with no day left', () => {
+    // Only what is already done: recall's 20 of 320 = 6.
+    expect(projectDay(commitments, prefs, true, nothingPassed, 0).score).toBe(6);
+  });
+
+  it('is unchanged when no runway is given', () => {
+    expect(projectDay(commitments, prefs, true, nothingPassed).score).toBe(100);
+  });
+
+  it('never contradicts the burn-down', () => {
+    // Whenever burn-down says over-committed, the projection must be under 100.
+    const burn = burnDown(commitments, 150);
+    expect(burn.negative).toBe(true);
+    expect(projectDay(commitments, prefs, true, nothingPassed, 150).score).toBeLessThan(100);
+  });
+});

@@ -78,7 +78,19 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
 
   const runway = runwayMinutes(day.blocks, now);
   const burn = burnDown(commitments, runway);
-  const projected = projectDay(commitments, prefs, planned, blockPassed(day.blocks, now));
+  // Chronological, so the projection credits work in the order it will actually be done,
+  // and capped by the runway so it cannot claim more than the day can still hold.
+  const startOf = new Map(day.blocks.map((block) => [block.blockId, block.startsAt]));
+  const inDayOrder = [...commitments].sort(
+    (a, b) => (startOf.get(a.blockId ?? '') ?? 0) - (startOf.get(b.blockId ?? '') ?? 0),
+  );
+  const projected = projectDay(
+    inDayOrder,
+    prefs,
+    planned,
+    blockPassed(day.blocks, now),
+    runway,
+  );
   const labelFor = gateLabel(commitments, day.blocks);
 
   const blockCommitments = (blockId: string): typeof commitments =>

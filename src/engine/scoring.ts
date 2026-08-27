@@ -160,17 +160,37 @@ export function scoreDay(
  * Work still ahead of you is credited; work whose block has already gone is not. So the
  * number starts at 100 on an untouched day and drops the moment a block passes with its
  * commitment unfinished — which is exactly the moment worth knowing about.
+ *
+ * `availableMinutes` caps the optimism. Without it the projection credits every
+ * unfinished commitment regardless of whether the day has room left for it, so an
+ * over-committed day reads "On pace: 100%" directly above "Over-committed by 42m" —
+ * the same screen contradicting itself. Commitments are credited in the order given
+ * (chronological, as they will actually be worked) until the runway runs out.
  */
 export function projectDay(
   commitments: Scorable[],
   prefs: Prefs,
   planned: boolean,
   blockHasPassed: (blockId: string | null) => boolean,
+  availableMinutes?: number,
 ): ScoreResult {
+  let remaining = availableMinutes ?? Number.POSITIVE_INFINITY;
+
   const projected = commitments.map((commitment) => {
-    const stillWinnable =
-      !isDropped(commitment) && !blockHasPassed(commitment.blockId);
-    return stillWinnable ? { ...commitment, done: commitment.target } : commitment;
+    if (isDropped(commitment) || blockHasPassed(commitment.blockId)) return commitment;
+
+    const owed = commitment.plannedMinutes * (1 - completionOf(commitment));
+    if (owed <= remaining) {
+      remaining -= owed;
+      return { ...commitment, done: commitment.target };
+    }
+
+    // Only part of it fits in the day that is left. Credit that part and nothing more.
+    const reachable = remaining > 0 && commitment.plannedMinutes > 0
+      ? completionOf(commitment) + remaining / commitment.plannedMinutes
+      : completionOf(commitment);
+    remaining = 0;
+    return { ...commitment, done: Math.min(1, reachable) * commitment.target };
   });
 
   return scoreDay(projected, prefs, planned);
