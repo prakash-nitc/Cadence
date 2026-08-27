@@ -81,7 +81,7 @@ export const usePlan = create<PlanState>((set, get) => ({
     const [tomorrowDay, past, problemsDone, todayLog, lastLog] = await Promise.all([
       getDay(tomorrow),
       commitmentsBetween(windowStart, today),
-      countedDoneForTag('dsa'),
+      countedDoneForTag('dsa_new'),
       getLog(today),
       getLog(yesterday),
     ]);

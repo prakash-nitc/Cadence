@@ -152,6 +152,20 @@ export const GYM_CUTOFF_HOUR = 9;
 
 // ─── Weekly targets ───────────────────────────────────────────────────────────
 
+/**
+ * Where the app measures a weekly target from. Without one the target is declared but
+ * not tracked, and the weekly view says so rather than showing a fabricated zero.
+ *
+ * This is roadmap data, not app behaviour: swapping the roadmap swaps which tags and
+ * blocks the targets are counted from.
+ */
+export type TargetSource =
+  | { kind: 'countTag'; tag: string }            // sum of `done` on count commitments
+  | { kind: 'minutesTag'; tag: string }          // sum of `done` minutes, reported in hours
+  | { kind: 'daysTag'; tag: string }             // days where that tag was completed
+  | { kind: 'containedBlock'; blockId: string }  // days that block was contained
+  | { kind: 'sleepNights'; minHours: number };   // logged nights at or above minHours
+
 export interface WeeklyTarget {
   id: string;
   label: string;
@@ -161,17 +175,26 @@ export interface WeeklyTarget {
   warnBelow?: number;   // renders red below this, distinct from simply "not yet hit"
   warnCopy?: string;
   note?: string;
+  source?: TargetSource;
 }
 
 export const WEEKLY_TARGETS: WeeklyTarget[] = [
-  { id: 'dsa_new',      label: 'New DSA problems',     min: 16, max: 20, unit: 'problems', note: '3–4 weekday + Saturday mixed set' },
-  { id: 'recall',       label: 'Recall drills',        min: 5,  max: 5,  unit: 'days',     note: 'Non-negotiable. Cheapest habit in the plan. Drill lives in the DSA app.' },
-  { id: 'cold_resolve', label: 'Cold re-solves',       min: 5,  max: 7,  unit: 'problems', note: 'One per weekday evening' },
-  { id: 'spring_hours', label: 'Spring Boot hours',    min: 15, unit: 'hours', warnBelow: 12, warnCopy: 'Early warning, not a blip.', note: 'The number to protect.' },
+  { id: 'dsa_new',      label: 'New DSA problems',     min: 16, max: 20, unit: 'problems', note: '3–4 weekday + Saturday mixed set',
+    source: { kind: 'countTag', tag: 'dsa_new' } },
+  { id: 'recall',       label: 'Recall drills',        min: 5,  max: 5,  unit: 'days',     note: 'Non-negotiable. Cheapest habit in the plan. Drill lives in the DSA app.',
+    source: { kind: 'daysTag', tag: 'recall' } },
+  { id: 'cold_resolve', label: 'Cold re-solves',       min: 5,  max: 7,  unit: 'problems', note: 'One per weekday evening',
+    source: { kind: 'countTag', tag: 'dsa_resolve' } },
+  { id: 'spring_hours', label: 'Spring Boot hours',    min: 15, unit: 'hours', warnBelow: 12, warnCopy: 'Early warning, not a blip.', note: 'The number to protect.',
+    source: { kind: 'minutesTag', tag: 'spring' } },
+  // No source: the app cannot see a git history. Declared so it stays on the radar.
   { id: 'spring_commits', label: 'Spring Boot commits', min: 4, max: 6,  unit: 'commits',  note: 'Not one giant commit on Sunday' },
-  { id: 'sequential',   label: 'Sequential track hours', min: 8, unit: 'hours' },
-  { id: 'gym',          label: 'Gym sessions',         min: 5,  max: 6,  unit: 'sessions' },
-  { id: 'sleep',        label: 'Nights at 7h+',        min: 7,  max: 7,  unit: 'nights',   note: 'Non-negotiable' },
+  { id: 'sequential',   label: 'Sequential track hours', min: 8, unit: 'hours',
+    source: { kind: 'minutesTag', tag: 'sequential' } },
+  { id: 'gym',          label: 'Gym sessions',         min: 5,  max: 6,  unit: 'sessions',
+    source: { kind: 'containedBlock', blockId: 'gym' } },
+  { id: 'sleep',        label: 'Nights at 7h+',        min: 7,  max: 7,  unit: 'nights',   note: 'Non-negotiable',
+    source: { kind: 'sleepNights', minHours: 7 } },
 ];
 
 // ─── Sequential track ─────────────────────────────────────────────────────────
@@ -295,6 +318,8 @@ export interface Milestone {
   date: string;
   label: string;
   critical?: boolean;
+  /** Sub-checklist — SPEC §4.4. Ticked in the app; the items themselves are roadmap data. */
+  checklist?: string[];
 }
 
 export const MILESTONES: Milestone[] = [
@@ -410,14 +435,14 @@ export interface CommitmentPreset {
 
 export const COMMITMENT_PRESETS: CommitmentPreset[] = [
   { blockId: 'recall',     label: 'Recall drill',        targetType: 'binary',  target: 1,  tags: ['recall'] },
-  { blockId: 'dsa_deep',   label: 'DSA problems',        targetType: 'count',   target: 4,  tags: ['dsa'], derive: 'dsaTopic' },
+  { blockId: 'dsa_deep',   label: 'DSA problems',        targetType: 'count',   target: 4,  tags: ['dsa', 'dsa_new'], derive: 'dsaTopic' },
   { blockId: 'spring_1',   label: 'Spring Boot',         targetType: 'minutes', target: 100, tags: ['spring'], derive: 'springPhase' },
   { blockId: 'spring_2',   label: 'Spring Boot',         targetType: 'minutes', target: 80, tags: ['spring'], derive: 'springPhase' },
   { blockId: 'sequential', label: 'Sequential track',    targetType: 'minutes', target: 120, tags: ['sequential'], derive: 'sequentialSubject' },
-  { blockId: 'dsa_second', label: 'Cold re-solve',       targetType: 'count',   target: 1,  tags: ['dsa'] },
+  { blockId: 'dsa_second', label: 'Cold re-solve',       targetType: 'count',   target: 1,  tags: ['dsa', 'dsa_resolve'] },
   { blockId: 'flex',       label: 'Flex',                targetType: 'minutes', target: 90, tags: ['flex'] },
   { blockId: 'log',        label: 'Log and plan',        targetType: 'binary',  target: 1,  tags: ['log'] },
-  { blockId: 'mixed_set',  label: 'Mixed set — 3 untagged, timed', targetType: 'count', target: 3, tags: ['dsa'] },
+  { blockId: 'mixed_set',  label: 'Mixed set — 3 untagged, timed', targetType: 'count', target: 3, tags: ['dsa', 'dsa_new'] },
   { blockId: 'project',    label: 'PaperTrail',          targetType: 'minutes', target: 240, tags: ['spring'], derive: 'springPhase' },
 ];
 
