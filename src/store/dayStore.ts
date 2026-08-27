@@ -13,12 +13,14 @@ import {
 } from '../db/repo';
 import type { BlockDef } from '../config/schedule.config';
 import type { CommitmentRecord, DayRecord, SavedTemplate } from '../db/schema';
-import { pullForward, pushRemaining, resolveBlock } from '../engine/boundaries';
+import { isResolved, pullForward, pushRemaining, resolveBlock } from '../engine/boundaries';
+import { layoutDay } from '../engine/layout';
 import { planDay } from '../engine/capacity';
 import { statusForProgress } from '../engine/scoring';
 import { describeDegradation } from '../lib/copy';
 import type { Prefs } from '../lib/prefs';
 import { blocksForTemplate } from '../lib/templates';
+import { toHHMM } from '../lib/time';
 
 /** What a new commitment needs; everything else is derived. */
 export interface NewCommitment {
@@ -48,6 +50,11 @@ interface DayState {
     prefs: Prefs,
     customBlocks?: BlockDef[],
   ) => Promise<void>;
+  /**
+   * Re-lay the part of the day that has not happened yet. What was already resolved
+   * stays exactly as it was — re-planning the afternoon must not erase the morning.
+   */
+  relayDay: (from: Date, blocks: BlockDef[], prefs: Prefs) => Promise<void>;
   saveTemplate: (name: string, blocks: BlockDef[], at: number) => Promise<string>;
   removeTemplate: (id: string) => Promise<void>;
   closeBlock: (blockId: string, status: 'contained' | 'overran', at: number) => Promise<void>;
@@ -131,7 +138,14 @@ export const useDay = create<DayState>((set, get) => {
       const template = customBlocks ?? blocksForTemplate(templateId, savedTemplates);
       if (!template) throw new Error(`Unknown template: ${templateId}`);
 
-      const { blocks, degradation } = planDay(anchor, template, FIXED_WINDOWS, prefs);
+      // A day arranged by hand is laid exactly as arranged. Degradation exists to fit a
+      // *template* to a late start automatically; running it over an explicit
+      // arrangement would silently undo decisions the user just made, and would make the
+      // clock times shown while arranging a lie.
+      const { blocks, degradation } = customBlocks
+        ? { blocks: layoutDay(anchor, customBlocks, FIXED_WINDOWS), degradation: null }
+        : planDay(anchor, template, FIXED_WINDOWS, prefs);
+
       const existing = await getDay(date);
 
       await commit({
@@ -148,7 +162,9 @@ export const useDay = create<DayState>((set, get) => {
         anchorAt: anchor.getTime(),
         template: templateId,
         blocks,
-        degradation: describeDegradation(degradation, anchor, prefs.gymCutoffHour),
+        degradation: degradation
+          ? describeDegradation(degradation, anchor, prefs.gymCutoffHour)
+          : [`Arranged at ${toHHMM(anchor)}. ${customBlocks?.length ?? 0} blocks, as laid out.`],
         pushes: existing?.pushes ?? [],
       });
     },
@@ -193,6 +209,27 @@ export const useDay = create<DayState>((set, get) => {
       const { day } = get();
       if (!day) return;
       await commit({ ...day, placementMode: on });
+    },
+
+    relayDay: async (from, blocks, prefs) => {
+      const { day } = get();
+      if (!day) return;
+
+      // Keep the record of everything already answered for, then lay the new shape
+      // from `from`. Commitments attach by block id, so anything whose block survives
+      // stays attached and anything else falls back to the day's unattached list.
+      const settled = day.blocks.filter((block) => isResolved(block));
+      const relaid = layoutDay(from, blocks, FIXED_WINDOWS);
+
+      await commit({
+        ...day,
+        blocks: [...settled, ...relaid],
+        degradation: [
+          ...day.degradation,
+          `Re-laid at ${toHHMM(from)}. ${blocks.length} blocks from here.`,
+        ],
+      });
+      void prefs;
     },
 
     saveTemplate: async (name, blocks, at) => {

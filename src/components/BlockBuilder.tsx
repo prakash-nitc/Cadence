@@ -17,15 +17,25 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { BlockDef, BlockKind, Priority } from '../config/schedule.config';
-import { formatDuration } from '../lib/time';
+import {
+  FIXED_WINDOWS,
+  type BlockDef,
+  type BlockKind,
+  type Priority,
+} from '../config/schedule.config';
+import { layoutDay, type ScheduledBlock } from '../engine/layout';
+import { formatDuration, toHHMM } from '../lib/time';
 
 /**
- * The custom day builder — SPEC §2.6.
+ * The day builder — SPEC §2.6.
  *
- * Add, remove, reorder and resize blocks, with a live capacity readout. Placement season
- * means the standard weekday often does not apply, and a day built by hand is the way
- * out that does not involve lying to the schedule.
+ * Add, remove, reorder and resize blocks. A template is a starting point, not a cage:
+ * the ideal day is what it describes, and any real day can be arranged from it.
+ *
+ * Every row shows the clock time it will actually land at, computed by running the real
+ * layout engine on each edit rather than by adding minutes up in the component. That
+ * means what you see here is exactly what Start day will lay out, meal windows and all —
+ * arranging a day blind was the reason the builder was unusable for planning.
  */
 const KINDS: BlockKind[] = ['work', 'break', 'meal', 'routine'];
 
@@ -36,19 +46,30 @@ const PRIORITY_LABEL: Record<Priority, string> = {
   3: 'Fixed',
 };
 
+interface Laid {
+  startsAt: number;
+  endsAt: number;
+  missedWindow: boolean;
+  /** Idle time before this block while it waits for a mess window to open. */
+  waitMinutes: number;
+}
+
 interface BlockBuilderProps {
   blocks: BlockDef[];
   onChange: (blocks: BlockDef[]) => void;
-  /** Minutes from the anchor to the soft day end, for the live readout. */
+  /** The moment the day starts, so rows can show real clock times. */
+  anchor: Date;
   availableMinutes: number;
 }
 
 function Row({
   block,
+  laid,
   onPatch,
   onRemove,
 }: {
   block: BlockDef;
+  laid: Laid | null;
   onPatch: (change: Partial<BlockDef>) => void;
   onRemove: () => void;
 }) {
@@ -62,8 +83,12 @@ function Row({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={`border-b border-edge px-2 py-2 last:border-b-0 ${isDragging ? 'bg-ink' : ''}`}
     >
-      {/* The label gets its own line. Six controls on one 430px row truncated every
-          block name to five characters, which made the list unreadable. */}
+      {laid && laid.waitMinutes > 0 ? (
+        <p className="mb-1.5 pl-6 font-mono text-xs text-muted">
+          {formatDuration(laid.waitMinutes)} free, waiting for the window
+        </p>
+      ) : null}
+
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -82,6 +107,16 @@ function Row({
           className="min-w-0 flex-1 border border-transparent bg-transparent px-1 py-0.5 text-sm text-text focus:border-edge focus:outline-none"
         />
 
+        {laid ? (
+          <span
+            className={`shrink-0 font-mono text-xs ${
+              laid.missedWindow ? 'text-warn' : 'text-muted'
+            }`}
+          >
+            {toHHMM(laid.startsAt)}–{toHHMM(laid.endsAt)}
+          </span>
+        ) : null}
+
         <button
           type="button"
           onClick={onRemove}
@@ -91,6 +126,12 @@ function Row({
           ×
         </button>
       </div>
+
+      {laid?.missedWindow ? (
+        <p className="mt-1 pl-6 text-xs text-warn">
+          Window has already closed. Drag it earlier, or remove it.
+        </p>
+      ) : null}
 
       <div className="mt-1.5 flex items-center gap-2 pl-6">
         <select
@@ -136,7 +177,7 @@ function Row({
   );
 }
 
-export function BlockBuilder({ blocks, onChange, availableMinutes }: BlockBuilderProps) {
+export function BlockBuilder({ blocks, onChange, anchor, availableMinutes }: BlockBuilderProps) {
   const [label, setLabel] = useState('');
 
   const sensors = useSensors(
@@ -144,6 +185,21 @@ export function BlockBuilder({ blocks, onChange, availableMinutes }: BlockBuilde
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  // The same function Start day uses. What you see is what you will get.
+  const scheduled: ScheduledBlock[] = layoutDay(anchor, blocks, FIXED_WINDOWS);
+  const laidFor = new Map<string, Laid>();
+  for (const entry of scheduled) {
+    if (entry.kind === 'gap') continue;
+    const wait = scheduled.find((other) => other.blockId === `gap:${entry.blockId}`);
+    laidFor.set(entry.blockId, {
+      startsAt: entry.startsAt,
+      endsAt: entry.endsAt,
+      missedWindow: entry.missedWindow,
+      waitMinutes: wait ? wait.minutes : 0,
+    });
+  }
+
+  const last = scheduled[scheduled.length - 1];
   const total = blocks.reduce((sum, block) => sum + block.minutes, 0);
   const over = total - availableMinutes;
 
@@ -176,10 +232,15 @@ export function BlockBuilder({ blocks, onChange, availableMinutes }: BlockBuilde
 
   return (
     <div className="space-y-3">
+      <div className="flex items-baseline justify-between font-mono text-xs text-muted">
+        <span>Starts {toHHMM(anchor)}</span>
+        {last ? <span>Ends {toHHMM(last.endsAt)}</span> : null}
+      </div>
+
       <div className="border border-edge bg-panel">
         {blocks.length === 0 ? (
           <p className="px-3 py-4 text-sm text-muted">
-            Empty day. Add the first block below, or start from a template.
+            Empty day. Add the first block below, or go back and start from a template.
           </p>
         ) : (
           <DndContext
@@ -196,6 +257,7 @@ export function BlockBuilder({ blocks, onChange, availableMinutes }: BlockBuilde
                 <Row
                   key={block.id}
                   block={block}
+                  laid={laidFor.get(block.id) ?? null}
                   onPatch={(change) =>
                     onChange(
                       blocks.map((entry) =>

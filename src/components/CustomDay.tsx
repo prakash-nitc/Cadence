@@ -5,15 +5,17 @@ import { formatDuration } from '../lib/time';
 import { BlockBuilder } from './BlockBuilder';
 
 /**
- * The two ways out of the standard weekday — SPEC §2.6.
+ * Arranging a day — SPEC §2.6.
  *
- * Build custom: start blank or from the picked template, then add, remove, reorder and
- * resize. Quick carve: "I have N hours today", filled with protected work in priority
- * order, saying what did not fit.
+ * A template describes the ideal day. It is a starting point, not something a real day
+ * has to obey: arrange from it, or carve a short one from "I have N hours today".
+ * Either can be saved as a named template and reused.
  */
 interface CustomDayProps {
-  /** The template currently picked, to start a custom build from. */
+  /** The template currently picked, as a starting point. */
   seed: BlockDef[];
+  /** When the day starts, so the builder can show real clock times. */
+  anchor: Date;
   availableMinutes: number;
   onUse: (blocks: BlockDef[], label: string) => void;
   onSaveTemplate: (name: string, blocks: BlockDef[]) => void;
@@ -22,6 +24,7 @@ interface CustomDayProps {
 
 export function CustomDay({
   seed,
+  anchor,
   availableMinutes,
   onUse,
   onSaveTemplate,
@@ -37,7 +40,7 @@ export function CustomDay({
   return (
     <div className="space-y-4">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="font-display text-lg tracking-display text-text">Custom day</h2>
+        <h2 className="font-display text-lg tracking-display text-text">Arrange the day</h2>
         <button
           type="button"
           onClick={onCancel}
@@ -57,7 +60,7 @@ export function CustomDay({
               mode === option ? 'border-signal text-signal' : 'border-edge text-muted'
             }`}
           >
-            {option === 'build' ? 'Build' : 'Quick carve'}
+            {option === 'build' ? 'Arrange' : 'Quick carve'}
           </button>
         ))}
       </div>
@@ -67,6 +70,7 @@ export function CustomDay({
           <BlockBuilder
             blocks={blocks}
             onChange={setBlocks}
+            anchor={anchor}
             availableMinutes={availableMinutes}
           />
 

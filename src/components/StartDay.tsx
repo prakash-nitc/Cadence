@@ -66,6 +66,7 @@ export function StartDay({
     return (
       <CustomDay
         seed={blocksForTemplate(templateId, saved) ?? []}
+        anchor={anchor}
         availableMinutes={availableMinutes(anchor, prefs.dayEnd)}
         onUse={(blocks, label) => onStart(anchor, label, blocks)}
         onSaveTemplate={onSaveTemplate}
@@ -109,7 +110,10 @@ export function StartDay({
       ) : null}
 
       <section>
-        <h2 className="mb-2 text-xs uppercase tracking-block text-muted">Template</h2>
+        <h2 className="mb-1 text-xs uppercase tracking-block text-muted">Start from</h2>
+        <p className="mb-2 text-xs text-muted">
+          A template is the ideal day, not a rule. Take it as it is, or arrange it.
+        </p>
         <TemplatePicker
           value={templateId}
           saved={saved}
@@ -139,9 +143,9 @@ export function StartDay({
       <button
         type="button"
         onClick={() => setBuilding(true)}
-        className="w-full border border-edge py-2.5 text-sm text-muted hover:border-muted hover:text-text"
+        className="w-full border border-edge py-3 text-sm text-text hover:border-muted"
       >
-        Build custom, or carve a short day
+        Arrange the day first
       </button>
     </div>
   );

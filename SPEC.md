@@ -176,25 +176,47 @@ Built in: `full`, `lateNight`, `saturday`, `sunday`, `recovery`. See config.
 `lateNight` reorders so DSA still comes first — Rule 1 is "before anything else today,"
 not "at 08:05."
 
-### 2.6 Custom days and saved templates
+### 2.6 Arranging a day, and saved templates
 
-Placement season means the standard weekday often doesn't apply. Three ways out:
+**A template is the ideal day, not a rule.** It describes the shape you would keep if
+nothing interfered. Placement season means it often does interfere, so every day can be
+arranged from that starting point instead of obeying it.
 
-**Build custom.** Start blank or from any template. Add, remove, reorder (dnd-kit),
-resize blocks. Attach commitments per §4.1. Live capacity readout while building.
+**Arrange.** Start from any template or blank. Add, remove, reorder (dnd-kit) and resize
+blocks. Attach commitments per §4.1.
+
+Every row shows **the clock time it will actually land at**, computed by running
+`layoutDay` on each edit — not by adding durations up in the component. What the builder
+shows is exactly what Start day will lay out, meal windows and all. Arranging a day blind
+is the same as not being able to arrange it: a block dragged without knowing it pushes
+lunch to 14:15 has not really been planned.
+
+The builder therefore also shows, live:
+
+- the wait before a meal that idles forward to its window
+- a warning on any meal whose window has already closed
+- total committed against available, and by how much it is over
+
+**An arranged day is laid exactly as arranged.** Degradation (§2.4) exists to fit a
+*template* to a late start automatically. Running it over an explicit arrangement would
+silently undo decisions the user has just made, and would make the clock times shown
+while arranging a lie. The capacity readout states the position; the user decides.
 
 **Save as template.** Named, stored in Dexie alongside the config templates, appearing in
-the same picker. Expected: "OA day," "Interview day," "Travel day," "Half day." Built
+the same picker. Expected: "OA day," "Interview day," "Travel day," "Late start." Built
 once, reused all season. User templates are editable and deletable; config templates are
 not.
 
-**Quick carve.** *"I have N hours today."* The app fills N with protected work in
-priority order and states what didn't fit:
+**Quick carve.** *"I have N hours today."* The app fills N with protected work — every
+block that fits gets its floor before any block is topped up — and states what did not
+fit:
 
 > 4h carved. DSA 2h, Spring Boot 2h.
 > Not fitting: sequential track, flex.
 
----
+**Re-lay the rest of the day.** A day already anchored can be re-arranged from now.
+Everything already resolved stays exactly as it was — re-planning the afternoon must not
+erase the morning. Without this, picking the wrong template in the morning is unrecoverable.
 
 ## 3. Features — Tier 1
 

@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { BlockRow } from '../components/BlockRow';
+import { CustomDay } from '../components/CustomDay';
 import { CommitmentRow } from '../components/CommitmentRow';
 import { DayBar } from '../components/DayBar';
 import { ScoreBadge } from '../components/ScoreBadge';
-import { containment, isActionable } from '../engine/boundaries';
+import { containment, isActionable, isResolved } from '../engine/boundaries';
 import { completionOf, isDropped, scoreDay } from '../engine/scoring';
+import { availableMinutes } from '../engine/capacity';
 import { gateLabel } from '../lib/dayScoring';
 import { formatDuration, toHHMM } from '../lib/time';
 import { templateLabel } from '../lib/templates';
@@ -29,7 +32,10 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
     dropCommitment,
     removeCommitment,
     setPlacementMode,
+    relayDay,
+    saveTemplate,
   } = useDay();
+  const [relaying, setRelaying] = useState(false);
 
   if (!day?.anchorAt) {
     return (
@@ -37,6 +43,32 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
         <h1 className="font-display text-2xl tracking-display text-text">No day laid out</h1>
         <p className="mt-1 text-sm text-muted">Start the day on Now to see the timeline.</p>
       </div>
+    );
+  }
+
+  if (relaying) {
+    const from = new Date(now);
+    return (
+      <CustomDay
+        seed={day.blocks
+          .filter((block) => !isResolved(block) && block.kind !== 'gap')
+          .map((block) => ({
+            id: block.blockId,
+            label: block.label,
+            minutes: block.minutes,
+            kind: block.kind === 'gap' ? ('work' as const) : block.kind,
+            priority: block.priority,
+            ...(block.window ? { window: block.window } : {}),
+          }))}
+        anchor={from}
+        availableMinutes={availableMinutes(from, prefs.dayEnd)}
+        onUse={(blocks) => {
+          void relayDay(from, blocks, prefs);
+          setRelaying(false);
+        }}
+        onSaveTemplate={(name, blocks) => void saveTemplate(name, blocks, now)}
+        onCancel={() => setRelaying(false)}
+      />
     );
   }
 
@@ -67,6 +99,17 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
           </h1>
           <span className="font-mono text-xs text-muted">Anchored {toHHMM(day.anchorAt)}</span>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setRelaying(true)}
+          className="w-full border border-edge px-3 py-2 text-left text-sm text-text hover:border-muted"
+        >
+          Re-lay the rest of the day
+          <span className="mt-0.5 block text-xs text-muted">
+            Re-arrange what has not happened yet. Everything already marked stays as it is.
+          </span>
+        </button>
 
         <button
           type="button"
