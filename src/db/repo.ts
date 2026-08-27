@@ -172,3 +172,90 @@ export async function putMilestoneProgress(record: MilestoneProgress): Promise<v
 export async function logsBetween(fromDate: string, toDate: string): Promise<LogRecord[]> {
   return db.logs.where('date').between(fromDate, toDate, true, true).toArray();
 }
+
+// ─── Export and import ────────────────────────────────────────────────────────
+
+export interface Backup {
+  app: 'cadence';
+  version: number;
+  exportedAt: number;
+  days: DayRecord[];
+  commitments: CommitmentRecord[];
+  logs: LogRecord[];
+  savedTemplates: SavedTemplate[];
+  prefs: PrefRecord[];
+  milestoneProgress: MilestoneProgress[];
+}
+
+export const BACKUP_VERSION = 1;
+
+/**
+ * Everything, in one object — SPEC §0.4. The user version-controls his own history, and
+ * it is never hostage to a browser profile.
+ */
+export async function exportAll(): Promise<Backup> {
+  const [days, commitments, logs, savedTemplates, prefs, milestoneProgress] = await Promise.all([
+    db.days.toArray(),
+    db.commitments.toArray(),
+    db.logs.toArray(),
+    db.savedTemplates.toArray(),
+    db.prefs.toArray(),
+    db.milestoneProgress.toArray(),
+  ]);
+
+  return {
+    app: 'cadence',
+    version: BACKUP_VERSION,
+    exportedAt: Date.now(),
+    days,
+    commitments,
+    logs,
+    savedTemplates,
+    prefs,
+    milestoneProgress,
+  };
+}
+
+export function isBackup(value: unknown): value is Backup {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<Backup>;
+  return (
+    candidate.app === 'cadence' &&
+    typeof candidate.version === 'number' &&
+    Array.isArray(candidate.days) &&
+    Array.isArray(candidate.commitments)
+  );
+}
+
+/**
+ * Replace everything with the contents of a backup.
+ *
+ * Destructive by design: importing half a history on top of another would leave a
+ * database that is neither. One transaction, so a failure part-way leaves the existing
+ * data alone rather than a half-replaced mess.
+ */
+export async function importAll(backup: Backup): Promise<void> {
+  await db.transaction(
+    'rw',
+    [db.days, db.commitments, db.logs, db.savedTemplates, db.prefs, db.milestoneProgress],
+    async () => {
+      await Promise.all([
+        db.days.clear(),
+        db.commitments.clear(),
+        db.logs.clear(),
+        db.savedTemplates.clear(),
+        db.prefs.clear(),
+        db.milestoneProgress.clear(),
+      ]);
+
+      await Promise.all([
+        db.days.bulkPut(backup.days ?? []),
+        db.commitments.bulkPut(backup.commitments ?? []),
+        db.logs.bulkPut(backup.logs ?? []),
+        db.savedTemplates.bulkPut(backup.savedTemplates ?? []),
+        db.prefs.bulkPut(backup.prefs ?? []),
+        db.milestoneProgress.bulkPut(backup.milestoneProgress ?? []),
+      ]);
+    },
+  );
+}
