@@ -377,11 +377,18 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
           </p>
         ) : (
           <div className="border border-edge bg-panel">
-            {items.map((item, index) => (
+            {/* The two number columns are otherwise unlabelled boxes. */}
+            <div className="flex items-center gap-3 border-b border-edge px-3 py-1.5">
+              <span className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1 text-xs text-muted">Commitment</span>
+              <span className="w-16 shrink-0 text-right text-xs text-muted">Target</span>
+              <span className="w-16 shrink-0 text-right text-xs text-muted">Weight</span>
+            </div>
+            {items.map((item) => (
               <PlanItemRow
                 key={item.key}
                 item={item}
-                first={index === 0}
+                first={false}
                 maxMoves={prefs.maxCarryOverMoves}
                 note={verdict.notes.find((entry) => entry.commitmentId === item.key) ?? null}
                 onToggle={() => patch(item.key, { selected: !item.selected })}

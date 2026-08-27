@@ -64,6 +64,8 @@ export function PlanItemRow({
           ) : null}
         </span>
 
+        {item.targetType === 'binary' ? <span className="w-16 shrink-0" aria-hidden /> : null}
+
         {item.targetType !== 'binary' ? (
           <label className="shrink-0">
             <span className="sr-only">{item.label} target</span>
