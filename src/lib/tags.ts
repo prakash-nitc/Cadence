@@ -8,7 +8,11 @@
  *
  * Everything reads `schedule.config.ts`. Swap the roadmap and this follows it.
  */
-import { COMMITMENT_PRESETS, WEEKLY_TARGETS } from '../config/schedule.config';
+import {
+  COMMITMENT_PRESETS,
+  WEEKLY_TARGETS,
+  type WeeklyTarget,
+} from '../config/schedule.config';
 import type { TargetType } from '../db/schema';
 
 export interface TagInfo {
@@ -24,8 +28,12 @@ export interface TagInfo {
  * toward Spring Boot hours only if it measures minutes. Tagged `spring` but counted in
  * problems, it counts toward nothing — so that is said rather than left to be discovered.
  */
-export function countsToward(tags: string[], targetType: TargetType): string[] {
-  return WEEKLY_TARGETS.filter((target) => {
+export function countsToward(
+  tags: string[],
+  targetType: TargetType,
+  targets: WeeklyTarget[] = WEEKLY_TARGETS,
+): string[] {
+  return targets.filter((target) => {
     const source = target.source;
     if (!source) return false;
 
@@ -44,7 +52,7 @@ export function countsToward(tags: string[], targetType: TargetType): string[] {
 }
 
 /** Every tag the roadmap knows about, in the order the targets declare them. */
-export function knownTags(): TagInfo[] {
+export function knownTags(targets: WeeklyTarget[] = WEEKLY_TARGETS): TagInfo[] {
   const seen = new Map<string, TagInfo>();
 
   const add = (tag: string): TagInfo => {
@@ -55,7 +63,7 @@ export function knownTags(): TagInfo[] {
     return info;
   };
 
-  for (const target of WEEKLY_TARGETS) {
+  for (const target of targets) {
     const source = target.source;
     if (!source || !('tag' in source)) continue;
     add(source.tag).targets.push(target.label);

@@ -13,6 +13,7 @@ import {
   type MilestoneProgress,
   type MonthTargetRecord,
   type PrefRecord,
+  type TargetOverride,
   type SavedTemplate,
 } from './schema';
 
@@ -187,6 +188,7 @@ export interface Backup {
   prefs: PrefRecord[];
   milestoneProgress: MilestoneProgress[];
   monthTargets: MonthTargetRecord[];
+  targetOverrides: TargetOverride[];
 }
 
 export const BACKUP_VERSION = 1;
@@ -196,7 +198,9 @@ export const BACKUP_VERSION = 1;
  * it is never hostage to a browser profile.
  */
 export async function exportAll(): Promise<Backup> {
-  const [days, commitments, logs, savedTemplates, prefs, milestoneProgress, monthTargets] =
+  const [
+    days, commitments, logs, savedTemplates, prefs, milestoneProgress, monthTargets, targetOverrides,
+  ] =
     await Promise.all([
       db.days.toArray(),
       db.commitments.toArray(),
@@ -205,6 +209,7 @@ export async function exportAll(): Promise<Backup> {
       db.prefs.toArray(),
       db.milestoneProgress.toArray(),
       db.monthTargets.toArray(),
+      db.targetOverrides.toArray(),
     ]);
 
   return {
@@ -218,6 +223,7 @@ export async function exportAll(): Promise<Backup> {
     prefs,
     milestoneProgress,
     monthTargets,
+    targetOverrides,
   };
 }
 
@@ -250,6 +256,7 @@ export async function importAll(backup: Backup): Promise<void> {
       db.prefs,
       db.milestoneProgress,
       db.monthTargets,
+      db.targetOverrides,
     ],
     async () => {
       await Promise.all([
@@ -260,6 +267,7 @@ export async function importAll(backup: Backup): Promise<void> {
         db.prefs.clear(),
         db.milestoneProgress.clear(),
         db.monthTargets.clear(),
+        db.targetOverrides.clear(),
       ]);
 
       await Promise.all([
@@ -270,6 +278,7 @@ export async function importAll(backup: Backup): Promise<void> {
         db.prefs.bulkPut(backup.prefs ?? []),
         db.milestoneProgress.bulkPut(backup.milestoneProgress ?? []),
         db.monthTargets.bulkPut(backup.monthTargets ?? []),
+        db.targetOverrides.bulkPut(backup.targetOverrides ?? []),
       ]);
     },
   );
@@ -283,4 +292,18 @@ export async function getMonthTargets(month: string): Promise<MonthTargetRecord 
 
 export async function putMonthTargets(record: MonthTargetRecord): Promise<void> {
   await db.monthTargets.put(record);
+}
+
+// ─── Weekly target overrides ──────────────────────────────────────────────────
+
+export async function listTargetOverrides(): Promise<TargetOverride[]> {
+  return db.targetOverrides.orderBy('id').toArray();
+}
+
+export async function putTargetOverrides(overrides: TargetOverride[]): Promise<void> {
+  await db.targetOverrides.bulkPut(overrides);
+}
+
+export async function deleteTargetOverride(id: string): Promise<void> {
+  await db.targetOverrides.delete(id);
 }

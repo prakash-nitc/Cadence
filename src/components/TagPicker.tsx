@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { TargetType } from '../db/schema';
 import { countsToward, knownTags } from '../lib/tags';
+import { usePrefs } from '../store/prefsStore';
 
 /**
  * Tag selection, and what it buys you.
@@ -18,8 +19,10 @@ interface TagPickerProps {
 
 export function TagPicker({ tags, targetType, onChange }: TagPickerProps) {
   const [custom, setCustom] = useState('');
-  const known = knownTags();
-  const feeds = countsToward(tags, targetType);
+  // The resolved list, so a target the user added offers its tag here too.
+  const targets = usePrefs((state) => state.targets);
+  const known = knownTags(targets);
+  const feeds = countsToward(tags, targetType, targets);
 
   const extras = tags.filter((tag) => !known.some((entry) => entry.tag === tag));
 

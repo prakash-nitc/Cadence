@@ -420,6 +420,15 @@ Targets in Settings, default ≥4 green, ≤2 yellow, ≤1 red. **Three yellows 
 warning** — that's the pattern that precedes collapse, and it should be called out by
 name, not just rendered.
 
+**The targets are yours.** `schedule.config.ts` declares the roadmap's set; Settings then
+lets you rename one, change its numbers and warning line, hide what you are not tracking,
+and add your own. Only departures from config are stored, so a roadmap swap still moves
+every target you have not deliberately changed.
+
+A target's **tag is fixed once set**. The tag is what counts commitments, so changing it
+would empty the number rather than rename it. Rename the label freely; to count something
+differently, hide the target and add a new one.
+
 **Required daily rate.** This is what creates urgency on a Wednesday:
 
 > Spring Boot 6.5 / 15 hrs. 3 days left. **Need 2.8 hrs/day.**

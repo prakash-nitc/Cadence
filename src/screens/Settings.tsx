@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { exportAll, importAll, isBackup } from '../db/repo';
 import { NumberField } from '../components/NumberField';
+import { TargetEditor } from '../components/TargetEditor';
 import { NOTIFICATION_SAMPLES, notifier } from '../lib/notify';
 import type { NotificationKey, Prefs } from '../lib/prefs';
 import { useDay } from '../store/dayStore';
@@ -89,7 +90,7 @@ function Number_({
 }
 
 export function Settings({ prefs }: { prefs: Prefs }) {
-  const { update } = usePrefs();
+  const { update, targets, overrides, saveTargets, removeTarget } = usePrefs();
   const { savedTemplates, removeTemplate, load: reloadDay } = useDay();
   const [nonNegotiable, setNonNegotiable] = useState('');
   const [importing, setImporting] = useState(false);
@@ -251,6 +252,19 @@ export function Settings({ prefs }: { prefs: Prefs }) {
           min={1}
           max={10}
           onChange={(value) => set('maxCarryOverMoves', value)}
+        />
+      </Section>
+
+      <Section title="Weekly targets">
+        <p className="text-xs text-muted">
+          What Progress paces you against. These start from the roadmap in config and keep
+          following it until you change one — only your changes are stored.
+        </p>
+        <TargetEditor
+          targets={targets}
+          overrides={overrides}
+          onSave={(next) => void saveTargets(next)}
+          onRemove={(id) => void removeTarget(id)}
         />
       </Section>
 

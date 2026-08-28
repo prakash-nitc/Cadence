@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FULL_DAY, MILESTONES, WEEKLY_TARGETS } from '../config/schedule.config';
+import { FULL_DAY, MILESTONES, type WeeklyTarget } from '../config/schedule.config';
 import { ConsistencyGrid } from '../components/ConsistencyGrid';
 import { MilestoneRow } from '../components/MilestoneRow';
 import { MonthTargetBar } from '../components/MonthTargetBar';
@@ -76,7 +76,7 @@ const slice = (period: Period, from: string, to: string): Period => ({
   logs: period.logs.filter((log) => log.date >= from && log.date <= to),
 });
 
-export function Progress({ prefs }: { prefs: Prefs }) {
+export function Progress({ prefs, targets }: { prefs: Prefs; targets: WeeklyTarget[] }) {
   const { date } = useDay();
   const {
     loaded,
@@ -158,6 +158,7 @@ export function Progress({ prefs }: { prefs: Prefs }) {
           label={`Week of ${weekFrom}`}
           from={weekFrom}
           to={weekTo}
+          targets={targets}
         />
       ) : null}
 
@@ -169,7 +170,8 @@ export function Progress({ prefs }: { prefs: Prefs }) {
           month={month}
           onMonth={setMonth}
           overrides={milestoneTargetsFor(month)}
-          onSave={(targets) => void saveMonthTargets(month, targets, Date.now())}
+          onSave={(next) => void saveMonthTargets(month, next, Date.now())}
+          targets={targets}
         />
       ) : null}
 
@@ -233,6 +235,7 @@ function WeekView({
   label,
   from,
   to,
+  targets,
 }: {
   period: Period;
   prefs: Prefs;
@@ -241,10 +244,11 @@ function WeekView({
   label: string;
   from: string;
   to: string;
+  targets: WeeklyTarget[];
 }) {
   const bands = bandDays(period, prefs);
   const shape = weekShape(bands, prefs);
-  const paces = weeklyPacing(period, WEEKLY_TARGETS, daysLeft, capacity);
+  const paces = weeklyPacing(period, targets, daysLeft, capacity);
 
   return (
     <div className="space-y-5">
@@ -281,6 +285,7 @@ function MonthView({
   onMonth,
   overrides,
   onSave,
+  targets,
 }: {
   period: Period;
   prefs: Prefs;
@@ -289,6 +294,7 @@ function MonthView({
   onMonth: (month: string) => void;
   overrides: Record<string, { min: number; max: number | null }>;
   onSave: (targets: Record<string, { min: number; max: number | null }>) => void;
+  targets: WeeklyTarget[];
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(overrides);
@@ -315,7 +321,7 @@ function MonthView({
 
   const paces = monthlyPacing(
     thisMonth,
-    WEEKLY_TARGETS,
+    targets,
     editing ? draft : overrides,
     weeks,
     weeksRemaining,

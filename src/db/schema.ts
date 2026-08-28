@@ -6,7 +6,7 @@
  * did, plus Settings.
  */
 import Dexie, { type Table } from 'dexie';
-import type { BlockDef } from '../config/schedule.config';
+import type { BlockDef, TargetSource } from '../config/schedule.config';
 import type { ScheduledBlock } from '../engine/layout';
 
 export type Band = 'green' | 'yellow' | 'red';
@@ -120,6 +120,24 @@ export interface MonthTargetRecord {
   updatedAt: number;
 }
 
+/**
+ * What the user has changed about a weekly target — SPEC §4.3.
+ *
+ * Only departures from config are stored. A field left null follows the roadmap, so a
+ * roadmap swap still moves every target that has not been deliberately overridden.
+ * `custom` is set only on targets the user invented; config targets leave it null.
+ */
+export interface TargetOverride {
+  id: string;
+  label: string | null;
+  min: number | null;
+  max: number | null;
+  warnBelow: number | null;
+  hidden: boolean;
+  custom: { unit: string; source: TargetSource } | null;
+  order: number;
+}
+
 export class CadenceDB extends Dexie {
   days!: Table<DayRecord, string>;
   commitments!: Table<CommitmentRecord, string>;
@@ -128,6 +146,7 @@ export class CadenceDB extends Dexie {
   prefs!: Table<PrefRecord, string>;
   milestoneProgress!: Table<MilestoneProgress, string>;
   monthTargets!: Table<MonthTargetRecord, string>;
+  targetOverrides!: Table<TargetOverride, string>;
 
   constructor() {
     super('cadence');
@@ -148,6 +167,10 @@ export class CadenceDB extends Dexie {
 
     this.version(4).stores({
       monthTargets: 'month',
+    });
+
+    this.version(5).stores({
+      targetOverrides: 'id',
     });
   }
 }

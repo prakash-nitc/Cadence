@@ -14,7 +14,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('Now');
   const now = useNow(1000);
 
-  const { prefs, loaded: prefsLoaded, load: loadPrefs } = usePrefs();
+  const { prefs, targets, loaded: prefsLoaded, load: loadPrefs } = usePrefs();
   const { loaded: dayLoaded, load: loadDay, date, day } = useDay();
 
   useEffect(() => {
@@ -57,7 +57,7 @@ export default function App() {
               {tab === 'Now' ? <Now now={now} prefs={prefs} /> : null}
               {tab === 'Day' ? <Day now={now} prefs={prefs} /> : null}
               {tab === 'Plan' ? <Plan now={now} prefs={prefs} /> : null}
-              {tab === 'Progress' ? <Progress prefs={prefs} /> : null}
+              {tab === 'Progress' ? <Progress prefs={prefs} targets={targets} /> : null}
               {tab === 'Settings' ? <Settings prefs={prefs} /> : null}
             </>
           )}
