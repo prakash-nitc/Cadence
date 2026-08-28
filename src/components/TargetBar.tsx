@@ -1,69 +1,95 @@
 import type { TargetPace } from '../engine/pacing';
 
 /**
- * One weekly target with its required daily rate — SPEC §4.3.
+ * One weekly target — SPEC §4.3.
  *
  * > Spring Boot 6.5 / 15 hrs. 3 days left. Need 2.8 hrs/day.
  *
- * And when the week can no longer reach it, that is stated rather than implied by a
- * rate nobody could hit. Displacement debt sits on the same row, because the two
- * numbers only mean anything together.
+ * The bar carries a pace marker: where the target would be if the week had gone evenly.
+ * Without it "0 / 16" says nothing — zero on a Monday is fine and zero on a Saturday is
+ * a week already lost, and the whole point of this screen is telling those apart.
  */
-const rate = (value: number, unit: string): string =>
-  `${value} ${unit === 'hours' ? 'hrs' : unit}/day`;
+const unitShort = (unit: string): string => (unit === 'hours' ? 'hrs' : unit);
 
-export function TargetBar({ pace }: { pace: TargetPace }) {
+const round = (value: number): number => Math.round(value * 10) / 10;
+
+interface TargetBarProps {
+  pace: TargetPace;
+  /** Days in the period, so the pace marker knows how far through it is. */
+  totalDays: number;
+}
+
+export function TargetBar({ pace, totalDays }: TargetBarProps) {
+  if (!pace.tracked) {
+    return (
+      <div className="flex items-baseline justify-between gap-3 border-b border-edge px-3 py-2 last:border-b-0 opacity-50">
+        <span className="text-sm text-muted">{pace.label}</span>
+        <span className="shrink-0 font-mono text-xs text-muted">not tracked here</span>
+      </div>
+    );
+  }
+
   const met = pace.achieved >= pace.min;
-  const progress = pace.min === 0 ? 1 : Math.min(1, pace.achieved / pace.min);
+  const progress = pace.min <= 0 ? 1 : Math.min(1, pace.achieved / pace.min);
 
-  const tone = pace.belowWarn ? 'bg-fail' : met ? 'bg-pass' : 'bg-signal';
+  // Where an even week would have you by now.
+  const elapsed = Math.max(0, Math.min(totalDays, totalDays - pace.remainingDays));
+  const pacePercent = totalDays > 0 ? (elapsed / totalDays) * 100 : 0;
+  const expected = pace.min * (elapsed / Math.max(1, totalDays));
+  const behind = round(Math.max(0, expected - pace.achieved));
+
+  const tone = pace.belowWarn ? 'bg-fail' : met ? 'bg-pass' : behind > 0 ? 'bg-signal' : 'bg-pass';
+  const valueTone = pace.belowWarn ? 'text-fail' : met ? 'text-pass' : 'text-text';
 
   return (
-    <div className="border-b border-edge px-3 py-2.5 last:border-b-0">
+    <div className="border-b border-edge px-3 py-3 last:border-b-0">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-sm text-text">{pace.label}</span>
-        <span className="shrink-0 font-mono text-xs text-muted">
-          {pace.tracked ? (
-            <>
-              <span className={pace.belowWarn ? 'text-fail' : met ? 'text-pass' : 'text-text'}>
-                {pace.achieved}
-              </span>
-              {' / '}
-              {pace.min}
-              {pace.max && pace.max !== pace.min ? `–${pace.max}` : ''} {pace.unit}
-            </>
-          ) : (
-            'not tracked here'
-          )}
+        <span className="min-w-0 text-sm text-text">{pace.label}</span>
+        <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
+          <span className={valueTone}>{pace.achieved}</span>
+          <span className="text-muted">
+            {' / '}
+            {pace.min}
+            {pace.max && pace.max !== pace.min ? `–${pace.max}` : ''} {unitShort(pace.unit)}
+          </span>
         </span>
       </div>
 
-      {pace.tracked ? (
-        <div className="mt-1.5 h-1 w-full bg-edge">
-          <div className={`h-1 ${tone}`} style={{ width: `${progress * 100}%` }} />
-        </div>
-      ) : null}
+      <div className="relative mt-2 h-1.5 w-full bg-edge">
+        <div className={`h-full ${tone}`} style={{ width: `${progress * 100}%` }} />
 
-      {pace.tracked ? (
-        <p className="mt-1 font-mono text-xs">
-          {!pace.reachable ? (
-            <span className="text-fail">
-              Not reachable this week. Short by {pace.shortBy} {pace.unit}.
+        {!met && pacePercent > 0 && pacePercent < 100 ? (
+          <div
+            className="absolute top-0 h-full w-px bg-text/60"
+            style={{ left: `${pacePercent}%` }}
+            title={`On an even week: ${round(expected)} by now`}
+            aria-hidden
+          />
+        ) : null}
+      </div>
+
+      <p className="mt-1.5 font-mono text-xs">
+        {!pace.reachable ? (
+          <span className="text-fail">
+            Not reachable this week. Short by {pace.shortBy} {unitShort(pace.unit)}.
+          </span>
+        ) : met ? (
+          <span className="text-pass">Met.</span>
+        ) : pace.requiredRate !== null ? (
+          <>
+            <span className="text-text">
+              {pace.ratePerDay
+                ? `Need ${pace.requiredRate} ${unitShort(pace.unit)}/day.`
+                : `Need ${pace.shortfall} more.`}
             </span>
-          ) : pace.requiredRate !== null ? (
-            <span className="text-muted">
-              {pace.remainingDays} {pace.remainingDays === 1 ? 'day' : 'days'} left.{' '}
-              <span className="text-text">
-                {pace.ratePerDay
-                  ? `Need ${rate(pace.requiredRate, pace.unit)}.`
-                  : `Need ${pace.shortfall} more.`}
-              </span>
-            </span>
-          ) : (
-            <span className="text-pass">Met.</span>
-          )}
-        </p>
-      ) : null}
+            {behind > 0 ? (
+              <span className="text-muted"> {behind} behind pace.</span>
+            ) : (
+              <span className="text-pass"> On pace.</span>
+            )}
+          </>
+        ) : null}
+      </p>
 
       {pace.displaced.count > 0 ? (
         <p className="mt-0.5 text-xs text-muted">

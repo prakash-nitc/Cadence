@@ -3,7 +3,7 @@ import { FULL_DAY, MILESTONES, WEEKLY_TARGETS } from '../config/schedule.config'
 import { ConsistencyGrid } from '../components/ConsistencyGrid';
 import { MilestoneRow } from '../components/MilestoneRow';
 import { TargetBar } from '../components/TargetBar';
-import { WeekShape } from '../components/WeekShape';
+import { WeekShape, type ShapeCell } from '../components/WeekShape';
 import { committableMinutes } from '../engine/feasibility';
 import {
   bandDays,
@@ -42,6 +42,27 @@ function startOfMonth(date: string): string {
 function endOfMonth(date: string): string {
   const at = new Date(`${date.slice(0, 7)}-01T12:00:00`);
   return dateKey(addDays(new Date(at.getFullYear(), at.getMonth() + 1, 1, 12), -1));
+}
+
+/** Every date in a range, so a frame shows its whole span rather than only logged days. */
+function datesBetween(from: string, to: string): string[] {
+  const out: string[] = [];
+  const end = Date.parse(`${to}T12:00:00`);
+  for (let at = Date.parse(`${from}T12:00:00`); at <= end; at += 86_400_000) {
+    out.push(dateKey(at));
+  }
+  return out;
+}
+
+/** Pad a banded period out to every date in the frame. */
+function cellsFor(bands: ReturnType<typeof bandDays>, from: string, to: string): ShapeCell[] {
+  const byDate = new Map(bands.map((band) => [band.date, band]));
+  return datesBetween(from, to).map((date) => {
+    const band = byDate.get(date);
+    return band
+      ? { date, band: band.band, score: band.score, placementMode: band.placementMode, hasRecord: true }
+      : { date, band: null, score: null, placementMode: false, hasRecord: false };
+  });
 }
 
 const slice = (period: Period, from: string, to: string): Period => ({
@@ -109,6 +130,8 @@ export function Progress({ prefs }: { prefs: Prefs }) {
           daysLeft={daysLeftInWeek}
           capacity={dailyCapacityHours}
           label={`Week of ${weekFrom}`}
+          from={weekFrom}
+          to={weekTo}
         />
       ) : null}
 
@@ -174,12 +197,16 @@ function WeekView({
   daysLeft,
   capacity,
   label,
+  from,
+  to,
 }: {
   period: Period;
   prefs: Prefs;
   daysLeft: number;
   capacity: number;
   label: string;
+  from: string;
+  to: string;
 }) {
   const bands = bandDays(period, prefs);
   const shape = weekShape(bands, prefs);
@@ -187,13 +214,19 @@ function WeekView({
 
   return (
     <div className="space-y-5">
-      <WeekShape shape={shape} label={label} />
+      <WeekShape shape={shape} label={label} cells={cellsFor(bands, from, to)} weekdays />
 
       <section>
-        <h2 className="mb-1.5 text-xs uppercase tracking-block text-muted">Targets</h2>
+        {/* Said once, rather than on all eight rows. */}
+        <div className="mb-1.5 flex items-baseline justify-between">
+          <h2 className="text-xs uppercase tracking-block text-muted">Targets</h2>
+          <span className="font-mono text-xs text-muted">
+            {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+          </span>
+        </div>
         <div className="border border-edge bg-panel">
           {paces.map((pace) => (
-            <TargetBar key={pace.id} pace={pace} />
+            <TargetBar key={pace.id} pace={pace} totalDays={7} />
           ))}
         </div>
       </section>
@@ -215,7 +248,8 @@ function MonthView({ period, prefs, date }: { period: Period; prefs: Prefs; date
   const previousStart = startOfMonth(previousEnd);
   const lastMonth = slice(period, previousStart, previousEnd);
 
-  const shape = weekShape(bandDays(thisMonth, prefs), prefs);
+  const monthBands = bandDays(thisMonth, prefs);
+  const shape = weekShape(monthBands, prefs);
   const previousShape = weekShape(bandDays(lastMonth, prefs), prefs);
   const totals = tagTotals(thisMonth);
 
@@ -223,7 +257,11 @@ function MonthView({ period, prefs, date }: { period: Period; prefs: Prefs; date
 
   return (
     <div className="space-y-5">
-      <WeekShape shape={shape} label={`Month of ${from.slice(0, 7)}`} />
+      <WeekShape
+        shape={shape}
+        label={`Month of ${from.slice(0, 7)}`}
+        cells={cellsFor(monthBands, from, date < to ? date : to)}
+      />
 
       <section className="border border-edge bg-panel px-3 py-2">
         <p className="text-xs uppercase tracking-block text-muted">Against last month</p>
