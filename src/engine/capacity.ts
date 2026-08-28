@@ -40,9 +40,32 @@ const totalMinutes = (blocks: BlockDef[]): number =>
 /** The floor a block can be compressed to. No `minMinutes` means not compressible. */
 const floorOf = (block: BlockDef): number => block.minMinutes ?? block.minutes;
 
-/** Minutes from the anchor to the soft day end. Never negative. */
+/**
+ * How long a day is allowed to run before a "day end" earlier than the anchor is read
+ * as the anchor being past it, rather than as a time after midnight.
+ *
+ * The longest template in the roadmap is 17h, so 20 leaves room without letting a
+ * 23:30 start against a 22:45 end resolve to a 23-hour day.
+ */
+const MAX_DAY_SPAN_MINUTES = 20 * 60;
+
+/**
+ * Minutes from the anchor to the soft day end. Never negative.
+ *
+ * A day end after midnight — 01:00 for someone who works late — belongs to the next
+ * calendar day, so it is rolled forward when that produces a day of sensible length.
+ * Resolving it on the anchor's own date put it in the past and reported zero time
+ * available, which made every late day read as impossible.
+ *
+ * When rolling forward would instead produce an absurdly long day, the anchor really is
+ * past the day end and there is no time left.
+ */
 export function availableMinutes(anchor: Date, dayEnd: string): number {
-  return Math.max(0, minutesBetween(anchor, atTimeOn(anchor, dayEnd)));
+  const sameDay = minutesBetween(anchor, atTimeOn(anchor, dayEnd));
+  if (sameDay >= 0) return sameDay;
+
+  const nextDay = sameDay + 24 * 60;
+  return nextDay <= MAX_DAY_SPAN_MINUTES ? nextDay : 0;
 }
 
 /** Minutes since midnight for the anchor's calendar day. */

@@ -221,3 +221,30 @@ describe('planDay', () => {
     expect(missed).toEqual(['breakfast', 'lunch']);
   });
 });
+
+describe('availableMinutes — a day end after midnight', () => {
+  it('rolls a small-hours day end onto the next day', () => {
+    // Someone who works to 01:00 has 3h 16m left at 21:44, not none.
+    expect(availableMinutes(anchorAt('21:44'), '01:00')).toBe(196);
+    expect(availableMinutes(anchorAt('21:44'), '02:00')).toBe(256);
+  });
+
+  it('still measures a normal day end normally', () => {
+    expect(availableMinutes(anchorAt('21:44'), '22:45')).toBe(61);
+    expect(availableMinutes(anchorAt('05:45'), '22:45')).toBe(1020);
+  });
+
+  it('does not roll forward when that would invent an absurd day', () => {
+    // Starting at 23:30 against a 22:45 end means the day is over, not 23 hours long.
+    expect(availableMinutes(anchorAt('23:30'), '22:45')).toBe(0);
+    expect(availableMinutes(anchorAt('21:44'), '21:00')).toBe(0);
+  });
+
+  it('is zero exactly at the day end', () => {
+    expect(availableMinutes(anchorAt('22:45'), '22:45')).toBe(0);
+  });
+
+  it('handles a day end at midnight', () => {
+    expect(availableMinutes(anchorAt('21:44'), '00:00')).toBe(136);
+  });
+});
