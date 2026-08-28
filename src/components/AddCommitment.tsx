@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { CommitmentRecord } from '../db/schema';
+import { defaultTagsForBlock, defaultTargetTypeForBlock } from '../lib/tags';
 import type { NewCommitment } from '../store/dayStore';
+import { TagPicker } from './TagPicker';
 
 /**
  * Commitment CRUD — SPEC §9 session 3.
@@ -30,10 +32,14 @@ export function AddCommitment({
   onCancel,
 }: AddCommitmentProps) {
   const [label, setLabel] = useState('');
-  const [targetType, setTargetType] = useState<CommitmentRecord['targetType']>('count');
+  // A commitment on the DSA block is a DSA commitment: the block already knows what
+  // kind of work it holds, so the form starts from that rather than asking again.
+  const [targetType, setTargetType] = useState<CommitmentRecord['targetType']>(
+    defaultTargetTypeForBlock(blockId) ?? 'count',
+  );
   const [target, setTarget] = useState('1');
   const [minutes, setMinutes] = useState(String(defaultMinutes));
-  const [tags, setTags] = useState('');
+  const [tags, setTags] = useState<string[]>(() => defaultTagsForBlock(blockId));
 
   const submit = (): void => {
     const trimmed = label.trim();
@@ -45,10 +51,7 @@ export function AddCommitment({
       targetType,
       target: targetType === 'binary' ? 1 : Math.max(1, Number(target) || 1),
       plannedMinutes: Math.max(0, Number(minutes) || 0),
-      tags: tags
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean),
+      tags,
     });
   };
 
@@ -109,15 +112,9 @@ export function AddCommitment({
         </label>
       </div>
 
-      <label className="mt-2 block">
-        <span className="block text-xs text-muted">Tags, comma separated</span>
-        <input
-          value={tags}
-          onChange={(event) => setTags(event.target.value)}
-          placeholder="dsa, spring"
-          className={`${field} mt-1`}
-        />
-      </label>
+      <div className="mt-3">
+        <TagPicker tags={tags} targetType={targetType} onChange={setTags} />
+      </div>
 
       <div className="mt-3 flex gap-2">
         <button

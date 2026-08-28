@@ -38,6 +38,7 @@ export interface CommitmentEdit {
   label: string;
   target: number;
   plannedMinutes: number;
+  tags: string[];
 }
 
 export interface NewCommitment {
@@ -358,8 +359,9 @@ export const useDay = create<DayState>((set, get) => {
         const next = {
           ...commitment,
           label: edit.label.trim() || commitment.label,
-          target: Math.max(commitment.targetType === 'binary' ? 1 : 1, edit.target),
+          target: Math.max(1, edit.target),
           plannedMinutes: Math.max(0, edit.plannedMinutes),
+          tags: edit.tags,
         };
         // Changing the target changes what "done" means, so the status follows it.
         return { ...next, status: statusForProgress(next) };

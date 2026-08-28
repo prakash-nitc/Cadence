@@ -4,6 +4,7 @@ import { completionOf, isDropped } from '../engine/scoring';
 import type { CommitmentEdit } from '../store/dayStore';
 import { DropReason } from './DropReason';
 import { NumberField } from './NumberField';
+import { TagPicker } from './TagPicker';
 
 /**
  * One commitment — SPEC §3.1's tappable checklist, with its target.
@@ -57,6 +58,7 @@ export function CommitmentRow({
     label: commitment.label,
     target: commitment.target,
     plannedMinutes: commitment.plannedMinutes,
+    tags: commitment.tags,
   });
   const dropped = isDropped(commitment);
   const completion = completionOf(commitment);
@@ -101,6 +103,7 @@ export function CommitmentRow({
                   label: commitment.label,
                   target: commitment.target,
                   plannedMinutes: commitment.plannedMinutes,
+                  tags: commitment.tags,
                 });
                 setEditing((value) => !value);
               }}
@@ -212,6 +215,14 @@ export function CommitmentRow({
             Weight is what the score counts this as. It usually matches the time you mean
             to give it.
           </p>
+
+          <div className="mt-3 border-t border-edge pt-3">
+            <TagPicker
+              tags={draft.tags}
+              targetType={commitment.targetType}
+              onChange={(tags) => setDraft({ ...draft, tags })}
+            />
+          </div>
 
           <div className="mt-3 flex gap-2">
             <button
