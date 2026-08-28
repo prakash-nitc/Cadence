@@ -24,6 +24,7 @@ import {
   type Priority,
 } from '../config/schedule.config';
 import { layoutDay, type ScheduledBlock } from '../engine/layout';
+import { NumberField } from './NumberField';
 import { formatDuration, toHHMM } from '../lib/time';
 
 /**
@@ -161,13 +162,12 @@ function Row({
         </select>
 
         <span className="flex shrink-0 items-baseline gap-1">
-          <input
-            type="number"
-            min="5"
-            step="5"
+          <NumberField
             value={block.minutes}
-            onChange={(event) => onPatch({ minutes: Math.max(5, Number(event.target.value) || 5) })}
-            aria-label={`${block.label} minutes`}
+            onChange={(minutes) => onPatch({ minutes })}
+            min={5}
+            step={5}
+            label={`${block.label} minutes`}
             className="w-16 border border-edge bg-ink px-1.5 py-1 text-right font-mono text-xs text-text focus:border-signal focus:outline-none"
           />
           <span className="font-mono text-xs text-muted">m</span>

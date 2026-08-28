@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { exportAll, importAll, isBackup } from '../db/repo';
+import { NumberField } from '../components/NumberField';
 import { NOTIFICATION_SAMPLES, notifier } from '../lib/notify';
 import type { NotificationKey, Prefs } from '../lib/prefs';
 import { useDay } from '../store/dayStore';
@@ -74,17 +75,13 @@ function Number_({
     <label className="block">
       <span className="block text-sm text-text">{label}</span>
       {detail ? <span className="block text-xs text-muted">{detail}</span> : null}
-      <input
-        type="number"
+      <NumberField
         value={value}
-        min={min}
-        max={max}
+        onChange={onChange}
+        {...(min === undefined ? {} : { min })}
+        {...(max === undefined ? {} : { max })}
         step={step}
-        aria-label={label}
-        onChange={(event) => {
-          const next = Number(event.target.value);
-          if (!Number.isNaN(next)) onChange(next);
-        }}
+        label={label}
         className={`${field} mt-1`}
       />
     </label>

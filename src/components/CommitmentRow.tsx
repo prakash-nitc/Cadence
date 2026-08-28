@@ -3,6 +3,7 @@ import type { CommitmentRecord } from '../db/schema';
 import { completionOf, isDropped } from '../engine/scoring';
 import type { CommitmentEdit } from '../store/dayStore';
 import { DropReason } from './DropReason';
+import { NumberField } from './NumberField';
 
 /**
  * One commitment — SPEC §3.1's tappable checklist, with its target.
@@ -183,14 +184,11 @@ export function CommitmentRow({
                 <span className="block text-xs text-muted">
                   Target{commitment.targetType === 'minutes' ? ' (minutes)' : ''}
                 </span>
-                <input
-                  type="number"
-                  min="1"
+                <NumberField
                   value={draft.target}
-                  onChange={(event) =>
-                    setDraft({ ...draft, target: Math.max(1, Number(event.target.value) || 1) })
-                  }
-                  aria-label="Commitment target"
+                  onChange={(target) => setDraft({ ...draft, target })}
+                  min={1}
+                  label="Commitment target"
                   className="mt-1 w-full border border-edge bg-ink px-2 py-1.5 font-mono text-sm text-text focus:border-signal focus:outline-none"
                 />
               </label>
@@ -200,17 +198,11 @@ export function CommitmentRow({
 
             <label className="block">
               <span className="block text-xs text-muted">Weight (minutes)</span>
-              <input
-                type="number"
-                min="0"
+              <NumberField
                 value={draft.plannedMinutes}
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    plannedMinutes: Math.max(0, Number(event.target.value) || 0),
-                  })
-                }
-                aria-label="Commitment weight"
+                onChange={(plannedMinutes) => setDraft({ ...draft, plannedMinutes })}
+                min={0}
+                label="Commitment weight"
                 className="mt-1 w-full border border-edge bg-ink px-2 py-1.5 font-mono text-sm text-text focus:border-signal focus:outline-none"
               />
             </label>

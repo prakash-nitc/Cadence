@@ -1,5 +1,6 @@
 import type { HistoryNote } from '../engine/feasibility';
 import type { PlanItem } from '../store/planStore';
+import { NumberField } from './NumberField';
 
 /**
  * One line of tomorrow's plan — SPEC §3.4.
@@ -67,30 +68,22 @@ export function PlanItemRow({
         {item.targetType === 'binary' ? <span className="w-16 shrink-0" aria-hidden /> : null}
 
         {item.targetType !== 'binary' ? (
-          <label className="shrink-0">
-            <span className="sr-only">{item.label} target</span>
-            <input
-              type="number"
-              min="1"
-              value={item.target}
-              onChange={(event) => onTarget(Math.max(1, Number(event.target.value) || 1))}
-              aria-label={`${item.label} target`}
-              className="w-16 border border-edge bg-ink px-1.5 py-1 text-right font-mono text-xs text-text focus:border-signal focus:outline-none"
-            />
-          </label>
+          <NumberField
+            value={item.target}
+            onChange={onTarget}
+            min={1}
+            label={`${item.label} target`}
+            className="w-16 shrink-0 border border-edge bg-ink px-1.5 py-1 text-right font-mono text-xs text-text focus:border-signal focus:outline-none"
+          />
         ) : null}
 
-        <label className="shrink-0">
-          <span className="sr-only">{item.label} weight</span>
-          <input
-            type="number"
-            min="0"
-            value={item.plannedMinutes}
-            onChange={(event) => onMinutes(Math.max(0, Number(event.target.value) || 0))}
-            aria-label={`${item.label} weight`}
-            className="w-16 border border-edge bg-ink px-1.5 py-1 text-right font-mono text-xs text-muted focus:border-signal focus:outline-none"
-          />
-        </label>
+        <NumberField
+          value={item.plannedMinutes}
+          onChange={onMinutes}
+          min={0}
+          label={`${item.label} weight`}
+          className="w-16 shrink-0 border border-edge bg-ink px-1.5 py-1 text-right font-mono text-xs text-muted focus:border-signal focus:outline-none"
+        />
       </div>
 
       {stuck ? (
