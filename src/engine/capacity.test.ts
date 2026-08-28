@@ -90,7 +90,7 @@ describe('degrade — late anchor', () => {
   it('keeps the surviving blocks in template order', () => {
     expect(kept(result.blocks)).toEqual([
       'wake', 'ready', 'breakfast', 'recall', 'dsa_deep', 'break_1',
-      'spring_1', 'lunch', 'spring_2', 'sequential', 'break_2', 'dinner',
+      'spring_1', 'lunch', 'spring_2', 'core_cse', 'break_2', 'dinner',
       'log', 'winddown',
     ]);
   });
@@ -102,7 +102,7 @@ describe('degrade — very late anchor forces compression', () => {
   it('compresses the protected tier only after everything else is spent', () => {
     // Every priority 2 block dropped, then priority 1 shrunk, then dropped, then DSA cut.
     expect(minutesOf(result.blocks, 'dsa_deep')).toBe(100);
-    expect(result.blocks.some((block) => block.id === 'sequential')).toBe(false);
+    expect(result.blocks.some((block) => block.id === 'core_cse')).toBe(false);
     expect(result.blocks.some((block) => block.id === 'winddown')).toBe(false);
   });
 
@@ -138,8 +138,8 @@ describe('degrade — very late anchor forces compression', () => {
   });
 
   it('reports a dropped block at its current length, not its template length', () => {
-    // sequential is compressed 120 -> 60, then dropped: it gives back 60, not 120.
-    expect(result.cuts.find((cut) => cut.blockId === 'sequential')).toMatchObject({
+    // core_cse is compressed 120 -> 60, then dropped: it gives back 60, not 120.
+    expect(result.cuts.find((cut) => cut.blockId === 'core_cse')).toMatchObject({
       kind: 'dropped',
       minutes: 60,
     });

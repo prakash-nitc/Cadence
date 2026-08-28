@@ -1,7 +1,7 @@
 /**
  * Roadmap-derived plan suggestions — SPEC §3.4, part 2, step 3.
  *
- * "Current sequential subject, current Spring Boot phase, current DSA topic, all read
+ * "Current core CSE subject, current Spring Boot phase, current DSA topic, all read
  * from config." Planning is then editing rather than composing, which is most of what
  * keeps the evening flow under three minutes.
  *
@@ -11,7 +11,7 @@
 import {
   COMMITMENT_PRESETS,
   DSA_TOPICS,
-  SEQUENTIAL_TRACK,
+  CORE_CSE_TRACK,
   SPRING_PHASES,
   type CommitmentPreset,
   type Subject,
@@ -41,7 +41,7 @@ function activeAt<T extends Dated>(entries: T[], date: string): T | null {
 }
 
 export function currentSubject(date: string): Subject | null {
-  return activeAt(SEQUENTIAL_TRACK, date);
+  return activeAt(CORE_CSE_TRACK, date);
 }
 
 export function currentSpringPhase(date: string): (typeof SPRING_PHASES)[number] | null {
@@ -66,7 +66,7 @@ export function currentDsaTopic(problemsDone: number): (typeof DSA_TOPICS)[numbe
 
 /**
  * The label a preset should carry on a given day. Presets that derive pull their name
- * from the roadmap so "Sequential track" reads "SQL" in September and "LLD" in October.
+ * from the roadmap so "Core CSE" reads "SQL" in September and "LLD" in October.
  */
 export function deriveLabel(
   preset: CommitmentPreset,
@@ -74,7 +74,7 @@ export function deriveLabel(
   problemsDone: number,
 ): string {
   switch (preset.derive) {
-    case 'sequentialSubject': {
+    case 'coreCseSubject': {
       const subject = currentSubject(date);
       return subject ? subject.label : preset.label;
     }
@@ -137,7 +137,7 @@ export function suggestionsFor(
 }
 
 function detailFor(preset: CommitmentPreset, date: string): string | null {
-  if (preset.derive === 'sequentialSubject') return currentSubject(date)?.sources ?? null;
+  if (preset.derive === 'coreCseSubject') return currentSubject(date)?.sources ?? null;
   if (preset.derive === 'springPhase') return currentSpringPhase(date)?.detail ?? null;
   return null;
 }

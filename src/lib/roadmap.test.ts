@@ -81,20 +81,20 @@ describe('suggestionsFor', () => {
   it('returns them in template order', () => {
     const ids = suggestionsFor(weekdayBlocks, '2026-09-01', 0).map((s) => s.blockId);
     expect(ids).toEqual([
-      'recall', 'dsa_deep', 'spring_1', 'spring_2', 'sequential', 'flex', 'dsa_second', 'log',
+      'recall', 'dsa_deep', 'spring_1', 'spring_2', 'core_cse', 'flex', 'dsa_second', 'log',
     ]);
   });
 
   it('pulls derived labels from the roadmap, not from the preset', () => {
     const september = suggestionsFor(weekdayBlocks, '2026-09-01', 0);
-    expect(september.find((s) => s.blockId === 'sequential')?.label).toBe('SQL');
+    expect(september.find((s) => s.blockId === 'core_cse')?.label).toBe('SQL');
     expect(september.find((s) => s.blockId === 'spring_1')?.label).toBe('Notes API — solo');
     expect(september.find((s) => s.blockId === 'dsa_deep')?.label).toBe('Trees problems');
   });
 
   it('follows the roadmap as the date moves', () => {
     const october = suggestionsFor(weekdayBlocks, '2026-10-20', 0);
-    expect(october.find((s) => s.blockId === 'sequential')?.label).toBe('LLD');
+    expect(october.find((s) => s.blockId === 'core_cse')?.label).toBe('LLD');
     expect(october.find((s) => s.blockId === 'spring_1')?.label).toBe('Defense doc');
   });
 
@@ -121,6 +121,6 @@ describe('suggestionsFor — repeated detail', () => {
     ).filter((suggestion) => suggestion.detail !== null);
 
     expect(new Set(withDetail.map((s) => s.detail)).size).toBe(withDetail.length);
-    expect(withDetail.map((s) => s.blockId)).toEqual(['spring_1', 'sequential']);
+    expect(withDetail.map((s) => s.blockId)).toEqual(['spring_1', 'core_cse']);
   });
 });

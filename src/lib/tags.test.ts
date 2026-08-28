@@ -6,7 +6,7 @@ describe('countsToward', () => {
     expect(countsToward(['dsa_new'], 'count')).toEqual(['New DSA problems']);
     expect(countsToward(['dsa_resolve'], 'count')).toEqual(['Cold re-solves']);
     expect(countsToward(['spring'], 'minutes')).toEqual(['Spring Boot hours']);
-    expect(countsToward(['sequential'], 'minutes')).toEqual(['Sequential track hours']);
+    expect(countsToward(['core_cse'], 'minutes')).toEqual(['Core CSE hours']);
   });
 
   it('respects the target type, which is the easy thing to get wrong', () => {
@@ -45,7 +45,7 @@ describe('knownTags', () => {
   const find = (tag: string) => tags.find((entry) => entry.tag === tag);
 
   it('offers every tag a weekly target measures', () => {
-    for (const tag of ['dsa_new', 'dsa_resolve', 'spring', 'sequential', 'recall']) {
+    for (const tag of ['dsa_new', 'dsa_resolve', 'spring', 'core_cse', 'recall']) {
       expect(find(tag)).toBeDefined();
     }
   });

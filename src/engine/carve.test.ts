@@ -32,14 +32,14 @@ describe('carve', () => {
 
   it('states what did not fit', () => {
     const result = carve(FULL_DAY, 240);
-    expect(ids(result.notFitted)).toEqual(['sequential', 'flex', 'dsa_second']);
+    expect(ids(result.notFitted)).toEqual(['core_cse', 'flex', 'dsa_second']);
   });
 
-  it('adds the sequential track once its floor fits', () => {
-    // 300 min: protected floors take 240, and the sequential track's 60 fills the rest.
+  it('adds the core CSE track once its floor fits', () => {
+    // 300 min: protected floors take 240, and the core CSE track's 60 fills the rest.
     const result = carve(FULL_DAY, 300);
     expect(ids(result.blocks)).toEqual([
-      'recall', 'dsa_deep', 'spring_1', 'spring_2', 'sequential', 'log',
+      'recall', 'dsa_deep', 'spring_1', 'spring_2', 'core_cse', 'log',
     ]);
     expect(result.usedMinutes).toBe(300);
   });

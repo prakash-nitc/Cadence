@@ -68,7 +68,7 @@ export const FULL_DAY: BlockDef[] = [
   { id: 'spring_2',   label: 'Spring Boot — part 2', detail: 'Same task, continuous with the morning.', minutes: 80, minMinutes: 60, kind: 'work', priority: 0 },
 
   { id: 'tea',        label: 'Tea',               detail: 'Outdoors. Phone-free.', minutes: 20, kind: 'break', priority: 2 },
-  { id: 'sequential', label: 'Sequential track',  detail: 'One subject at a time. Read → write from memory → say it out loud → two follow-ups → 10 MCQs.', minutes: 120, minMinutes: 60, kind: 'work', priority: 1 },
+  { id: 'core_cse', label: 'Core CSE',  detail: 'One subject at a time. Read → write from memory → say it out loud → two follow-ups → 10 MCQs.', minutes: 120, minMinutes: 60, kind: 'work', priority: 1 },
   { id: 'break_2',    label: 'Break',             minutes: 20, kind: 'break', priority: 2 },
 
   { id: 'flex',       label: 'Flex',              detail: 'Pattern repair, cold re-solves, aptitude, thesis, or catch-up.', minutes: 90, kind: 'work', priority: 2 },
@@ -90,7 +90,7 @@ export const LATE_NIGHT: BlockDef[] = [
   { id: 'break_1',    label: 'Break',             minutes: 15, kind: 'break', priority: 2 },
   { id: 'spring_1',   label: 'Spring Boot',       minutes: 120, minMinutes: 60, kind: 'work', priority: 0 },
   { id: 'dinner',     label: 'Dinner',            minutes: 45, kind: 'meal', priority: 3, window: 'dinner' },
-  { id: 'sequential', label: 'Sequential track',  minutes: 60, minMinutes: 45, kind: 'work', priority: 1 },
+  { id: 'core_cse', label: 'Core CSE',  minutes: 60, minMinutes: 45, kind: 'work', priority: 1 },
   { id: 'log',        label: 'Daily log',         minutes: 15, minMinutes: 10, kind: 'work', priority: 0 },
   { id: 'winddown',   label: 'Wind down',         minutes: 20, kind: 'routine', priority: 1 },
 ];
@@ -189,15 +189,15 @@ export const WEEKLY_TARGETS: WeeklyTarget[] = [
     source: { kind: 'minutesTag', tag: 'spring' } },
   // No source: the app cannot see a git history. Declared so it stays on the radar.
   { id: 'spring_commits', label: 'Spring Boot commits', min: 4, max: 6,  unit: 'commits',  note: 'Not one giant commit on Sunday' },
-  { id: 'sequential',   label: 'Sequential track hours', min: 8, unit: 'hours',
-    source: { kind: 'minutesTag', tag: 'sequential' } },
+  { id: 'core_cse',   label: 'Core CSE hours', min: 8, unit: 'hours',
+    source: { kind: 'minutesTag', tag: 'core_cse' } },
   { id: 'gym',          label: 'Gym sessions',         min: 5,  max: 6,  unit: 'sessions',
     source: { kind: 'containedBlock', blockId: 'gym' } },
   { id: 'sleep',        label: 'Nights at 7h+',        min: 7,  max: 7,  unit: 'nights',   note: 'Non-negotiable',
     source: { kind: 'sleepNights', minHours: 7 } },
 ];
 
-// ─── Sequential track ─────────────────────────────────────────────────────────
+// ─── Core CSE track ───────────────────────────────────────────────────────────
 
 export interface Subject {
   order: number;
@@ -211,7 +211,7 @@ export interface Subject {
   sources: string;
 }
 
-export const SEQUENTIAL_TRACK: Subject[] = [
+export const CORE_CSE_TRACK: Subject[] = [
   {
     order: 1, id: 'sql', label: 'SQL', startDate: '2026-08-25', endDate: '2026-09-05',
     days: 10, mode: 'practice',
@@ -273,7 +273,7 @@ export const SEQUENTIAL_TRACK: Subject[] = [
 ];
 
 /**
- * Friday maintenance: last 45 minutes of Friday's sequential block go to one COMPLETED
+ * Friday maintenance: last 45 minutes of Friday's core CSE block go to one COMPLETED
  * subject — notes reread, two topics articulated out loud. The app picks longest-untouched.
  */
 export const FRIDAY_MAINTENANCE_MINUTES = 45;
@@ -430,7 +430,7 @@ export interface CommitmentPreset {
   target: number;
   tags: string[];
   /** Pull the label from the roadmap instead of using the literal above. */
-  derive?: 'sequentialSubject' | 'springPhase' | 'dsaTopic';
+  derive?: 'coreCseSubject' | 'springPhase' | 'dsaTopic';
 }
 
 export const COMMITMENT_PRESETS: CommitmentPreset[] = [
@@ -438,7 +438,7 @@ export const COMMITMENT_PRESETS: CommitmentPreset[] = [
   { blockId: 'dsa_deep',   label: 'DSA problems',        targetType: 'count',   target: 4,  tags: ['dsa', 'dsa_new'], derive: 'dsaTopic' },
   { blockId: 'spring_1',   label: 'Spring Boot',         targetType: 'minutes', target: 100, tags: ['spring'], derive: 'springPhase' },
   { blockId: 'spring_2',   label: 'Spring Boot',         targetType: 'minutes', target: 80, tags: ['spring'], derive: 'springPhase' },
-  { blockId: 'sequential', label: 'Sequential track',    targetType: 'minutes', target: 120, tags: ['sequential'], derive: 'sequentialSubject' },
+  { blockId: 'core_cse', label: 'Core CSE',    targetType: 'minutes', target: 120, tags: ['core_cse'], derive: 'coreCseSubject' },
   { blockId: 'dsa_second', label: 'Cold re-solve',       targetType: 'count',   target: 1,  tags: ['dsa', 'dsa_resolve'] },
   { blockId: 'flex',       label: 'Flex',                targetType: 'minutes', target: 90, tags: ['flex'] },
   { blockId: 'log',        label: 'Log and plan',        targetType: 'binary',  target: 1,  tags: ['log'] },

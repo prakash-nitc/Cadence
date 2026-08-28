@@ -13,12 +13,12 @@ describe('resolveTargets', () => {
 
   it('renames without touching anything else', () => {
     const targets = resolveTargets([
-      { ...blankOverride('sequential', 5), label: 'Core CSE subjects' },
+      { ...blankOverride('core_cse', 5), label: 'Core CSE subjects' },
     ]);
-    const target = find(targets, 'sequential');
+    const target = find(targets, 'core_cse');
     expect(target?.label).toBe('Core CSE subjects');
     expect(target?.min).toBe(8);
-    expect(target?.source).toEqual({ kind: 'minutesTag', tag: 'sequential' });
+    expect(target?.source).toEqual({ kind: 'minutesTag', tag: 'core_cse' });
   });
 
   it('changes the numbers', () => {

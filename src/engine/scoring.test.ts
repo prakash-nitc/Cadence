@@ -361,20 +361,20 @@ describe('burnDown', () => {
 
 describe('triageOrder', () => {
   const priority = (blockId: string | null): number =>
-    ({ dsa_deep: 0, spring_1: 0, sequential: 1, flex: 2, dsa_second: 2 })[blockId ?? ''] ?? 3;
+    ({ dsa_deep: 0, spring_1: 0, core_cse: 1, flex: 2, dsa_second: 2 })[blockId ?? ''] ?? 3;
 
   it('offers what the day can most afford to lose first', () => {
     const order = triageOrder(
       [
         c('dsa_deep', 180, 4, 0),
         c('flex', 90, 1, 0),
-        c('sequential', 120, 120, 0),
+        c('core_cse', 120, 120, 0),
         c('dsa_second', 40, 1, 0),
       ],
       priority,
     ).map((commitment) => commitment.blockId);
 
-    expect(order).toEqual(['flex', 'dsa_second', 'sequential', 'dsa_deep']);
+    expect(order).toEqual(['flex', 'dsa_second', 'core_cse', 'dsa_deep']);
   });
 
   it('breaks a priority tie by size, largest first', () => {
@@ -387,11 +387,11 @@ describe('triageOrder', () => {
       [
         c('flex', 90, 1, 1),
         c('dsa_second', 40, 1, 0, { status: 'displaced' }),
-        c('sequential', 120, 120, 30),
+        c('core_cse', 120, 120, 30),
       ],
       priority,
     );
-    expect(order.map((commitment) => commitment.blockId)).toEqual(['sequential']);
+    expect(order.map((commitment) => commitment.blockId)).toEqual(['core_cse']);
   });
 
   it('does not mutate the array it is given', () => {

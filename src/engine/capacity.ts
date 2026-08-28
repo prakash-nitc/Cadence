@@ -6,7 +6,7 @@
  *
  * Order, least protected first:
  *   1. Drop priority 2 (droppable)      — flex, second DSA pass, tea break
- *   2. Compress priority 1 to its floor — sequential track, wind-down
+ *   2. Compress priority 1 to its floor — core CSE track, wind-down
  *   3. Drop priority 1 if still over
  *   4. Compress priority 0 to its floor — DSA, Spring Boot, recall, log
  *
