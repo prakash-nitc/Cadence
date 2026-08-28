@@ -38,7 +38,9 @@ export function ScoreBadge({ result, labelFor, projected = false }: ScoreBadgePr
         <p className="mt-0.5 text-xs text-muted">
           {band === 'red'
             ? 'Not planned. A day with nothing committed to scores red.'
-            : 'Every commitment displaced. Nothing left to score.'}
+            : result.displaced > 0
+              ? 'Every commitment displaced. Nothing left to score.'
+              : 'These commitments carry no weight. Give them planned minutes to score.'}
         </p>
       </div>
     );

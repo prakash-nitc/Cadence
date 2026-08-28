@@ -110,7 +110,7 @@ export function BlockRow({
             {block.label}
           </span>
           {block.missedWindow ? (
-            <span className="block text-xs text-warn">Window had already closed.</span>
+            <span className="block text-xs text-warn">Outside the mess window.</span>
           ) : null}
         </span>
 

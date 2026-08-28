@@ -130,7 +130,7 @@ function Row({
 
       {laid?.missedWindow ? (
         <p className="mt-1 pl-6 text-xs text-warn">
-          Window has already closed. Drag it earlier, or remove it.
+          Outside the mess window. Drag it earlier, or remove it.
         </p>
       ) : null}
 

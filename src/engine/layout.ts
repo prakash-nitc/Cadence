@@ -32,11 +32,48 @@ export interface ScheduledBlock {
   window: string | null;
 }
 
-function windowBounds(anchor: Date, window: FixedWindow): { opens: Date; closes: Date } {
-  return {
-    opens: atTimeOn(anchor, window.opensAt),
-    closes: atTimeOn(anchor, window.closesAt),
+const DAY_MS = 86_400_000;
+
+/**
+ * The longest a block will wait for a mess window to open.
+ *
+ * Waking at 04:30 against a 07:00 breakfast is a legitimate two-and-a-half hour wait.
+ * A day anchored at 20:00 reaching a breakfast block at 21:30 is not waiting nine and a
+ * half hours for the morning — that window is simply not part of this day, and idling to
+ * it would bury the whole evening under one enormous gap.
+ */
+const MAX_IDLE_MINUTES = 4 * 60;
+
+/**
+ * Which occurrence of a mess window the cursor is dealing with.
+ *
+ * Resolving the window on the anchor's calendar date breaks any day that crosses
+ * midnight: a shift starting at 22:00 reaches breakfast at 06:00 the next morning, and
+ * against the anchor's date that window closed fifteen hours ago. Resolving it on the
+ * cursor's date breaks the mirror case, where a block finishing at 00:30 would wait
+ * nineteen hours for the following evening's dinner.
+ *
+ * So all three nearby occurrences are considered and the closest one wins — the window
+ * the cursor is inside, or failing that the one it is nearest to. No thresholds, and it
+ * degrades to the obvious answer on an ordinary day.
+ */
+function windowBounds(cursor: Date, window: FixedWindow): { opens: Date; closes: Date } {
+  const candidates = [-1, 0, 1].map((offset) => {
+    const base = new Date(cursor.getTime() + offset * DAY_MS);
+    return { opens: atTimeOn(base, window.opensAt), closes: atTimeOn(base, window.closesAt) };
+  });
+
+  const distance = ({ opens, closes }: { opens: Date; closes: Date }): number => {
+    if (cursor >= opens && cursor <= closes) return 0;
+    return Math.min(
+      Math.abs(cursor.getTime() - opens.getTime()),
+      Math.abs(cursor.getTime() - closes.getTime()),
+    );
   };
+
+  return candidates.reduce((best, candidate) =>
+    distance(candidate) < distance(best) ? candidate : best,
+  );
 }
 
 function gapBlock(from: Date, to: Date, beforeBlockId: string): ScheduledBlock {
@@ -65,7 +102,6 @@ function gapBlock(from: Date, to: Date, beforeBlockId: string): ScheduledBlock {
  * through the placement rules in `layoutDay`.
  */
 function straddledWindow(
-  anchor: Date,
   start: Date,
   end: Date,
   windows: FixedWindow[],
@@ -73,7 +109,7 @@ function straddledWindow(
 ): string | null {
   for (const window of windows) {
     if (window.id === ownWindow) continue;
-    const { opens } = windowBounds(anchor, window);
+    const { opens } = windowBounds(start, window);
     if (start < opens && end > opens) return window.id;
   }
   return null;
@@ -98,12 +134,17 @@ export function layoutDay(
     let missedWindow = false;
 
     if (def.kind === 'meal' && window) {
-      const { opens, closes } = windowBounds(anchor, window);
+      const { opens, closes } = windowBounds(cursor, window);
 
       if (cursor < opens) {
-        // Idle forward to the window. The wait is unallocated time, shown as such.
-        out.push(gapBlock(cursor, opens, def.id));
-        cursor = opens;
+        if (minutesBetween(cursor, opens) <= MAX_IDLE_MINUTES) {
+          // Idle forward to the window. The wait is unallocated time, shown as such.
+          out.push(gapBlock(cursor, opens, def.id));
+          cursor = opens;
+        } else {
+          // Too far ahead to be this day's meal. Place it here and say so.
+          missedWindow = true;
+        }
       } else if (cursor > closes) {
         // Past close. Place it where we actually are and say the window was missed.
         missedWindow = true;
@@ -126,7 +167,7 @@ export function layoutDay(
       status: 'pending',
       actualEndedAt: null,
       missedWindow,
-      straddles: straddledWindow(anchor, start, end, windows, def.window),
+      straddles: straddledWindow(start, end, windows, def.window),
       window: def.window ?? null,
     });
 
