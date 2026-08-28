@@ -1,10 +1,12 @@
 import { create } from 'zustand';
 import {
   commitmentsBetween,
+  getMonthTargets,
   listDays,
   listMilestoneProgress,
   logsBetween,
   putMilestoneProgress,
+  putMonthTargets,
 } from '../db/repo';
 import type { CommitmentRecord, DayRecord, LogRecord } from '../db/schema';
 import { addDays, dateKey } from '../lib/time';
@@ -18,8 +20,17 @@ interface ProgressState {
   commitments: CommitmentRecord[];
   logs: LogRecord[];
   milestoneProgress: Map<string, { checked: string[]; doneAt: number | null }>;
+  /** Per-month target overrides, by 'YYYY-MM'. Absent months fall back to the weekly ones. */
+  monthTargets: Map<string, Record<string, { min: number; max: number | null }>>;
 
   load: (asOf: string) => Promise<void>;
+  /** Load one month's overrides on demand — the navigator can reach any month. */
+  loadMonth: (month: string) => Promise<void>;
+  saveMonthTargets: (
+    month: string,
+    targets: Record<string, { min: number; max: number | null }>,
+    at: number,
+  ) => Promise<void>;
   toggleChecklistItem: (key: string, item: string) => Promise<void>;
   toggleDone: (key: string, at: number) => Promise<void>;
 }
@@ -53,14 +64,34 @@ export const useProgress = create<ProgressState>((set, get) => {
     commitments: [],
     logs: [],
     milestoneProgress: new Map(),
+    monthTargets: new Map(),
+
+    loadMonth: async (month) => {
+      if (get().monthTargets.has(month)) return;
+      const record = await getMonthTargets(month);
+      const monthTargets = new Map(get().monthTargets);
+      monthTargets.set(month, record?.targets ?? {});
+      set({ monthTargets });
+    },
+
+    saveMonthTargets: async (month, targets, at) => {
+      await putMonthTargets({ month, targets, updatedAt: at });
+      const monthTargets = new Map(get().monthTargets);
+      monthTargets.set(month, targets);
+      set({ monthTargets });
+    },
 
     load: async (asOf) => {
       const from = dateKey(addDays(new Date(`${asOf}T12:00:00`), -GRID_DAYS));
 
+      // Read a year forward as well: the month navigator can look at months that have
+      // not happened yet, and a plan for one of them is worth seeing before it starts.
+      const to = dateKey(addDays(new Date(`${asOf}T12:00:00`), 366));
+
       const [days, commitments, logs, progress] = await Promise.all([
-        listDays(from, asOf),
-        commitmentsBetween(from, asOf),
-        logsBetween(from, asOf),
+        listDays(from, to),
+        commitmentsBetween(from, to),
+        logsBetween(from, to),
         listMilestoneProgress(),
       ]);
 

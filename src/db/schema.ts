@@ -106,6 +106,20 @@ export interface MilestoneProgress {
   doneAt: number | null;
 }
 
+/**
+ * A month's own targets — SPEC §4.4.
+ *
+ * Not config and not a setting: a plan for one specific month, the way commitments are a
+ * plan for one specific day. Only the targets the user has actually changed are stored;
+ * everything else falls back to the weekly number scaled to the month.
+ */
+export interface MonthTargetRecord {
+  /** 'YYYY-MM'. */
+  month: string;
+  targets: Record<string, { min: number; max: number | null }>;
+  updatedAt: number;
+}
+
 export class CadenceDB extends Dexie {
   days!: Table<DayRecord, string>;
   commitments!: Table<CommitmentRecord, string>;
@@ -113,6 +127,7 @@ export class CadenceDB extends Dexie {
   savedTemplates!: Table<SavedTemplate, string>;
   prefs!: Table<PrefRecord, string>;
   milestoneProgress!: Table<MilestoneProgress, string>;
+  monthTargets!: Table<MonthTargetRecord, string>;
 
   constructor() {
     super('cadence');
@@ -130,6 +145,10 @@ export class CadenceDB extends Dexie {
 
     // Days gain a planned arrangement. Existing rows simply have neither field.
     this.version(3).stores({});
+
+    this.version(4).stores({
+      monthTargets: 'month',
+    });
   }
 }
 

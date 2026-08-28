@@ -140,7 +140,7 @@ export interface TargetPace {
   displaced: Displacement;
 }
 
-function measure(source: TargetSource, period: Period): number {
+export function measure(source: TargetSource, period: Period): number {
   /**
    * Displaced work never happened — SPEC §4.1 — so it never counts toward a target.
    * Its cost shows up separately as debt, which is where §4.3 puts it.
@@ -385,6 +385,154 @@ export function milestoneStatuses(
       checked,
       daysRemaining,
       status,
+    };
+  });
+}
+
+// ─── Monthly targets ──────────────────────────────────────────────────────────
+
+/** A stretch of the month, clipped to it, that one week contributed to. */
+export interface WeekSlice {
+  from: string;
+  to: string;
+}
+
+/**
+ * The Monday-start weeks overlapping a range, each clipped to it.
+ *
+ * A month rarely starts on a Monday, so its first and last weeks are partial. Clipping
+ * keeps the per-week breakdown honest: a three-day tail is shown as the three days it
+ * was, not as a week that mysteriously produced less.
+ */
+export function weeksInRange(from: string, to: string): WeekSlice[] {
+  const dayMs = 86_400_000;
+  const startOfWeek = (date: string): number => {
+    const at = new Date(`${date}T12:00:00`);
+    return at.getTime() - ((at.getDay() + 6) % 7) * dayMs;
+  };
+  const key = (at: number): string => new Date(at).toISOString().slice(0, 10);
+
+  const out: WeekSlice[] = [];
+  const end = Date.parse(`${to}T12:00:00`);
+
+  for (let weekStart = startOfWeek(from); weekStart <= end; weekStart += 7 * dayMs) {
+    const weekEnd = weekStart + 6 * dayMs;
+    out.push({
+      from: key(Math.max(weekStart, Date.parse(`${from}T12:00:00`))),
+      to: key(Math.min(weekEnd, end)),
+    });
+  }
+
+  return out;
+}
+
+/** What a month's target is, before the user has said otherwise. */
+export function seedMonthlyTarget(weeklyMin: number, daysInMonth: number): number {
+  return Math.round((weeklyMin * daysInMonth) / 7);
+}
+
+export interface MonthPace {
+  id: string;
+  label: string;
+  unit: string;
+  min: number;
+  max: number | null;
+  achieved: number;
+  tracked: boolean;
+  weeksRemaining: number;
+  shortfall: number;
+  /** Per-week rate needed to reach `min`. Null once met, or when untracked. */
+  requiredPerWeek: number | null;
+  /** Whether a per-week rate means anything, or the unit is already a count of days. */
+  ratePerWeek: boolean;
+  reachable: boolean;
+  shortBy: number;
+  belowWarn: boolean;
+  displaced: Displacement;
+  /** What each week of the month actually contributed. */
+  weeks: { from: string; to: string; achieved: number }[];
+}
+
+/**
+ * Pace a month against its own targets — SPEC §4.4.
+ *
+ * The month's numbers are a plan for that month, not a roadmap constant, so they arrive
+ * as overrides. Anything the user has not set falls back to the weekly target scaled to
+ * the month's length.
+ *
+ * The per-week breakdown is what makes a lost month diagnosable: knowing you are 20 hours
+ * short says nothing about which week lost them.
+ */
+export function monthlyPacing(
+  period: Period,
+  targets: WeeklyTarget[],
+  overrides: Record<string, { min: number; max: number | null }>,
+  weeks: WeekSlice[],
+  weeksRemaining: number,
+  daysInMonth: number,
+  weeklyCapacityHours: number,
+): MonthPace[] {
+  const slice = (from: string, to: string): Period => ({
+    days: period.days.filter((day) => day.date >= from && day.date <= to),
+    commitments: period.commitments.filter(
+      (commitment) => commitment.dayDate >= from && commitment.dayDate <= to,
+    ),
+    logs: period.logs.filter((log) => log.date >= from && log.date <= to),
+  });
+
+  return targets.map((target) => {
+    const tracked = target.source !== undefined;
+    const override = overrides[target.id];
+    const min = override ? override.min : seedMonthlyTarget(target.min, daysInMonth);
+    const max = override
+      ? override.max
+      : target.max === undefined
+        ? null
+        : seedMonthlyTarget(target.max, daysInMonth);
+
+    const achieved = target.source ? measure(target.source, period) : 0;
+    const shortfall = Math.max(0, min - achieved);
+
+    const requiredPerWeek =
+      !tracked || shortfall === 0 || weeksRemaining <= 0 ? null : shortfall / weeksRemaining;
+
+    const ratePerWeek =
+      target.source !== undefined &&
+      target.source.kind !== 'daysTag' &&
+      target.source.kind !== 'sleepNights' &&
+      target.source.kind !== 'containedBlock';
+
+    const capped = target.unit === 'hours' && requiredPerWeek !== null;
+    const reachable = !capped || (requiredPerWeek ?? 0) <= weeklyCapacityHours;
+
+    return {
+      id: target.id,
+      label: target.label,
+      unit: target.unit,
+      min,
+      max,
+      achieved: Math.round(achieved * 10) / 10,
+      tracked,
+      weeksRemaining,
+      shortfall: Math.round(shortfall * 10) / 10,
+      requiredPerWeek:
+        requiredPerWeek === null ? null : Math.round(requiredPerWeek * 10) / 10,
+      ratePerWeek,
+      reachable,
+      shortBy: reachable
+        ? 0
+        : Math.round((shortfall - weeklyCapacityHours * weeksRemaining) * 10) / 10,
+      belowWarn:
+        tracked &&
+        target.warnBelow !== undefined &&
+        achieved < seedMonthlyTarget(target.warnBelow, daysInMonth),
+      displaced: displacementFor(target.source, period),
+      weeks: weeks.map((week) => ({
+        ...week,
+        achieved: target.source
+          ? Math.round(measure(target.source, slice(week.from, week.to)) * 10) / 10
+          : 0,
+      })),
     };
   });
 }

@@ -11,6 +11,7 @@ import {
   type DayRecord,
   type LogRecord,
   type MilestoneProgress,
+  type MonthTargetRecord,
   type PrefRecord,
   type SavedTemplate,
 } from './schema';
@@ -185,6 +186,7 @@ export interface Backup {
   savedTemplates: SavedTemplate[];
   prefs: PrefRecord[];
   milestoneProgress: MilestoneProgress[];
+  monthTargets: MonthTargetRecord[];
 }
 
 export const BACKUP_VERSION = 1;
@@ -194,14 +196,16 @@ export const BACKUP_VERSION = 1;
  * it is never hostage to a browser profile.
  */
 export async function exportAll(): Promise<Backup> {
-  const [days, commitments, logs, savedTemplates, prefs, milestoneProgress] = await Promise.all([
-    db.days.toArray(),
-    db.commitments.toArray(),
-    db.logs.toArray(),
-    db.savedTemplates.toArray(),
-    db.prefs.toArray(),
-    db.milestoneProgress.toArray(),
-  ]);
+  const [days, commitments, logs, savedTemplates, prefs, milestoneProgress, monthTargets] =
+    await Promise.all([
+      db.days.toArray(),
+      db.commitments.toArray(),
+      db.logs.toArray(),
+      db.savedTemplates.toArray(),
+      db.prefs.toArray(),
+      db.milestoneProgress.toArray(),
+      db.monthTargets.toArray(),
+    ]);
 
   return {
     app: 'cadence',
@@ -213,6 +217,7 @@ export async function exportAll(): Promise<Backup> {
     savedTemplates,
     prefs,
     milestoneProgress,
+    monthTargets,
   };
 }
 
@@ -237,7 +242,15 @@ export function isBackup(value: unknown): value is Backup {
 export async function importAll(backup: Backup): Promise<void> {
   await db.transaction(
     'rw',
-    [db.days, db.commitments, db.logs, db.savedTemplates, db.prefs, db.milestoneProgress],
+    [
+      db.days,
+      db.commitments,
+      db.logs,
+      db.savedTemplates,
+      db.prefs,
+      db.milestoneProgress,
+      db.monthTargets,
+    ],
     async () => {
       await Promise.all([
         db.days.clear(),
@@ -246,6 +259,7 @@ export async function importAll(backup: Backup): Promise<void> {
         db.savedTemplates.clear(),
         db.prefs.clear(),
         db.milestoneProgress.clear(),
+        db.monthTargets.clear(),
       ]);
 
       await Promise.all([
@@ -255,7 +269,18 @@ export async function importAll(backup: Backup): Promise<void> {
         db.savedTemplates.bulkPut(backup.savedTemplates ?? []),
         db.prefs.bulkPut(backup.prefs ?? []),
         db.milestoneProgress.bulkPut(backup.milestoneProgress ?? []),
+        db.monthTargets.bulkPut(backup.monthTargets ?? []),
       ]);
     },
   );
+}
+
+// ─── Monthly targets ──────────────────────────────────────────────────────────
+
+export async function getMonthTargets(month: string): Promise<MonthTargetRecord | null> {
+  return (await db.monthTargets.get(month)) ?? null;
+}
+
+export async function putMonthTargets(record: MonthTargetRecord): Promise<void> {
+  await db.monthTargets.put(record);
 }

@@ -437,16 +437,40 @@ where it belongs, rather than at the day, where it would be wrong.
 
 **Also on this screen:** containment percentage, push-count, avoided-count, energy trend.
 
-### 4.4 Monthly view and milestones
+#### 4.4 Monthly view and milestones
 
-Milestones from config with days remaining and status
+**Monthly targets.** A month carries its own numbers, set in the app and stored per month.
+They are neither roadmap constants nor app behaviour: a monthly target is a *plan for one
+specific month*, the way commitments are a plan for one specific day. September can be
+heavier because SQL finishes; October lighter because interviews start.
+
+Each month seeds from the weekly targets scaled to its length — 15 Spring Boot hours a
+week becomes 64 for a 30-day month — and is then edited. Only what the user changes is
+stored; everything else follows the weekly number, so swapping the roadmap moves the
+defaults with it.
+
+**Required weekly rate**, the month's version of §4.3's daily one:
+
+> Spring Boot 12 / 40 hrs. 3 of 5 weeks left. Need 9.3 hrs/week. 4 behind pace.
+
+Same pace marker as the week: where an even month would have you by now. When the month
+can no longer reach a target, that is stated rather than implied by a rate nobody could
+hit.
+
+**Week-by-week breakdown.** Each target shows what every week of the month contributed.
+Knowing you are twenty hours short says nothing about which week lost them.
+
+**A month navigator.** Move between months to set next month's numbers before it starts
+and review past ones after they end. A month reads as not started, running, or finished.
+
+**Month shape** mirrors week shape: green/yellow/red day counts, month-over-month
+comparison, and the tag-level totals.
+
+**Milestones** from config with days remaining and status
 (`upcoming | at risk | done | missed`). At risk = date within 7 days and the linked work
 not started, or current weekly pace insufficient to reach it.
 
 Each milestone carries a sub-checklist. The next three appear as a compact strip on Now.
-
-**Month shape** mirrors week shape: green/yellow/red day counts, month-over-month
-comparison, and the tag-level totals.
 
 ### 4.5 Consistency grid
 
