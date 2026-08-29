@@ -92,3 +92,27 @@ describe('defaults from the block', () => {
     expect(defaultTagsForBlock('dsa_deep')).toEqual(['dsa', 'dsa_new']);
   });
 });
+
+describe('hours actually put in', () => {
+  it('counts a commitment however it is measured', () => {
+    // DSA hours is measured from weight, so a problem-counted commitment still feeds it.
+    expect(countsToward(['dsa'], 'count')).toContain('DSA hours');
+    expect(countsToward(['dsa'], 'minutes')).toContain('DSA hours');
+    expect(countsToward(['dsa'], 'binary')).toContain('DSA hours');
+  });
+
+  it('gives the umbrella tag something to do', () => {
+    const dsa = knownTags().find((entry) => entry.tag === 'dsa');
+    expect(dsa?.targets).toEqual(['DSA hours']);
+  });
+
+  it('offers theory as its own thing', () => {
+    expect(countsToward(['dsa_theory'], 'minutes')).toContain('DSA theory hours');
+  });
+
+  it('a new problem feeds both its count and the hours', () => {
+    expect(countsToward(['dsa', 'dsa_new'], 'count').sort()).toEqual(
+      ['DSA hours', 'New DSA problems'].sort(),
+    );
+  });
+});

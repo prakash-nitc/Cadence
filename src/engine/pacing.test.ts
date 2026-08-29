@@ -648,3 +648,72 @@ describe('monthlyPacing', () => {
     expect(paces.every((pace) => pace.requiredPerWeek === null)).toBe(true);
   });
 });
+
+describe('earnedMinutesTag — hours actually put in', () => {
+  const target = (id: string): WeeklyTarget => {
+    const found = WEEKLY_TARGETS.find((entry) => entry.id === id);
+    if (!found) throw new Error(`No target ${id}`);
+    return found;
+  };
+
+  it('counts a problem-counted commitment by its weight', () => {
+    // 180 planned minutes, 4 of 4 problems done: three hours of DSA.
+    const period: Period = {
+      days: [],
+      commitments: [c('2026-09-01', 180, 4, 4, { tags: ['dsa', 'dsa_new'] })],
+      logs: [],
+    };
+    expect(weeklyPacing(period, [target('dsa_hours')], 3, 10.8)[0]?.achieved).toBe(3);
+  });
+
+  it('gives partial credit for partial work', () => {
+    const period: Period = {
+      days: [],
+      commitments: [c('2026-09-01', 180, 4, 2, { tags: ['dsa'] })],
+      logs: [],
+    };
+    expect(weeklyPacing(period, [target('dsa_hours')], 3, 10.8)[0]?.achieved).toBe(1.5);
+  });
+
+  it('adds up every kind of DSA work', () => {
+    const period: Period = {
+      days: [],
+      commitments: [
+        c('2026-09-01', 180, 4, 4, { tags: ['dsa', 'dsa_new'] }),
+        c('2026-09-01', 40, 1, 1, { tags: ['dsa', 'dsa_resolve'] }),
+        c('2026-09-02', 60, 60, 60, { targetType: 'minutes', tags: ['dsa', 'dsa_theory'] }),
+      ],
+      logs: [],
+    };
+    // 180 + 40 + 60 = 280 minutes.
+    expect(weeklyPacing(period, [target('dsa_hours')], 3, 10.8)[0]?.achieved).toBe(4.7);
+  });
+
+  it('separates theory from the umbrella', () => {
+    const period: Period = {
+      days: [],
+      commitments: [
+        c('2026-09-01', 180, 4, 4, { tags: ['dsa', 'dsa_new'] }),
+        c('2026-09-02', 90, 90, 90, { targetType: 'minutes', tags: ['dsa', 'dsa_theory'] }),
+      ],
+      logs: [],
+    };
+    const paces = weeklyPacing(period, [target('dsa_hours'), target('dsa_theory')], 3, 10.8);
+    expect(paces[0]?.achieved).toBe(4.5);
+    expect(paces[1]?.achieved).toBe(1.5);
+  });
+
+  it('never counts displaced work as time put in', () => {
+    const period: Period = {
+      days: [],
+      commitments: [c('2026-09-01', 180, 4, 4, { tags: ['dsa'], status: 'displaced' })],
+      logs: [],
+    };
+    expect(weeklyPacing(period, [target('dsa_hours')], 3, 10.8)[0]?.achieved).toBe(0);
+  });
+
+  it('asks for a per-day rate, since it is a quantity', () => {
+    const period: Period = { days: [], commitments: [], logs: [] };
+    expect(weeklyPacing(period, [target('dsa_hours')], 3, 10.8)[0]?.ratePerDay).toBe(true);
+  });
+});

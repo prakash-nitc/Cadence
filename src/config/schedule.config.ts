@@ -162,6 +162,12 @@ export const GYM_CUTOFF_HOUR = 9;
 export type TargetSource =
   | { kind: 'countTag'; tag: string }            // sum of `done` on count commitments
   | { kind: 'minutesTag'; tag: string }          // sum of `done` minutes, reported in hours
+  /**
+   * Hours actually put in, from each commitment's weight and how much of it got done.
+   * Counts whatever the commitment measures, so a "4 problems" block still contributes
+   * its time — which `minutesTag` cannot, since it only reads minutes-typed ones.
+   */
+  | { kind: 'earnedMinutesTag'; tag: string }
   | { kind: 'daysTag'; tag: string }             // days where that tag was completed
   | { kind: 'containedBlock'; blockId: string }  // days that block was contained
   | { kind: 'sleepNights'; minHours: number };   // logged nights at or above minHours
@@ -185,6 +191,11 @@ export const WEEKLY_TARGETS: WeeklyTarget[] = [
     source: { kind: 'daysTag', tag: 'recall' } },
   { id: 'cold_resolve', label: 'Cold re-solves',       min: 5,  max: 7,  unit: 'problems', note: 'One per weekday evening',
     source: { kind: 'countTag', tag: 'dsa_resolve' } },
+  { id: 'dsa_theory',   label: 'DSA theory hours',     min: 3,  unit: 'hours', note: 'Patterns and templates, not solving. Learning time is worth protecting from solving time.',
+    source: { kind: 'earnedMinutesTag', tag: 'dsa_theory' } },
+  // The umbrella: every kind of DSA work, however each piece happens to be counted.
+  { id: 'dsa_hours',    label: 'DSA hours',            min: 15, unit: 'hours', note: 'New problems, re-solves and theory together. Problems per week says nothing about how long they took.',
+    source: { kind: 'earnedMinutesTag', tag: 'dsa' } },
   { id: 'spring_hours', label: 'Spring Boot hours',    min: 15, unit: 'hours', warnBelow: 12, warnCopy: 'Early warning, not a blip.', note: 'The number to protect.',
     source: { kind: 'minutesTag', tag: 'spring' } },
   // No source: the app cannot see a git history. Declared so it stays on the radar.
@@ -445,6 +456,18 @@ export const COMMITMENT_PRESETS: CommitmentPreset[] = [
   { blockId: 'mixed_set',  label: 'Mixed set — 3 untagged, timed', targetType: 'count', target: 3, tags: ['dsa', 'dsa_new'] },
   { blockId: 'project',    label: 'PaperTrail',          targetType: 'minutes', target: 240, tags: ['spring'], derive: 'springPhase' },
 ];
+
+/**
+ * DSA tags, and what each is for:
+ *
+ *   dsa         every kind of DSA work — drives DSA hours, the total time
+ *   dsa_new     a problem never solved before — drives the weekly problem count
+ *   dsa_resolve a cold re-solve of something already done
+ *   dsa_theory  patterns and templates rather than solving
+ *
+ * `dsa` goes alongside one of the other three, never on its own: it measures time, and
+ * the specific tag measures the work.
+ */
 
 /**
  * NOTE: DSA revision — spaced repetition, pattern tracking, recognition drills — lives

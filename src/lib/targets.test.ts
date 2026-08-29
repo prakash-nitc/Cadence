@@ -95,3 +95,13 @@ describe('customTarget', () => {
     expect(a.id).not.toBe(b.id);
   });
 });
+
+describe('ordering is stable as the roadmap grows', () => {
+  it('an edited target keeps its place when config gains new ones above it', () => {
+    // The override records a position when it is written. If that won, adding a target
+    // to config would shuffle every edited one below it.
+    const stale: TargetOverride = { ...blankOverride('sleep', 0), min: 6 };
+    const ids = resolveTargets([stale]).map((target) => target.id);
+    expect(ids).toEqual(WEEKLY_TARGETS.map((target) => target.id));
+  });
+});

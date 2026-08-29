@@ -172,6 +172,18 @@ export function measure(source: TargetSource, period: Period): number {
           .reduce((sum, commitment) => sum + commitment.done, 0) / 60
       );
 
+    case 'earnedMinutesTag':
+      // Weight times completion: the time actually put in, whatever the commitment
+      // counts. A four-problem block finished half way earned half its planned minutes.
+      return (
+        happened
+          .filter((commitment) => commitment.tags.includes(source.tag))
+          .reduce(
+            (sum, commitment) => sum + commitment.plannedMinutes * completionOf(commitment),
+            0,
+          ) / 60
+      );
+
     case 'daysTag':
       return new Set(
         happened

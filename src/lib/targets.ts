@@ -13,12 +13,13 @@ import { WEEKLY_TARGETS, type TargetSource, type WeeklyTarget } from '../config/
 import type { TargetOverride } from '../db/schema';
 
 /** The ways a user-added target can be counted. Block and log sources stay internal. */
-export const CUSTOM_SOURCE_KINDS = ['countTag', 'minutesTag', 'daysTag'] as const;
+export const CUSTOM_SOURCE_KINDS = ['countTag', 'minutesTag', 'earnedMinutesTag', 'daysTag'] as const;
 export type CustomSourceKind = (typeof CUSTOM_SOURCE_KINDS)[number];
 
 export const SOURCE_LABEL: Record<CustomSourceKind, string> = {
   countTag: 'Count them',
   minutesTag: 'Add up minutes',
+  earnedMinutesTag: 'Hours put in',
   daysTag: 'Days it was done',
 };
 
@@ -58,8 +59,17 @@ export function resolveTargets(overrides: TargetOverride[]): WeeklyTarget[] {
       ...(entry.custom ? { source: entry.custom.source } : {}),
     }));
 
-  const orderOf = (target: WeeklyTarget): number =>
-    byId.get(target.id)?.order ?? WEEKLY_TARGETS.findIndex((entry) => entry.id === target.id);
+  /**
+   * Config order is authoritative for config targets, and a stored position is only used
+   * for targets the user invented. An override records a position at the moment it is
+   * written; letting that win would shuffle an edited target whenever the roadmap gained
+   * a new one above it.
+   */
+  const orderOf = (target: WeeklyTarget): number => {
+    const inConfig = WEEKLY_TARGETS.findIndex((entry) => entry.id === target.id);
+    if (inConfig !== -1) return inConfig;
+    return byId.get(target.id)?.order ?? Number.MAX_SAFE_INTEGER;
+  };
 
   return [...fromConfig, ...added].sort((a, b) => orderOf(a) - orderOf(b));
 }
@@ -83,7 +93,9 @@ export function customTarget(
       ? { kind: 'countTag', tag }
       : kind === 'minutesTag'
         ? { kind: 'minutesTag', tag }
-        : { kind: 'daysTag', tag };
+        : kind === 'earnedMinutesTag'
+          ? { kind: 'earnedMinutesTag', tag }
+          : { kind: 'daysTag', tag };
 
   return {
     id: `custom:${crypto.randomUUID()}`,

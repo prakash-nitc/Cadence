@@ -42,6 +42,9 @@ export function countsToward(
         return targetType === 'count' && tags.includes(source.tag);
       case 'minutesTag':
         return targetType === 'minutes' && tags.includes(source.tag);
+      case 'earnedMinutesTag':
+        // Measured from weight, so the commitment can be counted any way at all.
+        return tags.includes(source.tag);
       case 'daysTag':
         return tags.includes(source.tag);
       default:
