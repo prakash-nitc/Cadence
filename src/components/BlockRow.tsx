@@ -6,6 +6,8 @@ import type { CommitmentEdit, NewCommitment } from '../store/dayStore';
 import { formatDuration, toHHMM } from '../lib/time';
 import { AddCommitment } from './AddCommitment';
 import { CommitmentRow } from './CommitmentRow';
+import { Icon, type IconName } from './ui/Icon';
+import { Button } from './ui/primitives';
 
 /**
  * One row of the Day screen timeline — SPEC §3.2.
@@ -26,11 +28,33 @@ const STATUS_LABEL: Record<BlockView, string> = {
 
 const STATUS_TONE: Record<BlockView, string> = {
   pending: 'text-muted',
-  active: 'text-signal',
+  active: 'text-deep',
   awaiting: 'text-warn',
-  contained: 'text-pass',
+  contained: 'text-deep',
   overran: 'text-fail',
   skipped: 'text-fail',
+};
+
+/**
+ * The dot on the timeline rail — §18.
+ *
+ * Filled for what is done, ringed for what is running, hollow for what has not happened.
+ * The status word sits beside it in every case: shape is a shortcut, never the message.
+ */
+const DOT: Record<BlockView, string> = {
+  pending: 'border-edge bg-panel',
+  active: 'border-signal bg-panel ring-4 ring-wash',
+  awaiting: 'border-warn bg-panel',
+  contained: 'border-signal bg-signal',
+  overran: 'border-fail bg-fail',
+  skipped: 'border-fail bg-panel',
+};
+
+const STATUS_ICON: Partial<Record<BlockView, IconName>> = {
+  contained: 'check',
+  overran: 'alert',
+  skipped: 'skip',
+  active: 'now',
 };
 
 const CORRECTION_LABEL: Record<'contained' | 'overran' | 'skipped', string> = {
@@ -75,13 +99,17 @@ export function BlockRow({
 
   if (block.kind === 'gap') {
     return (
-      <div className="flex items-center gap-3 border-l border-edge py-2 pl-3">
-        <span className="w-24 shrink-0 font-mono text-xs text-muted">
+      <div className="flex gap-4">
+        <span className="w-[76px] shrink-0 pt-2 text-right font-mono text-xs text-muted">
           {toHHMM(block.startsAt)}
         </span>
-        <span className="text-sm text-muted">
+        <div className="flex shrink-0 flex-col items-center">
+          <span className="mt-2.5 h-1.5 w-1.5 rounded-sm border border-edge" />
+          <span className="w-px flex-1 bg-edge" />
+        </div>
+        <p className="py-1.5 text-sm text-muted">
           Unallocated — {formatDuration(block.minutes)}
-        </span>
+        </p>
       </div>
     );
   }
@@ -89,60 +117,92 @@ export function BlockRow({
   const corrections = allowedCorrections(block.status);
   const canCorrect = corrections.length > 0;
 
+  const icon = STATUS_ICON[status];
+
   return (
-    <div className={`border-l-2 ${status === 'active' ? 'border-signal' : 'border-edge'}`}>
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        className="flex w-full items-baseline gap-3 py-2.5 pl-3 text-left"
-      >
-        <span className="w-24 shrink-0 font-mono text-xs text-muted">
-          {toHHMM(block.startsAt)}–{toHHMM(block.endsAt)}
-        </span>
+    <div className="flex gap-4">
+      {/* The rail: start time, dot, and the line running down to the next block. */}
+      <span className="w-[76px] shrink-0 pt-3 text-right font-mono text-xs text-muted">
+        {toHHMM(block.startsAt)}
+      </span>
+      <div className="flex shrink-0 flex-col items-center">
+        <span
+          className={`mt-3 flex h-3.5 w-3.5 items-center justify-center rounded-sm border-2 ${DOT[status]}`}
+          aria-hidden
+        />
+        <span className="w-px flex-1 bg-edge" />
+      </div>
 
-        <span className="min-w-0 flex-1">
-          <span
-            className={`block text-sm ${status === 'pending' ? 'text-muted' : 'text-text'} ${
-              status === 'skipped' ? 'line-through' : ''
-            }`}
+      <div className="min-w-0 flex-1 pb-3">
+        <div
+          className={`rounded-lg border px-4 py-3 transition-colors ${
+            status === 'active'
+              ? 'border-signal/45 bg-wash/70'
+              : status === 'contained'
+                ? 'border-edge bg-panel'
+                : status === 'pending'
+                  ? 'border-edge bg-panel'
+                  : 'border-edge bg-panel'
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            className="flex w-full items-start gap-3 text-left"
           >
-            {block.label}
-          </span>
-          {block.missedWindow ? (
-            <span className="block text-xs text-warn">Outside the mess window.</span>
+            <span className="min-w-0 flex-1">
+              <span
+                className={`block text-sm font-medium ${
+                  status === 'pending' ? 'text-soft' : 'text-text'
+                } ${status === 'skipped' ? 'line-through' : ''}`}
+              >
+                {block.label}
+              </span>
+              <span className="mt-0.5 flex flex-wrap items-center gap-x-2 font-mono text-xs text-muted">
+                <span>
+                  {toHHMM(block.startsAt)}–{toHHMM(block.endsAt)}
+                </span>
+                <span className="text-edge">·</span>
+                <span>{formatDuration(block.minutes)}</span>
+                <span className="font-sans capitalize">{block.kind}</span>
+              </span>
+              {block.missedWindow ? (
+                <span className="mt-1 block text-xs text-warn">Outside the mess window.</span>
+              ) : null}
+            </span>
+
+            {STATUS_LABEL[status] ? (
+              <span
+                className={`flex shrink-0 items-center gap-1.5 text-xs font-medium ${STATUS_TONE[status]}`}
+              >
+                {icon ? <Icon name={icon} size={13} /> : null}
+                {STATUS_LABEL[status]}
+              </span>
+            ) : null}
+          </button>
+
+          {open && canCorrect ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-edge pt-3">
+              <span className="text-xs text-muted">Correct to</span>
+              {corrections.map((correction) => (
+                <Button
+                  key={correction}
+                  size="sm"
+                  onClick={() => {
+                    onCorrect(correction);
+                    setOpen(false);
+                  }}
+                >
+                  {CORRECTION_LABEL[correction]}
+                </Button>
+              ))}
+            </div>
           ) : null}
-        </span>
-
-        <span className="shrink-0 font-mono text-xs text-muted">
-          {formatDuration(block.minutes)}
-        </span>
-        <span className={`w-24 shrink-0 text-right text-xs ${STATUS_TONE[status]}`}>
-          {STATUS_LABEL[status]}
-        </span>
-      </button>
-
-      {open && canCorrect ? (
-        <div className="flex flex-wrap items-center gap-2 pb-3 pl-3">
-          <span className="text-xs text-muted">Correct to</span>
-          {corrections.map((correction) => (
-            <button
-              key={correction}
-              type="button"
-              onClick={() => {
-                onCorrect(correction);
-                setOpen(false);
-              }}
-              className="border border-edge px-2 py-1 text-xs text-text hover:border-muted"
-            >
-              {CORRECTION_LABEL[correction]}
-            </button>
-          ))}
         </div>
-      ) : null}
 
-      {commitments.length > 0 && onDone && onDrop ? (
-        <div className="pb-2 pl-3 pr-1">
+        {commitments.length > 0 && onDone && onDrop ? (
+          <div className="mt-2 pl-1">
           {(() => {
             // Resizing a block does not resize what was committed to it. Say so, rather
             // than leaving the arithmetic to be noticed at 10 PM.
@@ -150,7 +210,8 @@ export function BlockRow({
               .filter((commitment) => commitment.status !== 'displaced')
               .reduce((sum, commitment) => sum + commitment.plannedMinutes, 0);
             return weight > block.minutes ? (
-              <p className="mb-1.5 font-mono text-xs text-warn">
+              <p className="mb-2 flex items-center gap-1.5 rounded-md bg-warn/10 px-2.5 py-1.5 text-xs text-warn">
+                <Icon name="alert" size={13} />
                 {formatDuration(weight)} committed to a {formatDuration(block.minutes)} block.
               </p>
             ) : null;
@@ -171,34 +232,31 @@ export function BlockRow({
                 : {})}
             />
           ))}
-        </div>
-      ) : null}
+          </div>
+        ) : null}
 
-      {onAddCommitment && (open || adding) ? (
-        adding ? (
-          <div className="pb-3 pl-3 pr-1">
-            <AddCommitment
-              blockId={block.blockId}
-              defaultMinutes={block.minutes}
-              onAdd={(input) => {
-                onAddCommitment(input);
-                setAdding(false);
-              }}
-              onCancel={() => setAdding(false)}
-            />
-          </div>
-        ) : (
-          <div className="pb-2 pl-3">
-            <button
-              type="button"
-              onClick={() => setAdding(true)}
-              className="text-xs text-muted underline-offset-2 hover:text-text hover:underline"
-            >
-              Add commitment
-            </button>
-          </div>
-        )
-      ) : null}
+        {onAddCommitment && (open || adding) ? (
+          adding ? (
+            <div className="mt-2">
+              <AddCommitment
+                blockId={block.blockId}
+                defaultMinutes={block.minutes}
+                onAdd={(input) => {
+                  onAddCommitment(input);
+                  setAdding(false);
+                }}
+                onCancel={() => setAdding(false)}
+              />
+            </div>
+          ) : (
+            <div className="mt-2">
+              <Button size="sm" variant="ghost" icon="plus" onClick={() => setAdding(true)}>
+                Add commitment
+              </Button>
+            </div>
+          )
+        ) : null}
+      </div>
     </div>
   );
 }
