@@ -258,8 +258,10 @@ export const useDay = create<DayState>((set, get) => {
       if (!day) return;
 
       // Keep the record of everything already answered for, then lay the new shape
-      // from `from`. Commitments attach by block id, so anything whose block survives
-      // stays attached and anything else falls back to the day's unattached list.
+      // from `from`. Commitments attach by block id and are deliberately not rewritten
+      // here: anything whose block survives stays attached, and anything whose block is
+      // gone keeps pointing at it, so restoring that block in a later re-lay picks the
+      // commitment back up. Day and Now show those under "No block" — see `unslotted`.
       //
       // A settled block is clipped to end at `from`. Closing a block early and then
       // re-laying otherwise left the old block running past the start of the new plan,

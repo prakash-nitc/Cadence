@@ -17,7 +17,7 @@ import {
 } from '../engine/boundaries';
 import { burnDown, projectDay } from '../engine/scoring';
 import { freeTimeLine, pullForwardWarning, ruleForDate } from '../lib/copy';
-import { blockPassed, blockPriority, gateLabel, runwayMinutes } from '../lib/dayScoring';
+import { blockPassed, blockPriority, gateLabel, runwayMinutes, unslotted } from '../lib/dayScoring';
 import type { Prefs } from '../lib/prefs';
 import { formatDuration, toHHMM } from '../lib/time';
 import { useDay } from '../store/dayStore';
@@ -81,6 +81,8 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
 
   const runway = runwayMinutes(day.blocks, now);
   const burn = burnDown(commitments, runway);
+  // Measured the same way as the burn-down itself, so the two numbers are comparable.
+  const unslottedMinutes = burnDown(unslotted(commitments, day.blocks), 0).committedMinutes;
   // Chronological, so the projection credits work in the order it will actually be done,
   // and capped by the runway so it cannot claim more than the day can still hold.
   const startOf = new Map(day.blocks.map((block) => [block.blockId, block.startsAt]));
@@ -265,7 +267,11 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
 
       {commitments.length > 0 ? (
         <section className="space-y-3 border-t border-edge pt-3">
-          <BurnDown result={burn} onTriage={() => setTriaging(true)} />
+          <BurnDown
+            result={burn}
+            unslottedMinutes={unslottedMinutes}
+            onTriage={() => setTriaging(true)}
+          />
           <ScoreBadge result={projected} labelFor={labelFor} projected />
         </section>
       ) : (

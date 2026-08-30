@@ -7,7 +7,7 @@ import { ScoreBadge } from '../components/ScoreBadge';
 import { containment, isActionable, isResolved } from '../engine/boundaries';
 import { completionOf, isDropped, scoreDay } from '../engine/scoring';
 import { availableMinutes } from '../engine/capacity';
-import { gateLabel } from '../lib/dayScoring';
+import { gateLabel, unslotted } from '../lib/dayScoring';
 import { formatDuration, toHHMM } from '../lib/time';
 import { templateLabel } from '../lib/templates';
 import type { Prefs } from '../lib/prefs';
@@ -83,7 +83,10 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
   const result = scoreDay(commitments, prefs, planned);
   const labelFor = gateLabel(commitments, day.blocks);
 
-  const unattached = commitments.filter((commitment) => commitment.blockId === null);
+  const unattached = unslotted(commitments, day.blocks);
+  const unattachedMinutes = unattached
+    .filter((commitment) => !isDropped(commitment))
+    .reduce((sum, commitment) => sum + commitment.plannedMinutes, 0);
   const forBlock = (blockId: string): typeof commitments =>
     commitments.filter((commitment) => commitment.blockId === blockId);
 
@@ -265,7 +268,15 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
 
       {unattached.length > 0 ? (
         <section>
-          <h2 className="mb-1 text-xs uppercase tracking-block text-muted">No block</h2>
+          <h2 className="text-xs uppercase tracking-block text-muted">No block</h2>
+          {unattachedMinutes > 0 ? (
+            <p className="mb-2 text-xs text-muted">
+              {formatDuration(unattachedMinutes)} with no slot in the day, counted in the
+              totals above. Either never placed, or on a block a re-lay dropped.
+            </p>
+          ) : (
+            <p className="mb-2 text-xs text-muted">All dropped, so none of this is owed.</p>
+          )}
           <div className="border-l-2 border-edge pl-3">
             {unattached.map((commitment) => (
               <CommitmentRow

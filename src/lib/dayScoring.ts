@@ -59,3 +59,21 @@ export function gateLabel(
     return block ? block.label : key;
   };
 }
+
+/**
+ * Commitments with no slot in the laid day.
+ *
+ * Either never attached to a block, or attached to one that a re-lay dropped. Both count
+ * toward the score and the burn-down in full, so both have to be visible: a commitment
+ * that appears only in the totals is a number with no way to check it, and re-laying a
+ * day is the ordinary way to end up with one.
+ */
+export function unslotted<T extends { blockId: string | null }>(
+  commitments: T[],
+  blocks: ScheduledBlock[],
+): T[] {
+  const laid = new Set(blocks.map((block) => block.blockId));
+  return commitments.filter(
+    (commitment) => commitment.blockId === null || !laid.has(commitment.blockId),
+  );
+}

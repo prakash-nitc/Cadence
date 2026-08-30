@@ -10,10 +10,16 @@ import { formatDuration } from '../lib/time';
  */
 interface BurnDownProps {
   result: BurnDownResult;
+  /**
+   * Remaining minutes that have no block to happen in. Counted in `result` like any
+   * other commitment, so when it is the reason the day is over-committed the strip has
+   * to say so — otherwise the total is unaccountable against the visible timeline.
+   */
+  unslottedMinutes?: number;
   onTriage?: () => void;
 }
 
-export function BurnDown({ result, onTriage }: BurnDownProps) {
+export function BurnDown({ result, unslottedMinutes = 0, onTriage }: BurnDownProps) {
   const { committedMinutes, availableMinutes, overBy, negative } = result;
   const total = Math.max(committedMinutes, availableMinutes, 1);
 
@@ -44,6 +50,12 @@ export function BurnDown({ result, onTriage }: BurnDownProps) {
 
       {negative ? (
         <p className="mt-1 text-xs text-fail">Over-committed by {formatDuration(overBy)}.</p>
+      ) : null}
+
+      {unslottedMinutes > 0 ? (
+        <p className="mt-1 text-xs text-muted">
+          {formatDuration(unslottedMinutes)} of that has no block, under “No block” on Day.
+        </p>
       ) : null}
     </section>
   );
