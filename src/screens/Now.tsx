@@ -1,14 +1,20 @@
 import { useState } from 'react';
 import { RULES } from '../config/schedule.config';
-import { BurnDown } from '../components/BurnDown';
 import { CommitmentRow } from '../components/CommitmentRow';
-import { BlockProgress, Countdown } from '../components/Countdown';
 import { ContainmentPrompt } from '../components/ContainmentPrompt';
-import { ScoreBadge } from '../components/ScoreBadge';
+import {
+  CurrentBlockHero,
+  DailyMetrics,
+  NextBlock,
+  PaceCard,
+  RuleCard,
+} from '../components/now/NowParts';
+import { Button, Card, Empty, Panel } from '../components/ui/primitives';
 import { StartDay } from '../components/StartDay';
 import { Triage } from '../components/Triage';
 import {
   blockAt,
+  containment,
   freeMinutesUntilNext,
   isDayComplete,
   isResolved,
@@ -98,6 +104,7 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
     runway,
   );
   const labelFor = gateLabel(commitments, day.blocks);
+  const tally = containment(day.blocks);
 
   const blockCommitments = (blockId: string): typeof commitments =>
     commitments.filter((commitment) => commitment.blockId === blockId);
@@ -119,194 +126,190 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
   }
 
   return (
-    <div className="space-y-6">
-      {waiting[0] ? (
-        <ContainmentPrompt
-          block={waiting[0]}
-          now={now}
-          onAnswer={(status) => void closeBlock(waiting[0]!.blockId, status, now)}
-        />
-      ) : null}
-
-      {inProgress ? (
-        <section>
-          <p className="text-xs uppercase tracking-block text-muted">{inProgress.kind}</p>
-          <h1 className="mt-1 font-display text-3xl tracking-display text-text">
-            {inProgress.label}
-          </h1>
-
-          <div className="mt-4 flex items-baseline justify-between">
-            <Countdown endsAt={inProgress.endsAt} now={now} className="text-5xl" />
-            <span className="font-mono text-sm text-muted">
-              {toHHMM(inProgress.startsAt)}–{toHHMM(inProgress.endsAt)}
-            </span>
-          </div>
-
-          <div className="mt-3">
-            <BlockProgress startsAt={inProgress.startsAt} endsAt={inProgress.endsAt} now={now} />
-          </div>
-
-          {blockCommitments(inProgress.blockId).length > 0 ? (
-            <div className="mt-4 border-t border-edge pt-2">
-              {blockCommitments(inProgress.blockId).map((commitment) => (
-                <CommitmentRow
-                  key={commitment.id}
-                  commitment={commitment}
-                  onDone={(done) => void setDone(commitment.id, done)}
-                  onDrop={(reason, displacedBy) =>
-                    void dropCommitment(commitment.id, reason, displacedBy)
-                  }
-                  onEdit={(edit) => void editCommitment(commitment.id, edit)}
-                />
-              ))}
-            </div>
-          ) : inProgress.detail ? (
-            <p className="mt-3 text-sm text-muted">{inProgress.detail}</p>
-          ) : null}
-
-          <div className="mt-5 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => void closeBlock(inProgress.blockId, 'contained', now)}
-              className="border border-pass px-3 py-3 text-sm text-pass hover:bg-pass/10"
-            >
-              Done — contained
-            </button>
-            <button
-              type="button"
-              onClick={() => void skipBlock(inProgress.blockId, now)}
-              className="border border-edge px-3 py-3 text-sm text-muted hover:border-fail hover:text-fail"
-            >
-              Skip block
-            </button>
-          </div>
-
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted">Push remaining</span>
-            {PUSH_OPTIONS.map((minutes) => (
-              <button
-                key={minutes}
-                type="button"
-                onClick={() => void push(minutes, now)}
-                className="border border-edge px-2.5 py-1.5 font-mono text-xs text-muted hover:border-muted hover:text-text"
-              >
-                +{minutes}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setTriaging(true)}
-              className="ml-auto border border-edge px-2.5 py-1.5 text-xs text-muted hover:border-muted hover:text-text"
-            >
-              Triage day
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {!inProgress && waiting.length === 0 ? (
-        <section>
-          {isDayComplete(day.blocks) ? (
-            <>
-              <h1 className="font-display text-2xl tracking-display text-text">Day worked</h1>
-              <p className="mt-1 text-sm text-muted">
-                Every block is marked. Log it in the Plan tab.
-              </p>
-            </>
-          ) : next ? (
-            <>
-              <h1 className="font-display text-2xl tracking-display text-text">
-                {freeTimeLine(free, next.label)}
-              </h1>
-              <p className="mt-1 text-sm text-muted">
-                The boundary does not move on its own. This time is free, not lost.
-              </p>
-
-              {confirmingEarly ? (
-                <div className="mt-4 border border-warn bg-panel p-3">
-                  <p className="text-sm text-text">{pullForwardWarning(free)}</p>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void startNextEarly(free, now);
-                        setConfirmingEarly(false);
-                      }}
-                      className="border border-warn px-3 py-2 text-sm text-warn"
-                    >
-                      Move them
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmingEarly(false)}
-                      className="border border-edge px-3 py-2 text-sm text-text"
-                    >
-                      Keep the boundaries
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setConfirmingEarly(true)}
-                  className="mt-4 border border-edge px-3 py-2 text-sm text-muted hover:border-muted hover:text-text"
-                >
-                  Start next block early
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <h1 className="font-display text-2xl tracking-display text-text">
-                Nothing scheduled
-              </h1>
-              <p className="mt-1 text-sm text-muted">The day ran out of blocks.</p>
-            </>
-          )}
-        </section>
-      ) : null}
-
-      {commitments.length > 0 ? (
-        <section className="space-y-3 border-t border-edge pt-3">
-          <BurnDown
-            result={burn}
-            unslottedMinutes={unslottedMinutes}
-            onTriage={() => setTriaging(true)}
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      {/* Main column: what you are doing, and what you can do about it. */}
+      <div className="space-y-5">
+        {waiting[0] ? (
+          <ContainmentPrompt
+            block={waiting[0]}
+            now={now}
+            onAnswer={(status) => void closeBlock(waiting[0]!.blockId, status, now)}
           />
-          <ScoreBadge result={projected} labelFor={labelFor} projected />
-        </section>
-      ) : (
-        <section className="border-t border-edge pt-3">
-          <p className="text-sm text-muted">
-            Nothing committed to today. A day with no commitments scores red whatever gets
-            done — add them on the Day screen.
-          </p>
-        </section>
-      )}
+        ) : null}
 
-      {heldBack ? (
-        <section className="border-t border-edge pt-3">
-          <p className="text-xs uppercase tracking-block text-muted">Running now</p>
-          <p className="mt-1 text-sm text-muted">
-            {heldBack.label} — until <span className="font-mono">{toHHMM(heldBack.endsAt)}</span>
-          </p>
-        </section>
-      ) : next ? (
-        <section className="border-t border-edge pt-3">
-          <p className="text-xs uppercase tracking-block text-muted">Next</p>
-          <p className="mt-1 text-sm text-muted">
-            <span className="font-mono">{toHHMM(next.startsAt)}</span> {next.label} —{' '}
-            {formatDuration(next.minutes)}
-          </p>
-        </section>
-      ) : null}
+        {inProgress ? (
+          <>
+            <CurrentBlockHero block={inProgress} now={now} />
 
-      {rule ? (
-        <section className="border-t border-edge pt-3">
-          <p className="text-xs uppercase tracking-block text-muted">Rule</p>
-          <p className="mt-1 text-sm text-text">{rule}</p>
-        </section>
-      ) : null}
+            {blockCommitments(inProgress.blockId).length > 0 ? (
+              <Panel title="Committed to this block" icon="target">
+                <div className="-my-1">
+                  {blockCommitments(inProgress.blockId).map((commitment) => (
+                    <CommitmentRow
+                      key={commitment.id}
+                      commitment={commitment}
+                      onDone={(done) => void setDone(commitment.id, done)}
+                      onDrop={(reason, displacedBy) =>
+                        void dropCommitment(commitment.id, reason, displacedBy)
+                      }
+                      onEdit={(edit) => void editCommitment(commitment.id, edit)}
+                    />
+                  ))}
+                </div>
+              </Panel>
+            ) : inProgress.detail ? (
+              <Card className="text-sm text-soft">{inProgress.detail}</Card>
+            ) : null}
+
+            {/*
+              The one dominant action, and the ways out of it. Done is green-grounded and
+              comes first; skip is neutral. Push and triage sit below a rule as secondary,
+              because reaching for them should feel like the smaller decision it is.
+            */}
+            <Card>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  icon="check"
+                  onClick={() => void closeBlock(inProgress.blockId, 'contained', now)}
+                >
+                  Done — contained
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  icon="skip"
+                  onClick={() => void skipBlock(inProgress.blockId, now)}
+                >
+                  Skip block
+                </Button>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-edge pt-4">
+                <span className="text-xs text-muted">Push remaining</span>
+                {PUSH_OPTIONS.map((minutes) => (
+                  <Button
+                    key={minutes}
+                    size="sm"
+                    variant="secondary"
+                    className="font-mono"
+                    onClick={() => void push(minutes, now)}
+                  >
+                    +{minutes}
+                  </Button>
+                ))}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon="chart"
+                  className="ml-auto"
+                  onClick={() => setTriaging(true)}
+                >
+                  Triage day
+                </Button>
+              </div>
+            </Card>
+          </>
+        ) : null}
+
+        {!inProgress && waiting.length === 0 ? (
+          <Card className="p-6">
+            {isDayComplete(day.blocks) ? (
+              <>
+                <h2 className="font-display text-2xl font-semibold tracking-display text-text">
+                  Day worked
+                </h2>
+                <p className="mt-1 text-sm text-soft">
+                  Every block is marked. Log it in the Plan tab.
+                </p>
+              </>
+            ) : next ? (
+              <>
+                <p className="eyebrow">Between blocks</p>
+                <h2 className="mt-2 font-display text-2xl font-semibold tracking-display text-text">
+                  {freeTimeLine(free, next.label)}
+                </h2>
+                <p className="mt-1 text-sm text-soft">
+                  The boundary does not move on its own. This time is free, not lost.
+                </p>
+
+                {confirmingEarly ? (
+                  <div className="mt-4 rounded-lg border border-warn/50 bg-warn/5 p-4">
+                    <p className="text-sm text-text">{pullForwardWarning(free)}</p>
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        onClick={() => {
+                          void startNextEarly(free, now);
+                          setConfirmingEarly(false);
+                        }}
+                        className="border-warn/50 text-warn hover:bg-warn/10"
+                      >
+                        Move them
+                      </Button>
+                      <Button onClick={() => setConfirmingEarly(false)}>
+                        Keep the boundaries
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button className="mt-4" onClick={() => setConfirmingEarly(true)}>
+                    Start next block early
+                  </Button>
+                )}
+              </>
+            ) : (
+              <>
+                <h2 className="font-display text-2xl font-semibold tracking-display text-text">
+                  Nothing scheduled
+                </h2>
+                <p className="mt-1 text-sm text-soft">The day ran out of blocks.</p>
+              </>
+            )}
+          </Card>
+        ) : null}
+
+        {commitments.length > 0 ? (
+          <DailyMetrics
+            committed={burn.committedMinutes}
+            remaining={burn.availableMinutes}
+            contained={tally.percent}
+            pushed={day.pushes.length}
+            stranded={burn.strandedMinutes}
+          />
+        ) : (
+          <Empty
+            icon="target"
+            title="Nothing committed to today"
+            body="A day with no commitments scores red whatever gets done. Add them on the Day screen, against the blocks they belong to."
+          />
+        )}
+
+        {unslottedMinutes > 0 ? (
+          <p className="px-1 text-xs text-muted">
+            {formatDuration(unslottedMinutes)} of that has no block, under “No block” on Day.
+          </p>
+        ) : null}
+      </div>
+
+      {/* Summary column: am I on pace, what is next, what is the standing rule. */}
+      <aside className="space-y-5">
+        <PaceCard result={projected} labelFor={labelFor} />
+
+        {heldBack ? (
+          <Card>
+            <p className="eyebrow">Running now</p>
+            <p className="mt-2 text-sm text-text">{heldBack.label}</p>
+            <p className="mt-0.5 font-mono text-xs text-muted">
+              until {toHHMM(heldBack.endsAt)}
+            </p>
+          </Card>
+        ) : (
+          <NextBlock block={next} />
+        )}
+
+        {rule ? <RuleCard rule={rule} /> : null}
+      </aside>
     </div>
   );
 }

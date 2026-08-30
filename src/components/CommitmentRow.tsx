@@ -5,6 +5,13 @@ import type { CommitmentEdit } from '../store/dayStore';
 import { DropReason } from './DropReason';
 import { NumberField } from './NumberField';
 import { TagPicker } from './TagPicker';
+import { Icon } from './ui/Icon';
+import { Bar, Button } from './ui/primitives';
+
+/** One input treatment for every field in this row — §31. */
+const FIELD =
+  'mt-1 w-full rounded-md border border-edge bg-panel px-3 py-2 text-sm text-text ' +
+  'transition-shadow placeholder:text-muted focus:border-signal focus:shadow-focus focus:outline-none';
 
 /**
  * One commitment — SPEC §3.1's tappable checklist, with its target.
@@ -22,7 +29,7 @@ const MINUTE_STEP = 15;
 const STATUS_TONE: Record<CommitmentRecord['status'], string> = {
   open: 'text-text',
   partial: 'text-text',
-  complete: 'text-pass',
+  complete: 'text-deep',
   skipped: 'text-fail',
   avoided: 'text-fail',
   displaced: 'text-muted',
@@ -73,8 +80,26 @@ export function CommitmentRow({
         ? `${commitment.done} / ${commitment.target}m`
         : `${commitment.done} / ${commitment.target}`;
 
+  /*
+   * Three visual states, used identically wherever a commitment appears — §38.
+   * Complete is green and quiet, in progress is emphasised, open is neutral.
+   */
+  const mark =
+    dropped ? 'skip' : completion >= 1 ? 'check' : completion > 0 ? 'half' : 'circle';
+  const markTone = dropped
+    ? 'border-edge text-muted'
+    : completion >= 1
+      ? 'border-signal bg-signal text-panel'
+      : completion > 0
+        ? 'border-signal text-signal'
+        : 'border-edge text-muted';
+
   return (
-    <div className="border-b border-edge py-2 last:border-b-0">
+    <div
+      className={`-mx-2 rounded-md border-b border-edge px-2 py-2.5 transition-colors last:border-b-0 ${
+        completion >= 1 && !dropped ? 'bg-wash/60' : ''
+      }`}
+    >
       <div className="flex items-center gap-3">
         {commitment.targetType === 'binary' ? (
           <button
@@ -82,16 +107,19 @@ export function CommitmentRow({
             disabled={dropped}
             onClick={() => onDone(completion >= 1 ? 0 : 1)}
             aria-label={commitment.label}
-            className={`h-4 w-4 shrink-0 border disabled:opacity-40 ${
-              completion >= 1 ? 'border-pass bg-pass' : 'border-edge'
-            }`}
-          />
+            className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border transition-colors disabled:opacity-40 ${markTone}`}
+          >
+            {completion >= 1 ? (
+              <Icon name="check" size={13} className="animate-pop-check" />
+            ) : null}
+          </button>
         ) : (
           <span
-            className="h-4 w-1 shrink-0 bg-edge"
-            style={{ boxShadow: 'none' }}
+            className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border ${markTone}`}
             aria-hidden
-          />
+          >
+            <Icon name={mark} size={12} />
+          </span>
         )}
 
         <span className="min-w-0 flex-1">
@@ -108,76 +136,81 @@ export function CommitmentRow({
                 setEditing((value) => !value);
               }}
               aria-label={`Edit ${commitment.label}`}
-              className={`block text-left text-sm ${STATUS_TONE[commitment.status]} underline-offset-2 hover:underline`}
+              className={`block text-left text-sm font-medium ${STATUS_TONE[commitment.status]} underline-offset-2 hover:underline`}
             >
               {commitment.label}
             </button>
           ) : (
             <span
-              className={`block text-sm ${STATUS_TONE[commitment.status]} ${
+              className={`block text-sm font-medium ${STATUS_TONE[commitment.status]} ${
                 dropped ? 'line-through' : ''
               }`}
             >
               {commitment.label}
             </span>
           )}
-          <span className="block font-mono text-xs text-muted">
+          <span className="mt-0.5 block font-mono text-xs text-muted">
             {progress}
-            <span className="ml-2">{commitment.plannedMinutes}m</span>
+            <span className="mx-1.5 text-edge">·</span>
+            {commitment.plannedMinutes} min
             {dropped ? (
-              <span className="ml-2 text-fail">{DROP_LABEL[commitment.status]}</span>
+              <span className="ml-2 font-sans text-fail">{DROP_LABEL[commitment.status]}</span>
             ) : null}
             {commitment.displacedBy ? (
-              <span className="ml-1 text-muted">— {commitment.displacedBy}</span>
+              <span className="ml-1 font-sans text-muted">— {commitment.displacedBy}</span>
             ) : null}
           </span>
         </span>
 
         {!dropped && commitment.targetType !== 'binary' ? (
           <span className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              onClick={() => onDone(Math.max(0, commitment.done - step))}
+            <Button
+              size="sm"
+              icon="minus"
               aria-label={`Less ${commitment.label}`}
-              className="border border-edge px-2 py-1 font-mono text-xs text-muted hover:border-muted hover:text-text"
-            >
-              −
-            </button>
-            <button
-              type="button"
-              onClick={() => onDone(commitment.done + step)}
+              onClick={() => onDone(Math.max(0, commitment.done - step))}
+              className="px-2"
+            />
+            <Button
+              size="sm"
+              icon="plus"
               aria-label={`More ${commitment.label}`}
-              className="border border-edge px-2 py-1 font-mono text-xs text-muted hover:border-muted hover:text-text"
-            >
-              +
-            </button>
+              onClick={() => onDone(commitment.done + step)}
+              className="px-2"
+            />
           </span>
         ) : null}
 
-        <button
-          type="button"
-          onClick={() => setDropping((value) => !value)}
-          className="shrink-0 border border-edge px-2 py-1 text-xs text-muted hover:border-muted hover:text-text"
-        >
+        <Button size="sm" variant="ghost" onClick={() => setDropping((value) => !value)}>
           {dropped ? 'Reason' : 'Drop'}
-        </button>
+        </Button>
       </div>
 
-      {completion > 0 && completion < 1 ? (
-        <div className="mt-1.5 h-px w-full bg-edge">
-          <div className="h-px bg-signal" style={{ width: `${completion * 100}%` }} />
+      {/*
+        The bar is drawn for anything that takes partial credit, not only when part-done.
+        An untouched 0-of-4 with a visible empty track reads as work outstanding; the same
+        row with no track at all reads as a note.
+      */}
+      {commitment.targetType !== 'binary' && !dropped ? (
+        <div className="mt-2 pl-8">
+          <Bar
+            value={completion}
+            tone={completion >= 1 ? 'pass' : 'signal'}
+            height="h-1.5"
+            animate={false}
+          />
         </div>
       ) : null}
 
       {editing && onEdit ? (
-        <div className="mt-2 border border-edge bg-panel p-3">
+        <div className="mt-3 rounded-lg border border-edge bg-sunk p-4">
           <label className="block">
             <span className="block text-xs text-muted">What gets finished</span>
             <input
               value={draft.label}
               onChange={(event) => setDraft({ ...draft, label: event.target.value })}
               aria-label="Commitment name"
-              className="mt-1 w-full border border-edge bg-ink px-2 py-1.5 text-sm text-text focus:border-signal focus:outline-none"
+              className={FIELD}
             />
           </label>
 
@@ -192,7 +225,7 @@ export function CommitmentRow({
                   onChange={(target) => setDraft({ ...draft, target })}
                   min={1}
                   label="Commitment target"
-                  className="mt-1 w-full border border-edge bg-ink px-2 py-1.5 font-mono text-sm text-text focus:border-signal focus:outline-none"
+                  className={`${FIELD} font-mono`}
                 />
               </label>
             ) : (
@@ -206,7 +239,7 @@ export function CommitmentRow({
                 onChange={(plannedMinutes) => setDraft({ ...draft, plannedMinutes })}
                 min={0}
                 label="Commitment weight"
-                className="mt-1 w-full border border-edge bg-ink px-2 py-1.5 font-mono text-sm text-text focus:border-signal focus:outline-none"
+                className={`${FIELD} font-mono`}
               />
             </label>
           </div>
@@ -224,24 +257,18 @@ export function CommitmentRow({
             />
           </div>
 
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
+          <div className="mt-4 flex gap-2">
+            <Button
+              variant="primary"
+              icon="check"
               onClick={() => {
                 onEdit(draft);
                 setEditing(false);
               }}
-              className="border border-signal px-3 py-1.5 text-sm text-signal hover:bg-signal/10"
             >
               Save
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditing(false)}
-              className="border border-edge px-3 py-1.5 text-sm text-muted hover:border-muted"
-            >
-              Cancel
-            </button>
+            </Button>
+            <Button onClick={() => setEditing(false)}>Cancel</Button>
           </div>
         </div>
       ) : null}
