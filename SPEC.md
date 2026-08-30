@@ -621,55 +621,86 @@ Java 21 is already installed. Sideload the APK. No Play Store, no signing beyond
 
 ## 8. Design direction
 
-Not a productivity-app aesthetic. **An instrument panel.** The user is not being
-motivated; he is reading a gauge.
+A **personal command centre**, read on one laptop, left open all day. Serious about the
+numbers and calm about the reporting. The user should open it and answer, in this order:
+
+> What am I doing? → How much have I done? → Am I on pace? → What comes next? → Am I improving?
+
+That five-step hierarchy governs every screen.
 
 **Palette** (Tailwind theme names — use these, never raw hex):
 
 ```
-ink      #0E1116   page background
-panel    #171B22   cards, raised surfaces
-edge     #262C36   borders, dividers, grid lines
-text     #E6E9EE   primary
-muted    #8A94A3   labels, secondary
-signal   #E8A33D   live / now / active — ONE thing at a time
-pass     #4FA97B   green band, complete, contained
-warn     #D9A441   yellow band, at risk
-fail     #C4553F   red band, overran, skipped, over-committed
+ink      #F7F9F7   page background
+sunk     #F1F5F2   recessed sections, inset wells, chart tracks
+panel    #FFFFFF   cards, raised surfaces
+edge     #E4EAE6   borders, dividers, grid lines
+
+text     #17221C   primary
+soft     #66716A   secondary — descriptions, sub-labels
+muted    #98A29C   tertiary — axis labels, placeholders
+
+signal   #10B981   live / current / on pace — the one thing happening now
+deep     #047857   green text on white, emphasis
+mint     #34D399   chart fills, secondary series
+wash     #ECFDF5   subtle green ground — selected nav, completed rows
+
+pass     #10B981   green band, complete, contained
+warn     #F59E0B   yellow band, at risk, pushed
+fail     #EF4444   red band, overran, skipped, over-committed
+info     #3B82F6   informational, never a judgement
 ```
 
-Dark only. No light mode. It's read at 05:45 and at 22:40.
+Light only. Desktop only.
+
+**The green rule.** Roughly **90% neutral to 10% green**. Green means completed, healthy,
+on pace, or current focus — nothing else. If every heading, border and icon is green then
+green has stopped meaning anything and the bands stop reading. This is the single easiest
+thing to get wrong.
+
+**Colour is never the only signal.** Every band, status and pace figure is paired with the
+word for it. The red/yellow/green scoring is unchanged; it is simply drawn with less
+aggression.
 
 **Type:**
-- Display — `Archivo` 600/700, tracking -0.02em. Sentence case headings; uppercase with
-  0.08em tracking for block labels only.
-- Numerals — `IBM Plex Mono`, tabular figures. Every time, duration, countdown,
-  percentage, and rate. The monospace numerals *are* the visual identity.
-- Body — `Inter` 400/500.
+- Display and body — `Inter`, 400/500/600/700, tracking -0.02em on headings.
+- Numerals — `IBM Plex Mono`, tabular figures. Every time, duration, countdown, percentage
+  and rate. Monospace is reserved for **system metrics**; human content (task names,
+  descriptions, navigation) is sans. That distinction is doing real work — keep it.
 
-**Signature element — the Day Bar.** One horizontal band across the top of the Day screen
-representing the anchored day end to end. Each block is a segment sized by duration,
-coloured by status, with commitment completion shown as a fill *within* each segment and a
-thin `signal` marker at the live position. At a glance: how much of the day is spent, how
-much was actually finished, how much was lost. Nothing else on the screen competes with it.
+**Signature element — the Day Bar.** One horizontal band representing the anchored day end
+to end, over an hour ruler. Each block is a segment sized by duration and coloured by
+status, with commitment completion filling within the segment and a live marker at the
+current position. At a glance: how much of the day is spent, how much was finished, how
+much was lost.
 
-**Restraint.** No gradients. No shadows beyond a 1px `edge` border. No radius above 4px.
-No icons where a word will do. Motion limited to the live marker and status transitions.
+**Surfaces.** Cards are white on `ink`, 1px `edge`, 14px radius, 20–24px padding, with a
+shadow so faint it only separates what floats. Hierarchy comes from **borders and spacing**,
+not from shadow. Inputs are 10px radius with a visible focus ring.
+
+**Three states, everywhere.** Completed is green and quiet. Current is emphasised with an
+emerald marker. Future is neutral grey. The same three read identically on Now, Day, Plan
+and Progress.
+
+**Motion.** 150–300ms for hover, buttons, checkboxes, card transitions; 300–500ms for
+progress bars and charts arriving. Nothing loops, nothing animates in the background.
 Respect `prefers-reduced-motion`.
 
 **Copy.** Active voice, sentence case, no exclamation marks anywhere. Empty states give
-direction (*"No plan for tomorrow. Two minutes now saves twenty in the morning."*).
-Failure states state the fact and stop (*"Block overran by 18 minutes."*). The app does not
-console and does not scold.
+direction (*"No plan for tomorrow. Two minutes now saves twenty in the morning."*). Failure
+states state the fact and stay constructive: *"Needs attention — 3 days below target,
+against a limit of 1"*, not *"3 RED DAYS"*. The app does not console, does not scold, and
+does not shout. It answers "what should I do next?" rather than "you failed".
 
-**Layout.** Mobile-first, 5-tab bottom nav: **Now · Day · Plan · Progress · Settings**.
-Above 1024px, two columns with a persistent left rail and a full-width Day Bar.
-
----
+**Layout.** Desktop-first, and desktop-only. A 228px left sidebar — **Now · Day · Plan ·
+Progress · Settings** — with a line icon and a soft green selected row; a short persistent
+header; content capped at 1250px. Two- and three-column grids where the content earns
+them, collapsing to one column below roughly 1100px. No horizontal scrolling at any width,
+and no phone layout: there is no phone.
 
 ## 9. Build order
 
-Seven sessions. Each has a stopping condition. Do not proceed until it's met.
+Six sessions. Each has a stopping condition. Do not proceed until it's met.
 
 **Session 1 — Engine.**
 Scaffold Vite/React/TS/Tailwind with §8 tokens. Drop in `schedule.config.ts`. Implement
@@ -708,9 +739,6 @@ with all §4.7 keys wired. `vite-plugin-pwa`, manifest, icons, offline shell.
 *Done when: installable on the phone from the deployed URL, works in airplane mode, and
 toggling `nonNegotiableGate` visibly changes a day's band.*
 
-**Session 7 — Capacitor APK.**
-`NativeNotifier`, Android build, sideload.
-*Done when: a block-end notification fires on the locked phone with the app closed.*
 
 ---
 
@@ -719,7 +747,8 @@ toggling `nonNegotiableGate` visibly changes a day's band.*
 DSA revision, spaced repetition, problem banks, pattern tracking — **all of it lives in a
 separate app** · cloud sync · accounts · multiple users · a settings screen for the
 timetable · gamification, points, badges, streaks · social or accountability partners ·
-calendar integration · Pomodoro · light mode · an LLM coach · thesis or GPU-job tracking ·
-anything with the word "AI" in it
+calendar *integration* (the month grid is a view of your own scored days, not a feed) ·
+Pomodoro · dark mode · an Android build · a phone layout · an LLM coach · thesis or
+GPU-job tracking · anything with the word "AI" in it
 
 Some are reasonable for v2. None are worth missing Sunday for.
