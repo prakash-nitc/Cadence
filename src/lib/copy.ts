@@ -100,3 +100,34 @@ export function verdictLine(verdict: Verdict): string {
   if (verdict.status === 'overSlack') return `${head} Past the slack line.`;
   return `${head} Over capacity.`;
 }
+
+/**
+ * The line under the greeting on Now — §6 of the redesign brief, minus the cheerleading.
+ *
+ * States where the day actually stands and nothing else. "Let's make today count" is the
+ * thing this must never say: the app does not encourage and does not scold (rule 7), and
+ * a status line that is the same every morning stops being read by the second week.
+ *
+ * Pure. Everything it needs is passed in.
+ */
+export function dayStatusLine(input: {
+  anchored: boolean;
+  complete: boolean;
+  earnedMinutes: number;
+  committedMinutes: number;
+  runningLabel: string | null;
+}): string {
+  const { anchored, complete, earnedMinutes, committedMinutes, runningLabel } = input;
+
+  if (!anchored) return 'No day laid out yet. Start it below.';
+  if (complete) return 'Every block marked. Log it on Plan.';
+  if (committedMinutes === 0) {
+    return runningLabel
+      ? `${runningLabel} is running, with nothing committed to today.`
+      : 'Nothing committed to today.';
+  }
+
+  const percent = Math.round((earnedMinutes / committedMinutes) * 100);
+  const done = `${percent}% of today\u2019s committed minutes done`;
+  return runningLabel ? `${runningLabel} \u00b7 ${done}` : done;
+}

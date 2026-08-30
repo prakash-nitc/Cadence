@@ -20,7 +20,7 @@ import { statusForProgress } from '../engine/scoring';
 import { describeDegradation } from '../lib/copy';
 import type { Prefs } from '../lib/prefs';
 import { blocksForTemplate } from '../lib/templates';
-import { minutesBetween, toHHMM } from '../lib/time';
+import { addDays, dateKey, minutesBetween, toHHMM } from '../lib/time';
 
 /**
  * Notes on a day's layout that outlive a re-anchor.
@@ -57,6 +57,14 @@ interface DayState {
   savedTemplates: SavedTemplate[];
   loaded: boolean;
 
+  /**
+   * Yesterday's record and its commitments, for the day-over-day comparison.
+   *
+   * Held rather than read from the stored score, because thresholds are Settings: a
+   * change to the green line has to move yesterday's number too, or the comparison is
+   * between two different scales.
+   */
+  previous: { day: DayRecord; commitments: CommitmentRecord[] } | null;
   load: (now: number) => Promise<void>;
   /**
    * `blocks` overrides the template lookup — a custom day or a quick carve is a set of
@@ -155,17 +163,31 @@ export const useDay = create<DayState>((set, get) => {
     date: null,
     day: null,
     commitments: [],
+    previous: null,
     savedTemplates: [],
     loaded: false,
 
     load: async (now) => {
       const date = await resolveActiveDate(now);
-      const [day, commitments, savedTemplates] = await Promise.all([
-        getDay(date),
-        commitmentsFor(date),
-        listSavedTemplates(),
-      ]);
-      set({ date, day, commitments, savedTemplates, loaded: true });
+      const yesterday = dateKey(addDays(new Date(`${date}T12:00:00`), -1));
+
+      const [day, commitments, savedTemplates, previousDay, previousCommitments] =
+        await Promise.all([
+          getDay(date),
+          commitmentsFor(date),
+          listSavedTemplates(),
+          getDay(yesterday),
+          commitmentsFor(yesterday),
+        ]);
+
+      set({
+        date,
+        day,
+        commitments,
+        savedTemplates,
+        previous: previousDay ? { day: previousDay, commitments: previousCommitments } : null,
+        loaded: true,
+      });
     },
 
     startDay: async (anchor, templateId, prefs, customBlocks) => {

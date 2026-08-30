@@ -10,6 +10,8 @@ import {
   type SeriesPoint,
 } from '../components/charts/Charts';
 import { ConsistencyGrid } from '../components/ConsistencyGrid';
+import { DayDetail } from '../components/progress/DayDetail';
+import { StreakCard } from '../components/progress/StreakCard';
 import { MilestoneRow } from '../components/MilestoneRow';
 import { MonthTargetBar } from '../components/MonthTargetBar';
 import { TargetBar } from '../components/TargetBar';
@@ -29,6 +31,7 @@ import {
   bandDays,
   dailyEffort,
   milestoneStatuses,
+  streak,
   monthlyPacing,
   tagTotals,
   tallies,
@@ -508,6 +511,10 @@ function MonthView({
   const [draft, setDraft] = useState(overrides);
   useEffect(() => setDraft(overrides), [overrides]);
 
+  // Which day the calendar has open, if any. Cleared when the month changes.
+  const [picked, setPicked] = useState<string | null>(null);
+  useEffect(() => setPicked(null), [month]);
+
   const from = `${month}-01`;
   const to = endOfMonth(from);
   const daysInMonth =
@@ -591,19 +598,37 @@ function MonthView({
             days={calendar}
             onPrev={() => shift(-1)}
             onNext={() => shift(1)}
+            onPick={(date) => setPicked((current) => (current === date ? null : date))}
+            selected={picked}
           />
+          <p className="mt-3 text-xs text-muted">
+            Pick a day to read what actually happened on it.
+          </p>
         </Panel>
 
-        <Panel title={`Month of ${month}`} icon="progress">
-          <WeekShape
-            shape={shape}
-            label={`Month of ${month}`}
-            cells={cellsFor(monthBands, from, today < to ? today : to)}
+        {picked ? (
+          <DayDetail
+            date={picked}
+            day={period.days.find((entry) => entry.date === picked) ?? null}
+            commitments={period.commitments.filter(
+              (commitment) => commitment.dayDate === picked,
+            )}
+            log={period.logs.find((entry) => entry.date === picked) ?? null}
+            prefs={prefs}
+            onClose={() => setPicked(null)}
           />
-          <div className="mt-5">
-            <Tallies period={thisMonth} />
-          </div>
-        </Panel>
+        ) : (
+          <Panel title={`Month of ${month}`} icon="progress">
+            <WeekShape
+              shape={shape}
+              label={`Month of ${month}`}
+              cells={cellsFor(monthBands, from, today < to ? today : to)}
+            />
+            <div className="mt-5">
+              <Tallies period={thisMonth} />
+            </div>
+          </Panel>
+        )}
       </section>
 
       <section>
@@ -727,16 +752,21 @@ function HistoryView({
   });
 
   const done = milestones.filter((milestone) => milestone.status === 'done').length;
+  const run = streak(bands, asOf);
 
   return (
     <div className="space-y-5">
-      <Panel title="Activity" icon="bolt">
-        <Heatmap cells={cells} />
-        <p className="mt-3 text-xs text-muted">
-          Each square is a day, shaded by the work that actually landed. Nothing here
-          resets, and one quiet day costs you nothing.
-        </p>
-      </Panel>
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_260px]">
+        <Panel title="Activity" icon="bolt">
+          <Heatmap cells={cells} />
+          <p className="mt-3 text-xs text-muted">
+            Each square is a day, shaded by the work that actually landed. Intensity is
+            hours earned against your own busiest day, so it means something to you.
+          </p>
+        </Panel>
+
+        <StreakCard streak={run} />
+      </section>
 
       <Panel title="Bands, last 18 weeks" icon="calendar">
         <ConsistencyGrid bands={bands} from={from} to={to} />

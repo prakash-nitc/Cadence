@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Header, greetingFor } from './components/Header';
 import { Nav, type Tab } from './components/Nav';
+import { blockAt, isDayComplete, isResolved } from './engine/boundaries';
+import { completionOf, isDropped } from './engine/scoring';
+import { dayStatusLine } from './lib/copy';
 import { notifier } from './lib/notify';
 import { useNow } from './lib/useNow';
 import { Day } from './screens/Day';
@@ -24,7 +27,7 @@ export default function App() {
   const now = useNow(1000);
 
   const { prefs, targets, loaded: prefsLoaded, load: loadPrefs } = usePrefs();
-  const { loaded: dayLoaded, load: loadDay, date, day } = useDay();
+  const { loaded: dayLoaded, load: loadDay, date, day, commitments } = useDay();
 
   useEffect(() => {
     void loadPrefs();
@@ -53,7 +56,32 @@ export default function App() {
 
   const ready = prefsLoaded && dayLoaded && prefs !== null && date !== null;
 
-  const subtitle = SUBTITLES[tab];
+  /*
+   * Now gets a status line derived from the day as it actually stands; every other tab
+   * gets its fixed description. Computed here because the header lives here, and it is
+   * cheap: three reductions over one day's commitments.
+   */
+  const running = day?.blocks ? blockAt(day.blocks, now) : null;
+  const earned = commitments
+    .filter((commitment) => !isDropped(commitment))
+    .reduce((sum, c) => sum + c.plannedMinutes * completionOf(c), 0);
+  const committed = commitments
+    .filter((commitment) => !isDropped(commitment))
+    .reduce((sum, c) => sum + c.plannedMinutes, 0);
+
+  const subtitle =
+    tab === 'Now'
+      ? ready
+        ? dayStatusLine({
+            anchored: day?.anchorAt != null,
+            complete: day?.blocks ? isDayComplete(day.blocks) : false,
+            earnedMinutes: earned,
+            committedMinutes: committed,
+            runningLabel:
+              running && !isResolved(running) && running.kind !== 'gap' ? running.label : null,
+          })
+        : undefined
+      : SUBTITLES[tab];
 
   return (
     <div className="flex h-dvh overflow-hidden bg-ink">

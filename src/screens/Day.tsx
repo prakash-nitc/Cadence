@@ -6,9 +6,10 @@ import { DayBar } from '../components/DayBar';
 import { BAND_TONE } from '../components/now/NowParts';
 import { Icon } from '../components/ui/Icon';
 import { Button, Card, Panel, Pill, Ring, SectionTitle } from '../components/ui/primitives';
-import { containment, isActionable, isResolved } from '../engine/boundaries';
+import { containment, isActionable, isDayComplete, isResolved } from '../engine/boundaries';
 import { completionOf, isDropped, scoreDay } from '../engine/scoring';
 import { availableMinutes } from '../engine/capacity';
+import { partOfDay, type PartOfDay } from '../engine/pacing';
 import { gateLabel, unslotted } from '../lib/dayScoring';
 import { formatDuration, toHHMM } from '../lib/time';
 import { templateLabel } from '../lib/templates';
@@ -26,6 +27,7 @@ import { useDay } from '../store/dayStore';
 export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
   const {
     day,
+    previous,
     commitments,
     savedTemplates,
     correctBlock,
@@ -101,13 +103,52 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
 
   const score = result.score;
   const tone = result.band ? BAND_TONE[result.band] : 'neutral';
+  const complete = isDayComplete(day.blocks);
+
+  /*
+   * Yesterday, scored against today's Settings so the two numbers are on one scale.
+   * Shown only when both days actually have a score — a comparison against a day that
+   * was never worked is not a comparison.
+   */
+  const yesterday = previous
+    ? scoreDay(previous.commitments, prefs, previous.day.plannedAt !== null).score
+    : null;
+  const delta = score !== null && yesterday !== null ? score - yesterday : null;
 
   return (
     <div className="space-y-5">
       {/* The day at a glance: the ring, the timeline, and the four numbers. */}
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
-        <Card className="flex flex-col items-center justify-center py-6">
+        <Card
+          className={`flex flex-col items-center justify-center py-6 transition-colors ${
+            complete ? 'border-signal/40 bg-wash/50' : ''
+          }`}
+        >
+          {complete ? (
+            <p className="mb-3 flex items-center gap-1.5 text-sm font-medium text-deep">
+              <Icon name="check" size={15} />
+              Day complete
+            </p>
+          ) : null}
+
           <Ring value={score === null ? null : score / 100} tone={tone} label="of the day" />
+
+          {delta !== null && delta !== 0 ? (
+            <p
+              className={`mt-3 flex items-center gap-1.5 text-sm ${
+                delta > 0 ? 'text-deep' : 'text-fail'
+              }`}
+            >
+              <Icon name={delta > 0 ? 'arrowUp' : 'arrowDown'} size={14} />
+              <span className="font-mono">
+                {delta > 0 ? '+' : ''}
+                {delta}
+              </span>
+              <span className="text-soft">
+                {delta > 0 ? 'points on yesterday' : 'points down on yesterday'}
+              </span>
+            </p>
+          ) : null}
           {score === null ? (
             <p className="mt-4 max-w-[15rem] text-center text-sm text-soft">
               {result.band === 'red'
@@ -208,10 +249,34 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
         <div>
           <SectionTitle>Timeline</SectionTitle>
           <div>
-            {day.blocks.map((block) => (
-              <BlockRow
-                key={block.blockId}
-                block={block}
+            {day.blocks.map((block, index) => {
+              /*
+               * A heading whenever the part of the day changes. A seventeen-hour day is
+               * otherwise a single undifferentiated column, and "where did the afternoon
+               * go" stops being answerable by looking.
+               */
+              const part = partOfDay(block.startsAt);
+              const beforeIt = day.blocks[index - 1];
+              const heading: PartOfDay | null =
+                beforeIt === undefined || partOfDay(beforeIt.startsAt) !== part ? part : null;
+
+              return (
+                <div key={block.blockId}>
+                  {heading ? (
+                    <p
+                      className={`eyebrow flex items-center gap-2 pl-[92px] ${
+                        index === 0 ? 'pb-2' : 'pb-2 pt-4'
+                      }`}
+                    >
+                      <Icon
+                        name={part === 'Night' ? 'moon' : part === 'Morning' ? 'sparkle' : 'clock'}
+                        size={12}
+                      />
+                      {heading}
+                    </p>
+                  ) : null}
+                  <BlockRow
+                    block={block}
                 now={now}
                 onCorrect={(status) => void correctBlock(block.blockId, status, now)}
                 commitments={forBlock(block.blockId)}
@@ -221,10 +286,12 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
                 onDone={(id, done) => void setDone(id, done)}
                 onDrop={(id, reason, displacedBy) => void dropCommitment(id, reason, displacedBy)}
                 onRemoveCommitment={(id) => void removeCommitment(id)}
-                onEditCommitment={(id, edit) => void editCommitment(id, edit)}
-                placementMode={day.placementMode}
-              />
-            ))}
+                    onEditCommitment={(id, edit) => void editCommitment(id, edit)}
+                    placementMode={day.placementMode}
+                  />
+                </div>
+              );
+            })}
           </div>
 
           {unattached.length > 0 ? (

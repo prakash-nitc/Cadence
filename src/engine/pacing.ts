@@ -591,3 +591,90 @@ export function dailyEffort(period: Period): DayEffort[] {
     })
     .sort((a, b) => a.date.localeCompare(b.date));
 }
+
+// ─── Consistency ──────────────────────────────────────────────────────────────
+
+export interface Streak {
+  /** Days in a row up to the most recently scored day. */
+  current: number;
+  /** The longest run anywhere in the range given. */
+  best: number;
+}
+
+/**
+ * Consecutive days that scored above red.
+ *
+ * A streak is only worth showing if breaking it means something, so this counts days that
+ * cleared the red band rather than days the app was merely opened. An unplanned day is red
+ * by rule (§4.1), so a day nobody planned breaks it without needing a special case, and a
+ * run of twelve 55% days cannot read as success.
+ *
+ * Placement days are transparent: they neither extend the run nor break it. §4.6 is
+ * explicit that a day spent in an interview is not a lapse in discipline, and a streak
+ * that punished one would be exactly that.
+ *
+ * A date with no record at all breaks the run. Gaps are not free — that is the one thing
+ * a streak is actually good at measuring.
+ *
+ * `today` is excluded until it has a score, so a day still being worked never breaks a
+ * run it has not finished yet.
+ */
+export function streak(bands: DayBand[], today: string): Streak {
+  const byDate = new Map(bands.map((band) => [band.date, band]));
+
+  const dates = bands
+    .map((band) => band.date)
+    .filter((date) => date <= today)
+    .sort();
+  const earliest = dates[0];
+  if (earliest === undefined) return { current: 0, best: 0 };
+
+  /** Every date from the first record to today, so absences are visible as absences. */
+  const walk: string[] = [];
+  for (
+    let at = Date.parse(`${earliest}T12:00:00`);
+    at <= Date.parse(`${today}T12:00:00`);
+    at += 86_400_000
+  ) {
+    walk.push(new Date(at).toISOString().slice(0, 10));
+  }
+
+  let best = 0;
+  let run = 0;
+
+  for (const date of walk) {
+    const band = byDate.get(date);
+
+    // Still being worked: it has not failed yet, so it neither extends nor breaks.
+    if (date === today && (band === undefined || band.score === null)) continue;
+    if (band?.placementMode) continue;
+
+    if (band && (band.band === 'green' || band.band === 'yellow')) {
+      run += 1;
+      best = Math.max(best, run);
+    } else {
+      run = 0;
+    }
+  }
+
+  return { current: run, best };
+}
+
+// ─── Time of day ──────────────────────────────────────────────────────────────
+
+export type PartOfDay = 'Morning' | 'Afternoon' | 'Evening' | 'Night';
+
+/**
+ * Which part of the day a timestamp falls in, for grouping a long timeline.
+ *
+ * Night runs to 05:00 rather than to midnight, because a Cadence day routinely does: a
+ * block at 01:15 belongs to the evening's work, not to a new morning.
+ */
+export function partOfDay(at: number): PartOfDay {
+  const hour = new Date(at).getHours();
+  if (hour < 5) return 'Night';
+  if (hour < 12) return 'Morning';
+  if (hour < 17) return 'Afternoon';
+  if (hour < 22) return 'Evening';
+  return 'Night';
+}

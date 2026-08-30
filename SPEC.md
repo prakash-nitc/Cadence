@@ -746,9 +746,19 @@ toggling `nonNegotiableGate` visibly changes a day's band.*
 
 DSA revision, spaced repetition, problem banks, pattern tracking — **all of it lives in a
 separate app** · cloud sync · accounts · multiple users · a settings screen for the
-timetable · gamification, points, badges, streaks · social or accountability partners ·
+timetable · gamification, points, badges · social or accountability partners ·
 calendar *integration* (the month grid is a view of your own scored days, not a feed) ·
 Pomodoro · dark mode · an Android build · a phone layout · an LLM coach · thesis or
 GPU-job tracking · anything with the word "AI" in it
 
 Some are reasonable for v2. None are worth missing Sunday for.
+
+**The one reversal.** Streaks were on this list. A consistency run is now shown on
+Progress → History, and it earns its place by counting something that costs you to break:
+**consecutive days that cleared the red band**. An unplanned day is red by rule, so a gap
+breaks it; a run of mediocre days cannot accumulate; and a placement day passes through
+without counting either way (§4.6). It states its own rule on the card, sits at level 4 of
+§8's hierarchy where it cannot compete with today, and has no fire, no badge, and no
+"best ever" fanfare beyond a single line.
+
+If a future change makes the run easier to hold, that change is wrong.

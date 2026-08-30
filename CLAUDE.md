@@ -63,11 +63,14 @@ Never read `DEFAULT_PREFS` at runtime outside the first-run seeder.
 ## What not to build
 
 Anything in SPEC §10. Especially: **DSA revision, spaced repetition, problem banks, and
-pattern tracking — those live in a separate app the user already built.** Also no streaks,
-points, badges, cloud sync, LLM coach, dark mode, or a phone layout.
+pattern tracking — those live in a separate app the user already built.** Also no points,
+badges, cloud sync, LLM coach, dark mode, or a phone layout.
 
-The activity heatmap is not a streak: it shows what work landed, nothing resets, and a
-missed day costs nothing. Keep it that way.
+The consistency run is the one reversal, and it is allowed only on the terms in §10: it
+counts days that cleared red, an unplanned day breaks it, and a placement day passes
+through. Do not soften any of those — a run that is easy to hold measures nothing. The
+activity heatmap beside it is *not* a streak: it shows what work landed, nothing resets,
+and a missed day costs nothing.
 
 If a feature idea arrives mid-build that isn't in the spec, write it in `IDEAS.md` and
 carry on.

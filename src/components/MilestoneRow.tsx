@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import type { MilestoneStatus, MilestoneView } from '../engine/pacing';
+import { Icon } from './ui/Icon';
+import { Bar, Button, type Tone } from './ui/primitives';
 
 /**
  * One milestone — SPEC §4.4. Date, days remaining, derived status, and its sub-checklist.
@@ -14,8 +16,15 @@ const STATUS_LABEL: Record<MilestoneStatus, string> = {
 const STATUS_TONE: Record<MilestoneStatus, string> = {
   upcoming: 'text-muted',
   atRisk: 'text-warn',
-  done: 'text-pass',
+  done: 'text-deep',
   missed: 'text-fail',
+};
+
+const BAR_TONE: Record<MilestoneStatus, Tone> = {
+  upcoming: 'signal',
+  atRisk: 'warn',
+  done: 'pass',
+  missed: 'fail',
 };
 
 interface MilestoneRowProps {
@@ -37,27 +46,59 @@ export function MilestoneRow({ milestone, onToggleItem, onToggleDone }: Mileston
           ? 'today'
           : `${daysRemaining}d`;
 
+  /*
+   * How far in it is, from the checklist the roadmap gave it. A milestone with no
+   * checklist has no measurable progress, so it draws no bar rather than an empty one
+   * implying nothing has been done.
+   */
+  const total = milestone.checklist.length;
+  const done = milestone.checked.filter((item) => milestone.checklist.includes(item)).length;
+  const fraction = status === 'done' ? 1 : total === 0 ? null : done / total;
+
   return (
-    <div className="border-b border-edge px-3 py-2.5 last:border-b-0">
+    <div className="border-b border-edge px-4 py-3 last:border-b-0">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         className="flex w-full items-start gap-3 text-left"
       >
-        <span className="w-20 shrink-0 font-mono text-xs text-muted">{milestone.date}</span>
+        <span className="w-20 shrink-0 pt-0.5 font-mono text-xs text-muted">
+          {milestone.date}
+        </span>
 
         <span className="min-w-0 flex-1">
-          <span className={`block text-sm ${status === 'done' ? 'text-muted' : 'text-text'}`}>
+          <span
+            className={`block text-sm font-medium ${
+              status === 'done' ? 'text-muted line-through' : 'text-text'
+            }`}
+          >
             {milestone.critical ? <span className="mr-1 text-signal">•</span> : null}
             {milestone.label}
           </span>
+
+          {fraction === null ? null : (
+            <span className="mt-2 block max-w-md">
+              <Bar value={fraction} tone={BAR_TONE[status]} height="h-1.5" animate={false} />
+              <span className="mt-1 block font-mono text-xs text-muted">
+                {status === 'done' && total === 0
+                  ? 'marked done'
+                  : `${done} of ${total} done`}
+              </span>
+            </span>
+          )}
         </span>
 
         <span className="shrink-0 text-right">
-          <span className={`block text-xs ${STATUS_TONE[status]}`}>{STATUS_LABEL[status]}</span>
+          <span
+            className={`flex items-center justify-end gap-1.5 text-xs font-medium ${STATUS_TONE[status]}`}
+          >
+            {status === 'done' ? <Icon name="check" size={13} /> : null}
+            {status === 'missed' || status === 'atRisk' ? <Icon name="alert" size={13} /> : null}
+            {STATUS_LABEL[status]}
+          </span>
           {remaining ? (
-            <span className="block font-mono text-xs text-muted">{remaining}</span>
+            <span className="mt-0.5 block font-mono text-xs text-muted">{remaining}</span>
           ) : null}
         </span>
       </button>
@@ -76,11 +117,15 @@ export function MilestoneRow({ milestone, onToggleItem, onToggleDone }: Mileston
                       className="flex items-center gap-2 text-left"
                     >
                       <span
-                        className={`h-3 w-3 shrink-0 border ${
-                          checked ? 'border-pass bg-pass' : 'border-edge'
+                        className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors ${
+                          checked ? 'border-signal bg-signal text-panel' : 'border-edge'
                         }`}
-                      />
-                      <span className={`text-xs ${checked ? 'text-muted' : 'text-text'}`}>
+                      >
+                        {checked ? <Icon name="check" size={11} /> : null}
+                      </span>
+                      <span
+                        className={`text-xs ${checked ? 'text-muted line-through' : 'text-text'}`}
+                      >
                         {item}
                       </span>
                     </button>
@@ -94,13 +139,9 @@ export function MilestoneRow({ milestone, onToggleItem, onToggleDone }: Mileston
             </p>
           )}
 
-          <button
-            type="button"
-            onClick={onToggleDone}
-            className="mt-2 border border-edge px-2 py-1 text-xs text-muted hover:border-muted hover:text-text"
-          >
+          <Button size="sm" variant="ghost" className="mt-3" onClick={onToggleDone}>
             {status === 'done' ? 'Mark not done' : 'Mark done'}
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>

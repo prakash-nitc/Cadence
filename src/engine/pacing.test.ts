@@ -8,6 +8,9 @@ import {
 import type { CommitmentRecord, DayRecord, LogRecord } from '../db/schema';
 import type { Prefs } from '../lib/prefs';
 import {
+  partOfDay,
+  streak,
+  type DayBand,
   dailyEffort,
   bandDays,
   milestoneStatuses,
@@ -789,5 +792,102 @@ describe('dailyEffort', () => {
       '2026-09-02',
       '2026-09-03',
     ]);
+  });
+});
+
+describe('streak', () => {
+  const band = (
+    date: string,
+    value: 'green' | 'yellow' | 'red' | null,
+    placementMode = false,
+  ): DayBand => ({
+    date,
+    band: value,
+    score: value === null ? null : value === 'green' ? 90 : value === 'yellow' ? 65 : 20,
+    template: 'full',
+    placementMode,
+    planned: true,
+    anchored: true,
+  });
+
+  it('counts days that cleared red, not days the app was opened', () => {
+    const bands = [
+      band('2026-09-01', 'green'),
+      band('2026-09-02', 'yellow'),
+      band('2026-09-03', 'green'),
+    ];
+    expect(streak(bands, '2026-09-03')).toEqual({ current: 3, best: 3 });
+  });
+
+  it('breaks on a red day', () => {
+    const bands = [
+      band('2026-09-01', 'green'),
+      band('2026-09-02', 'red'),
+      band('2026-09-03', 'green'),
+    ];
+    expect(streak(bands, '2026-09-03')).toEqual({ current: 1, best: 1 });
+  });
+
+  it('breaks on a day with no record at all', () => {
+    // Gaps are not free. Skipping a day entirely is the thing a streak should catch.
+    const bands = [band('2026-09-01', 'green'), band('2026-09-03', 'green')];
+    expect(streak(bands, '2026-09-03')).toEqual({ current: 1, best: 1 });
+  });
+
+  it('lets a placement day pass through without extending or breaking', () => {
+    // SPEC §4.6: a day in an interview is not a lapse in discipline.
+    const bands = [
+      band('2026-09-01', 'green'),
+      band('2026-09-02', null, true),
+      band('2026-09-03', 'green'),
+    ];
+    expect(streak(bands, '2026-09-03')).toEqual({ current: 2, best: 2 });
+  });
+
+  it('does not let today break a run it has not finished', () => {
+    const bands = [
+      band('2026-09-01', 'green'),
+      band('2026-09-02', 'green'),
+      band('2026-09-03', null),
+    ];
+    expect(streak(bands, '2026-09-03')).toEqual({ current: 2, best: 2 });
+  });
+
+  it('remembers the best run even after it breaks', () => {
+    const bands = [
+      band('2026-09-01', 'green'),
+      band('2026-09-02', 'green'),
+      band('2026-09-03', 'green'),
+      band('2026-09-04', 'red'),
+      band('2026-09-05', 'green'),
+    ];
+    expect(streak(bands, '2026-09-05')).toEqual({ current: 1, best: 3 });
+  });
+
+  it('ignores days after today', () => {
+    const bands = [band('2026-09-01', 'green'), band('2026-09-09', 'green')];
+    expect(streak(bands, '2026-09-01')).toEqual({ current: 1, best: 1 });
+  });
+
+  it('is zero with nothing logged', () => {
+    expect(streak([], '2026-09-01')).toEqual({ current: 0, best: 0 });
+  });
+});
+
+describe('partOfDay', () => {
+  const at = (hhmm: string) => Date.parse(`2026-09-01T${hhmm}:00`);
+
+  it('splits the day where a person would', () => {
+    expect(partOfDay(at('08:00'))).toBe('Morning');
+    expect(partOfDay(at('13:00'))).toBe('Afternoon');
+    expect(partOfDay(at('19:00'))).toBe('Evening');
+    expect(partOfDay(at('23:00'))).toBe('Night');
+  });
+
+  it('keeps the small hours with the night, not the next morning', () => {
+    // A Cadence day routinely runs past midnight; 01:15 is still that evening's work.
+    expect(partOfDay(at('01:15'))).toBe('Night');
+    expect(partOfDay(at('04:59'))).toBe('Night');
+    expect(partOfDay(at('05:00'))).toBe('Morning');
   });
 });
