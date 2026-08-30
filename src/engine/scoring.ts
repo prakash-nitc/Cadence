@@ -197,12 +197,21 @@ export function projectDay(
 }
 
 export interface BurnDown {
-  /** Planned minutes still owed, discounted by whatever partial credit exists. */
+  /** Planned minutes still owed and still doable, discounted by partial credit. */
   committedMinutes: number;
   availableMinutes: number;
   /** Minutes by which commitment exceeds the runway. Zero when it fits. */
   overBy: number;
   negative: boolean;
+  /**
+   * Owed minutes on blocks that have already gone.
+   *
+   * Still unfinished, and still scored as unfinished — but not competing for the time
+   * that is left, because there is nowhere left to do them. Counting these as committed
+   * made the strip demand triage that could not help: no amount of cutting the rest of
+   * the day buys back a block that closed at lunchtime.
+   */
+  strandedMinutes: number;
 }
 
 /**
@@ -211,12 +220,25 @@ export interface BurnDown {
  *
  * Dropped commitments owe nothing: they are not going to be done, and pretending they
  * still weigh on the day would make the strip lie in the reassuring direction.
+ *
+ * Work on a block that has already passed is reported separately rather than counted:
+ * it is owed, but it is not a claim on the time that is left. `projectDay` already
+ * writes it off, and the two numbers sitting side by side had to agree about it.
  */
-export function burnDown(commitments: Scorable[], availableMinutes: number): BurnDown {
-  const committedMinutes = commitments.reduce((sum, commitment) => {
-    if (isDropped(commitment)) return sum;
-    return sum + commitment.plannedMinutes * (1 - completionOf(commitment));
-  }, 0);
+export function burnDown(
+  commitments: Scorable[],
+  availableMinutes: number,
+  blockHasPassed: (blockId: string | null) => boolean = () => false,
+): BurnDown {
+  let committedMinutes = 0;
+  let strandedMinutes = 0;
+
+  for (const commitment of commitments) {
+    if (isDropped(commitment)) continue;
+    const owed = commitment.plannedMinutes * (1 - completionOf(commitment));
+    if (blockHasPassed(commitment.blockId)) strandedMinutes += owed;
+    else committedMinutes += owed;
+  }
 
   const overBy = Math.max(0, Math.round(committedMinutes - availableMinutes));
 
@@ -225,6 +247,7 @@ export function burnDown(commitments: Scorable[], availableMinutes: number): Bur
     availableMinutes: Math.max(0, Math.round(availableMinutes)),
     overBy,
     negative: overBy > 0,
+    strandedMinutes: Math.round(strandedMinutes),
   };
 }
 

@@ -357,6 +357,43 @@ describe('burnDown', () => {
     ];
     expect(burnDown(dropped, 300).committedMinutes).toBe(20);
   });
+
+  it('sets aside work whose block has already gone', () => {
+    // The reported case: a block closed at lunchtime with a third of its commitment done.
+    // The remaining 90 minutes are owed, but no amount of triage later in the day reaches
+    // them, so they must not read as a claim on the runway.
+    const passed = (blockId: string | null) => blockId === 'dsa_deep';
+    const result = burnDown(commitments, 300, passed);
+
+    expect(result.strandedMinutes).toBe(90);
+    expect(result.committedMinutes).toBe(100);
+    expect(result.negative).toBe(false);
+  });
+
+  it('counts nothing as stranded when every block is still ahead', () => {
+    expect(burnDown(commitments, 300).strandedMinutes).toBe(0);
+  });
+
+  it('does not strand a commitment that was already dropped', () => {
+    // Dropped work owes nothing at all; it must not reappear as stranded.
+    const dropped = [c('dsa_deep', 180, 4, 2, { status: 'skipped' })];
+    const result = burnDown(dropped, 300, () => true);
+    expect(result.strandedMinutes).toBe(0);
+    expect(result.committedMinutes).toBe(0);
+  });
+
+  it('agrees with the projection about what is unreachable', () => {
+    // projectDay writes off a passed block's commitment; the burn-down now does too, so
+    // the two numbers on Now can no longer disagree about the same minutes.
+    const passed = (blockId: string | null) => blockId === 'dsa_deep';
+    const projected = projectDay(commitments, DEFAULT_PREFS, true, passed, 300);
+    const burn = burnDown(commitments, 300, passed);
+
+    // Partial credit survives in the score: 180 × 2/4 = 90 of 180 earned on that block,
+    // plus the 100 still reachable and the 20 already banked.
+    expect(projected.earned).toBe(90 + 100 + 20);
+    expect(burn.strandedMinutes).toBe(180 - 90);
+  });
 });
 
 describe('triageOrder', () => {

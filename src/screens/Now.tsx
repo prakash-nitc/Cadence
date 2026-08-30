@@ -80,7 +80,8 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
   const heldBack = waiting.length > 0 && running && running !== waiting[0] ? running : null;
 
   const runway = runwayMinutes(day.blocks, now);
-  const burn = burnDown(commitments, runway);
+  const passed = blockPassed(day.blocks, now);
+  const burn = burnDown(commitments, runway, passed);
   // Measured the same way as the burn-down itself, so the two numbers are comparable.
   const unslottedMinutes = burnDown(unslotted(commitments, day.blocks), 0).committedMinutes;
   // Chronological, so the projection credits work in the order it will actually be done,
@@ -93,7 +94,7 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
     inDayOrder,
     prefs,
     planned,
-    blockPassed(day.blocks, now),
+    passed,
     runway,
   );
   const labelFor = gateLabel(commitments, day.blocks);

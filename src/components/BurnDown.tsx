@@ -20,7 +20,7 @@ interface BurnDownProps {
 }
 
 export function BurnDown({ result, unslottedMinutes = 0, onTriage }: BurnDownProps) {
-  const { committedMinutes, availableMinutes, overBy, negative } = result;
+  const { committedMinutes, availableMinutes, overBy, negative, strandedMinutes } = result;
   const total = Math.max(committedMinutes, availableMinutes, 1);
 
   return (
@@ -50,6 +50,13 @@ export function BurnDown({ result, unslottedMinutes = 0, onTriage }: BurnDownPro
 
       {negative ? (
         <p className="mt-1 text-xs text-fail">Over-committed by {formatDuration(overBy)}.</p>
+      ) : null}
+
+      {strandedMinutes > 0 ? (
+        <p className="mt-1 text-xs text-muted">
+          {formatDuration(strandedMinutes)} owed on blocks that have passed. Triage cannot
+          reach it; the score already counts what got done.
+        </p>
       ) : null}
 
       {unslottedMinutes > 0 ? (
