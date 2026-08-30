@@ -1,13 +1,33 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FULL_DAY, MILESTONES, type WeeklyTarget } from '../config/schedule.config';
+import {
+  BarChart,
+  Heatmap,
+  LineChart,
+  MonthCalendar,
+  type CalendarDay,
+  type HeatCell,
+  type SeriesPoint,
+} from '../components/charts/Charts';
 import { ConsistencyGrid } from '../components/ConsistencyGrid';
 import { MilestoneRow } from '../components/MilestoneRow';
 import { MonthTargetBar } from '../components/MonthTargetBar';
 import { TargetBar } from '../components/TargetBar';
 import { WeekShape, type ShapeCell } from '../components/WeekShape';
 import { committableMinutes } from '../engine/feasibility';
+import { Icon } from '../components/ui/Icon';
+import {
+  Button,
+  Card,
+  Panel,
+  Ring,
+  SectionTitle,
+  TONE_TEXT,
+  type Tone,
+} from '../components/ui/primitives';
 import {
   bandDays,
+  dailyEffort,
   milestoneStatuses,
   monthlyPacing,
   tagTotals,
@@ -76,6 +96,130 @@ const slice = (period: Period, from: string, to: string): Period => ({
   logs: period.logs.filter((log) => log.date >= from && log.date <= to),
 });
 
+const BAND_TO_TONE: Record<'green' | 'yellow' | 'red', Tone> = {
+  green: 'pass',
+  yellow: 'warn',
+  red: 'fail',
+};
+
+/** Mean score across days that were actually scored. Null with none — never a zero. */
+function meanScore(bands: ReturnType<typeof bandDays>): number | null {
+  const scored = bands.filter((band) => band.score !== null);
+  if (scored.length === 0) return null;
+  return Math.round(
+    scored.reduce((sum, band) => sum + (band.score ?? 0), 0) / scored.length,
+  );
+}
+
+const WEEKDAY = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/** One point per calendar day in the frame, so an unlogged day breaks the line. */
+function scoreSeries(
+  bands: ReturnType<typeof bandDays>,
+  from: string,
+  to: string,
+): SeriesPoint[] {
+  const byDate = new Map(bands.map((band) => [band.date, band]));
+  return datesBetween(from, to).map((date) => {
+    const band = byDate.get(date);
+    const at = new Date(`${date}T12:00:00`);
+    return {
+      label: WEEKDAY[(at.getDay() + 6) % 7] ?? date.slice(8),
+      value: band?.score ?? null,
+      ...(band?.band ? { detail: band.band } : {}),
+    };
+  });
+}
+
+/**
+ * How the week actually went, in words — §36.
+ *
+ * The state stays honest; the wording says what to do about it rather than announcing a
+ * failure. "Three days below target" is the same fact as "3 RED DAYS" without the shout.
+ */
+function weekVerdict(
+  shape: ReturnType<typeof weekShape>,
+  prefs: Prefs,
+): { tone: Tone; headline: string; detail: string } {
+  const logged = shape.green + shape.yellow + shape.red;
+  if (logged === 0) {
+    return {
+      tone: 'neutral',
+      headline: 'Nothing logged yet',
+      detail: 'The week starts scoring as soon as a day is planned and worked.',
+    };
+  }
+  const want = prefs.weekShape;
+
+  if (shape.red > want.maxRed) {
+    return {
+      tone: 'fail',
+      headline: 'Needs attention',
+      detail: `${shape.red} days below target, against a limit of ${want.maxRed}.`,
+    };
+  }
+  if (shape.green >= want.minGreen) {
+    return {
+      tone: 'pass',
+      headline: 'On track',
+      detail: `${shape.green} green days, at or above the ${want.minGreen} you set.`,
+    };
+  }
+  return {
+    tone: 'warn',
+    headline: 'Behind the shape',
+    detail: `${shape.green} of ${want.minGreen} green days so far.`,
+  };
+}
+
+/** The heading block every horizon opens with — §24. */
+function ProgressHero({
+  eyebrow,
+  score,
+  tone,
+  headline,
+  detail,
+  delta,
+  deltaLabel,
+  children,
+}: {
+  eyebrow: string;
+  score: number | null;
+  tone: Tone;
+  headline: string;
+  detail: string;
+  delta?: number | null;
+  deltaLabel?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <Card className="grid grid-cols-1 gap-6 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
+      <div className="flex justify-center md:justify-start">
+        <Ring value={score === null ? null : score / 100} tone={tone} label={eyebrow} />
+      </div>
+
+      <div className="min-w-0">
+        <h2 className={`text-lg font-semibold ${TONE_TEXT[tone]}`}>{headline}</h2>
+        <p className="mt-1 text-sm text-soft">{detail}</p>
+
+        {delta !== undefined && delta !== null && delta !== 0 ? (
+          <p
+            className={`mt-3 flex items-center gap-1.5 text-sm ${
+              delta > 0 ? 'text-deep' : 'text-fail'
+            }`}
+          >
+            <Icon name={delta > 0 ? 'arrowUp' : 'arrowDown'} size={14} />
+            <span className="font-mono">{delta > 0 ? '+' : ''}{delta}</span>
+            <span className="text-soft">{deltaLabel}</span>
+          </p>
+        ) : null}
+
+        {children}
+      </div>
+    </Card>
+  );
+}
+
 export function Progress({ prefs, targets }: { prefs: Prefs; targets: WeeklyTarget[] }) {
   const { date } = useDay();
   const {
@@ -131,16 +275,18 @@ export function Progress({ prefs, targets }: { prefs: Prefs; targets: WeeklyTarg
 
   return (
     <div className="space-y-5">
-      <header className="flex items-baseline justify-between gap-3">
-        <h1 className="font-display text-2xl tracking-display text-text">Progress</h1>
-        <div className="flex gap-px">
+      <header className="flex items-center justify-between gap-3">
+        <div className="inline-flex rounded-md border border-edge bg-panel p-1">
           {HORIZONS.map((option) => (
             <button
               key={option}
               type="button"
               onClick={() => setHorizon(option)}
-              className={`border px-2.5 py-1 text-xs ${
-                horizon === option ? 'border-signal text-signal' : 'border-edge text-muted'
+              aria-pressed={horizon === option}
+              className={`rounded-sm px-4 py-1.5 text-sm transition-colors ${
+                horizon === option
+                  ? 'bg-wash font-medium text-deep'
+                  : 'text-soft hover:text-text'
               }`}
             >
               {option}
@@ -202,25 +348,28 @@ function Tallies({ period }: { period: Period }) {
 
   return (
     <div>
-      <dl className="grid grid-cols-4 gap-px border border-edge bg-edge">
+      <dl className="grid grid-cols-4 gap-px overflow-hidden rounded-lg border border-edge bg-edge">
         {cells.map((cell) => (
-          <div key={cell.label} className="bg-panel px-2 py-2">
-            <dt className="text-xs text-muted">{cell.label}</dt>
-            <dd className="font-mono text-sm text-text">{cell.value}</dd>
+          <div key={cell.label} className="bg-panel px-4 py-3">
+            <dt className="text-[11px] uppercase tracking-block text-muted">{cell.label}</dt>
+            <dd className="mt-1 font-mono text-lg font-semibold text-text">{cell.value}</dd>
           </div>
         ))}
       </dl>
 
       {t.energyTrend.length > 1 ? (
-        <div className="mt-2 flex h-6 items-end gap-0.5">
-          {t.energyTrend.map((value, index) => (
-            <div
-              key={index}
-              className="flex-1 bg-muted/40"
-              style={{ height: `${(value / 5) * 100}%` }}
-              title={`Energy ${value}`}
-            />
-          ))}
+        <div className="mt-3">
+          <p className="mb-1.5 text-xs text-muted">Energy, day by day</p>
+          <div className="flex h-8 items-end gap-1">
+            {t.energyTrend.map((value, index) => (
+              <div
+                key={index}
+                className="flex-1 rounded-sm bg-mint/60"
+                style={{ height: `${(value / 5) * 100}%` }}
+                title={`Energy ${value} of 5`}
+              />
+            ))}
+          </div>
         </div>
       ) : null}
     </div>
@@ -249,29 +398,88 @@ function WeekView({
   const bands = bandDays(period, prefs);
   const shape = weekShape(bands, prefs);
   const paces = weeklyPacing(period, targets, daysLeft, capacity);
+  const verdict = weekVerdict(shape, prefs);
+  const average = meanScore(bands);
+
+  const effort = dailyEffort(period);
+  const effortByDate = new Map(effort.map((day) => [day.date, day]));
+  const focus: SeriesPoint[] = datesBetween(from, to).map((date) => {
+    const at = new Date(`${date}T12:00:00`);
+    const day = effortByDate.get(date);
+    return {
+      label: WEEKDAY[(at.getDay() + 6) % 7] ?? date.slice(8),
+      value: day ? day.earnedMinutes / 60 : null,
+    };
+  });
+
+  /*
+   * The behind-most target, named. §37: derived from the paces already computed, never
+   * a statistic invented for the insight line.
+   */
+  const behindMost = paces
+    .filter((pace) => pace.tracked && pace.achieved < pace.min && pace.min > 0)
+    .sort((a, b) => a.achieved / a.min - b.achieved / b.min)[0];
 
   return (
     <div className="space-y-5">
-      <WeekShape shape={shape} label={label} cells={cellsFor(bands, from, to)} weekdays />
+      <ProgressHero
+        eyebrow="this week"
+        score={average}
+        tone={verdict.tone}
+        headline={verdict.headline}
+        detail={verdict.detail}
+      >
+        <p className="mt-3 font-mono text-xs text-muted">
+          {label} · {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+        </p>
+      </ProgressHero>
+
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <Panel title="Day by day" icon="calendar">
+          <WeekShape shape={shape} label={label} cells={cellsFor(bands, from, to)} weekdays />
+        </Panel>
+
+        <Panel title="Score across the week" icon="chart">
+          <LineChart points={scoreSeries(bands, from, to)} />
+        </Panel>
+      </section>
 
       <section>
-        {/* Said once, rather than on all eight rows. */}
-        <div className="mb-1.5 flex items-baseline justify-between">
-          <h2 className="text-xs uppercase tracking-block text-muted">Targets</h2>
-          <span className="font-mono text-xs text-muted">
-            {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
-          </span>
-        </div>
-        <div className="border border-edge bg-panel">
+        <SectionTitle
+          action={
+            <span className="font-mono text-xs text-muted">
+              {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+            </span>
+          }
+        >
+          Targets
+        </SectionTitle>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {paces.map((pace) => (
             <TargetBar key={pace.id} pace={pace} totalDays={7} />
           ))}
         </div>
+
+        {behindMost ? (
+          <p className="mt-3 flex items-center gap-2 rounded-lg border border-edge bg-sunk px-4 py-3 text-sm text-soft">
+            <Icon name="sparkle" size={14} className="shrink-0 text-muted" />
+            <span>
+              <span className="font-medium text-text">{behindMost.label}</span> is furthest
+              behind — {behindMost.achieved} of {behindMost.min}
+              {behindMost.unit === 'hours' ? ' hrs' : ` ${behindMost.unit}`}.
+            </span>
+          </p>
+        ) : null}
       </section>
 
-      <section>
-        <h2 className="mb-1.5 text-xs uppercase tracking-block text-muted">This week</h2>
-        <Tallies period={period} />
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <Panel title="Focus time" icon="clock">
+          <BarChart points={focus} />
+        </Panel>
+
+        <Panel title="This week" icon="progress">
+          <Tallies period={period} />
+        </Panel>
       </section>
     </div>
   );
@@ -336,77 +544,103 @@ function MonthView({
 
   const state = month > today.slice(0, 7) ? 'ahead' : month < today.slice(0, 7) ? 'done' : 'running';
 
+  const average = meanScore(monthBands);
+  const calendar: CalendarDay[] = monthBands.map((band) => ({
+    date: band.date,
+    tone: band.band ? BAND_TO_TONE[band.band] as 'pass' | 'warn' | 'fail' : null,
+    title: `${band.date} \u2014 ${band.score === null ? 'not scored' : `${band.score}%`}${
+      band.placementMode ? ' \u00b7 placement day' : ''
+    }`,
+  }));
+
+  const logged = shape.green + shape.yellow + shape.red;
+  // The weekly shape scaled by however many weeks the month holds.
+  const tone: Tone =
+    logged === 0
+      ? 'neutral'
+      : shape.red > prefs.weekShape.maxRed * weeks.length
+        ? 'fail'
+        : shape.green >= prefs.weekShape.minGreen * weeks.length
+          ? 'pass'
+          : 'warn';
+
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => shift(-1)}
-          aria-label="Previous month"
-          className="border border-edge px-2.5 py-1 font-mono text-sm text-muted hover:border-muted hover:text-text"
-        >
-          ‹
-        </button>
-        <span className="font-mono text-sm text-text">
-          {month}
-          <span className="ml-2 text-xs text-muted">
-            {state === 'ahead' ? 'not started' : state === 'done' ? 'finished' : 'running'}
-          </span>
-        </span>
-        <button
-          type="button"
-          onClick={() => shift(1)}
-          aria-label="Next month"
-          className="border border-edge px-2.5 py-1 font-mono text-sm text-muted hover:border-muted hover:text-text"
-        >
-          ›
-        </button>
-      </div>
-
-      <WeekShape
-        shape={shape}
-        label={`Month of ${month}`}
-        cells={cellsFor(monthBands, from, today < to ? today : to)}
+      <ProgressHero
+        eyebrow="this month"
+        score={average}
+        tone={tone}
+        headline={
+          state === 'ahead' ? 'Not started' : state === 'done' ? 'Finished' : 'Running'
+        }
+        detail={
+          logged === 0
+            ? 'No days scored in this month yet.'
+            : `${shape.green} green, ${shape.yellow} yellow and ${shape.red} red across ${logged} scored days.`
+        }
+        delta={
+          previousShape.green + previousShape.yellow + previousShape.red === 0 ? null : delta
+        }
+        deltaLabel="green days against last month"
       />
 
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <Panel title="Calendar" icon="calendar">
+          <MonthCalendar
+            month={month}
+            days={calendar}
+            onPrev={() => shift(-1)}
+            onNext={() => shift(1)}
+          />
+        </Panel>
+
+        <Panel title={`Month of ${month}`} icon="progress">
+          <WeekShape
+            shape={shape}
+            label={`Month of ${month}`}
+            cells={cellsFor(monthBands, from, today < to ? today : to)}
+          />
+          <div className="mt-5">
+            <Tallies period={thisMonth} />
+          </div>
+        </Panel>
+      </section>
+
       <section>
-        <div className="mb-1.5 flex items-baseline justify-between">
-          <h2 className="text-xs uppercase tracking-block text-muted">Targets</h2>
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="eyebrow">Targets</h2>
           <span className="flex items-baseline gap-3">
             <span className="font-mono text-xs text-muted">
               {weeksRemaining} of {weeks.length} weeks left
             </span>
             {editing ? (
               <>
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  variant="primary"
+                  icon="check"
                   onClick={() => {
                     onSave(draft);
                     setEditing(false);
                   }}
-                  className="border border-signal px-2 py-0.5 text-xs text-signal hover:bg-signal/10"
                 >
                   Save
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
                   onClick={() => {
                     setDraft(overrides);
                     setEditing(false);
                   }}
-                  className="text-xs text-muted underline-offset-2 hover:underline"
                 >
                   Cancel
-                </button>
+                </Button>
               </>
             ) : (
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="border border-edge px-2 py-0.5 text-xs text-muted hover:border-muted hover:text-text"
-              >
+              <Button size="sm" onClick={() => setEditing(true)}>
                 Edit
-              </button>
+              </Button>
             )}
           </span>
         </div>
@@ -418,7 +652,7 @@ function MonthView({
           </p>
         ) : null}
 
-        <div className="border border-edge bg-panel">
+        <div className="overflow-hidden rounded-lg border border-edge bg-panel">
           {paces.map((pace) => (
             <MonthTargetBar
               key={pace.id}
@@ -433,48 +667,18 @@ function MonthView({
         </div>
       </section>
 
-      <section className="border border-edge bg-panel px-3 py-2">
-        <p className="text-xs uppercase tracking-block text-muted">Against last month</p>
-        <p className="mt-1 font-mono text-sm text-text">
-          {previousShape.green + previousShape.yellow + previousShape.red === 0 ? (
-            <span className="text-muted">No month to compare against yet.</span>
-          ) : (
-            <>
-              {delta >= 0 ? '+' : ''}
-              {delta} green
-              <span className="ml-2 text-muted">
-                ({previousShape.green} → {shape.green})
-              </span>
-            </>
-          )}
-        </p>
-      </section>
-
-      <section>
-        <h2 className="mb-1.5 text-xs uppercase tracking-block text-muted">Where the time went</h2>
+      <Panel title="Where the time went" icon="chart">
         {totals.length === 0 ? (
           <p className="text-sm text-muted">Nothing logged this month.</p>
         ) : (
-          <div className="border border-edge bg-panel">
-            {totals.map((entry) => (
-              <div
-                key={entry.tag}
-                className="flex items-baseline justify-between border-b border-edge px-3 py-2 last:border-b-0"
-              >
-                <span className="text-sm text-text">{entry.tag}</span>
-                <span className="font-mono text-xs text-muted">
-                  {Math.round((entry.minutes / 60) * 10) / 10} hrs
-                </span>
-              </div>
-            ))}
-          </div>
+          <BarChart
+            points={totals.map((entry) => ({
+              label: entry.tag,
+              value: entry.minutes / 60,
+            }))}
+          />
         )}
-      </section>
-
-      <section>
-        <h2 className="mb-1.5 text-xs uppercase tracking-block text-muted">This month</h2>
-        <Tallies period={thisMonth} />
-      </section>
+      </Panel>
     </div>
   );
 }
@@ -501,16 +705,54 @@ function HistoryView({
   const bands = bandDays(period, prefs);
   const milestones = milestoneStatuses(MILESTONES, progress, asOf);
 
+  /*
+   * Heat is earned minutes against the busiest day in the range, so intensity means
+   * "a lot of work for you" rather than "a lot of work in the abstract" — §28.
+   */
+  const effort = dailyEffort(period);
+  const peak = Math.max(1, ...effort.map((day) => day.earnedMinutes));
+  const effortByDate = new Map(effort.map((day) => [day.date, day]));
+
+  const cells: HeatCell[] = datesBetween(from, to).map((date) => {
+    const day = effortByDate.get(date);
+    return {
+      date,
+      intensity: day ? day.earnedMinutes / peak : null,
+      title: day
+        ? `${date} \u2014 ${Math.round((day.earnedMinutes / 60) * 10) / 10} hrs of ${
+            Math.round((day.committedMinutes / 60) * 10) / 10
+          } committed`
+        : `${date} \u2014 nothing logged`,
+    };
+  });
+
+  const done = milestones.filter((milestone) => milestone.status === 'done').length;
+
   return (
     <div className="space-y-5">
-      <section>
-        <h2 className="mb-2 text-xs uppercase tracking-block text-muted">Last 18 weeks</h2>
+      <Panel title="Activity" icon="bolt">
+        <Heatmap cells={cells} />
+        <p className="mt-3 text-xs text-muted">
+          Each square is a day, shaded by the work that actually landed. Not a streak:
+          nothing here resets, and one quiet day costs you nothing.
+        </p>
+      </Panel>
+
+      <Panel title="Bands, last 18 weeks" icon="calendar">
         <ConsistencyGrid bands={bands} from={from} to={to} />
-      </section>
+      </Panel>
 
       <section>
-        <h2 className="mb-1.5 text-xs uppercase tracking-block text-muted">Milestones</h2>
-        <div className="border border-edge bg-panel">
+        <SectionTitle
+          action={
+            <span className="font-mono text-xs text-muted">
+              {done} of {milestones.length} done
+            </span>
+          }
+        >
+          Milestones
+        </SectionTitle>
+        <div className="overflow-hidden rounded-lg border border-edge bg-panel">
           {milestones.map((milestone) => (
             <MilestoneRow
               key={milestone.key}

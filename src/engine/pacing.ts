@@ -548,3 +548,46 @@ export function monthlyPacing(
     };
   });
 }
+
+// ─── Daily effort ─────────────────────────────────────────────────────────────
+
+export interface DayEffort {
+  date: string;
+  /** Weight × completion, in minutes. What the day actually earned. */
+  earnedMinutes: number;
+  /** Weight of everything committed, in minutes. The denominator. */
+  committedMinutes: number;
+}
+
+/**
+ * Minutes actually earned per day — feeds the focus chart and the activity heatmap.
+ *
+ * Measured the same way the score is (weight × completion), so a bar and the day's
+ * percentage can never disagree. Days with nothing committed are omitted rather than
+ * reported as zero: not logging a day and working none of it are different facts, and
+ * the charts render the absence differently.
+ */
+export function dailyEffort(period: Period): DayEffort[] {
+  const byDay = new Map<string, CommitmentRecord[]>();
+  for (const commitment of period.commitments) {
+    const list = byDay.get(commitment.dayDate);
+    if (list) list.push(commitment);
+    else byDay.set(commitment.dayDate, [commitment]);
+  }
+
+  return [...byDay.entries()]
+    .map(([date, commitments]) => {
+      const scored = commitments.filter((commitment) => commitment.status !== 'displaced');
+      return {
+        date,
+        earnedMinutes: Math.round(
+          scored.reduce(
+            (sum, commitment) => sum + commitment.plannedMinutes * completionOf(commitment),
+            0,
+          ),
+        ),
+        committedMinutes: scored.reduce((sum, c) => sum + c.plannedMinutes, 0),
+      };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+}

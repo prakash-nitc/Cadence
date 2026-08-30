@@ -8,6 +8,7 @@ import {
 import type { CommitmentRecord, DayRecord, LogRecord } from '../db/schema';
 import type { Prefs } from '../lib/prefs';
 import {
+  dailyEffort,
   bandDays,
   milestoneStatuses,
   monthlyPacing,
@@ -715,5 +716,78 @@ describe('earnedMinutesTag — hours actually put in', () => {
   it('asks for a per-day rate, since it is a quantity', () => {
     const period: Period = { days: [], commitments: [], logs: [] };
     expect(weeklyPacing(period, [target('dsa_hours')], 3, 10.8)[0]?.ratePerDay).toBe(true);
+  });
+});
+
+describe('dailyEffort', () => {
+  const commitment = (
+    dayDate: string,
+    plannedMinutes: number,
+    target: number,
+    done: number,
+    status: CommitmentRecord['status'] = 'open',
+  ): CommitmentRecord => ({
+    id: `${dayDate}-${plannedMinutes}-${done}`,
+    dayDate,
+    blockId: null,
+    label: 'work',
+    targetType: 'count',
+    target,
+    done,
+    plannedMinutes,
+    status,
+    tags: [],
+    displacedBy: null,
+    originDate: dayDate,
+    movedCount: 0,
+  });
+
+  const period = (commitments: CommitmentRecord[]): Period => ({
+    days: [],
+    commitments,
+    logs: [],
+  });
+
+  it('measures a day the same way the score does', () => {
+    // 180 minutes at 2 of 4 is 90 earned — weight × completion, not time sat down.
+    const effort = dailyEffort(period([commitment('2026-09-01', 180, 4, 2)]));
+    expect(effort).toEqual([
+      { date: '2026-09-01', earnedMinutes: 90, committedMinutes: 180 },
+    ]);
+  });
+
+  it('leaves displaced work out of both sides', () => {
+    const effort = dailyEffort(
+      period([
+        commitment('2026-09-01', 180, 4, 4),
+        commitment('2026-09-01', 60, 1, 0, 'displaced'),
+      ]),
+    );
+    expect(effort[0]).toEqual({
+      date: '2026-09-01',
+      earnedMinutes: 180,
+      committedMinutes: 180,
+    });
+  });
+
+  it('omits a day with nothing committed rather than reporting a zero', () => {
+    // The charts draw an unlogged day as an absence; a zero would be the app inventing
+    // a bad day that never happened.
+    expect(dailyEffort(period([]))).toEqual([]);
+  });
+
+  it('returns days in date order', () => {
+    const effort = dailyEffort(
+      period([
+        commitment('2026-09-03', 60, 1, 1),
+        commitment('2026-09-01', 60, 1, 1),
+        commitment('2026-09-02', 60, 1, 0),
+      ]),
+    );
+    expect(effort.map((day) => day.date)).toEqual([
+      '2026-09-01',
+      '2026-09-02',
+      '2026-09-03',
+    ]);
   });
 });

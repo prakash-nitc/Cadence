@@ -1,13 +1,18 @@
 import type { TargetPace } from '../engine/pacing';
+import { Icon } from './ui/Icon';
+import { Bar, type Tone } from './ui/primitives';
 
 /**
- * One weekly target — SPEC §4.3.
+ * One weekly target as a card — SPEC §4.3, §27 of the redesign brief.
  *
  * > Spring Boot 6.5 / 15 hrs. 3 days left. Need 2.8 hrs/day.
  *
  * The bar carries a pace marker: where the target would be if the week had gone evenly.
  * Without it "0 / 16" says nothing — zero on a Monday is fine and zero on a Saturday is
- * a week already lost, and the whole point of this screen is telling those apart.
+ * a week already lost, and telling those apart is the whole point of this screen.
+ *
+ * §36: the state stays honest and the wording stays constructive. A target that cannot be
+ * reached says so, and then says what it would take, rather than simply reporting failure.
  */
 const unitShort = (unit: string): string => (unit === 'hours' ? 'hrs' : unit);
 
@@ -22,9 +27,9 @@ interface TargetBarProps {
 export function TargetBar({ pace, totalDays }: TargetBarProps) {
   if (!pace.tracked) {
     return (
-      <div className="flex items-baseline justify-between gap-3 border-b border-edge px-3 py-2 last:border-b-0 opacity-50">
+      <div className="flex items-baseline justify-between gap-3 rounded-lg border border-dashed border-edge px-4 py-3">
         <span className="text-sm text-muted">{pace.label}</span>
-        <span className="shrink-0 font-mono text-xs text-muted">not tracked here</span>
+        <span className="shrink-0 text-xs text-muted">not tracked here</span>
       </div>
     );
   }
@@ -34,19 +39,19 @@ export function TargetBar({ pace, totalDays }: TargetBarProps) {
 
   // Where an even week would have you by now.
   const elapsed = Math.max(0, Math.min(totalDays, totalDays - pace.remainingDays));
-  const pacePercent = totalDays > 0 ? (elapsed / totalDays) * 100 : 0;
-  const expected = pace.min * (elapsed / Math.max(1, totalDays));
+  const paceFraction = totalDays > 0 ? elapsed / totalDays : 0;
+  const expected = pace.min * paceFraction;
   const behind = round(Math.max(0, expected - pace.achieved));
 
-  const tone = pace.belowWarn ? 'bg-fail' : met ? 'bg-pass' : behind > 0 ? 'bg-signal' : 'bg-pass';
-  const valueTone = pace.belowWarn ? 'text-fail' : met ? 'text-pass' : 'text-text';
+  const tone: Tone = pace.belowWarn ? 'fail' : met ? 'pass' : behind > 0 ? 'warn' : 'pass';
+  const valueTone = pace.belowWarn ? 'text-fail' : met ? 'text-deep' : 'text-text';
 
   return (
-    <div className="border-b border-edge px-3 py-3 last:border-b-0">
+    <div className="rounded-lg border border-edge bg-panel p-4">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="min-w-0 text-sm text-text">{pace.label}</span>
-        <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
-          <span className={valueTone}>{pace.achieved}</span>
+        <span className="min-w-0 text-sm font-medium text-text">{pace.label}</span>
+        <span className="shrink-0 font-mono text-sm tabular-nums">
+          <span className={`text-base font-semibold ${valueTone}`}>{pace.achieved}</span>
           <span className="text-muted">
             {' / '}
             {pace.min}
@@ -55,44 +60,47 @@ export function TargetBar({ pace, totalDays }: TargetBarProps) {
         </span>
       </div>
 
-      <div className="relative mt-2 h-1.5 w-full bg-edge">
-        <div className={`h-full ${tone}`} style={{ width: `${progress * 100}%` }} />
-
-        {!met && pacePercent > 0 && pacePercent < 100 ? (
-          <div
-            className="absolute top-0 h-full w-px bg-text/60"
-            style={{ left: `${pacePercent}%` }}
-            title={`On an even week: ${round(expected)} by now`}
-            aria-hidden
-          />
-        ) : null}
+      <div className="mt-2.5">
+        <Bar
+          value={progress}
+          tone={tone}
+          height="h-2"
+          animate={false}
+          {...(!met && paceFraction > 0 && paceFraction < 1 ? { marker: paceFraction } : {})}
+        />
       </div>
 
-      <p className="mt-1.5 font-mono text-xs">
+      <p className="mt-2 text-xs">
         {!pace.reachable ? (
-          <span className="text-fail">
-            Not reachable this week. Short by {pace.shortBy} {unitShort(pace.unit)}.
+          <span className="flex items-center gap-1.5 text-fail">
+            <Icon name="alert" size={13} />
+            Out of reach this week — short by {pace.shortBy} {unitShort(pace.unit)}.
           </span>
         ) : met ? (
-          <span className="text-pass">Met.</span>
+          <span className="flex items-center gap-1.5 text-deep">
+            <Icon name="check" size={13} />
+            Met.
+          </span>
         ) : pace.requiredRate !== null ? (
-          <>
-            <span className="text-text">
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="font-mono text-text">
               {pace.ratePerDay
-                ? `Need ${pace.requiredRate} ${unitShort(pace.unit)}/day.`
-                : `Need ${pace.shortfall} more.`}
+                ? `${pace.requiredRate} ${unitShort(pace.unit)}/day to close it`
+                : `${pace.shortfall} more to close it`}
             </span>
             {behind > 0 ? (
-              <span className="text-muted"> {behind} behind pace.</span>
+              <span className="text-muted">
+                · {behind} {unitShort(pace.unit)} behind an even week
+              </span>
             ) : (
-              <span className="text-pass"> On pace.</span>
+              <span className="text-deep">· on pace</span>
             )}
-          </>
+          </span>
         ) : null}
       </p>
 
       {pace.displaced.count > 0 ? (
-        <p className="mt-0.5 text-xs text-muted">
+        <p className="mt-1 text-xs text-muted">
           Displaced {pace.displaced.count === 1 ? 'once' : `${pace.displaced.count} times`}
           {pace.displaced.reasons.length > 0 ? ` — ${pace.displaced.reasons.join(', ')}` : ''}.
         </p>
