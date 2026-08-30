@@ -57,7 +57,7 @@ export function CurrentBlockHero({
         <div className="text-right">
           <Countdown endsAt={block.endsAt} now={now} className="text-[46px] leading-none" />
           <p className="mt-1.5 font-mono text-sm text-muted">
-            {toHHMM(block.startsAt)} – {toHHMM(block.endsAt)}
+            {toHHMM(block.startsAt)}–{toHHMM(block.endsAt)}
           </p>
         </div>
       </div>
@@ -93,7 +93,9 @@ export function PaceCard({
 
   const verdict =
     score === null
-      ? 'Nothing to score'
+      ? band === 'red'
+        ? 'Not planned'
+        : 'Nothing to score'
       : band === 'green'
         ? 'On pace'
         : band === 'yellow'
@@ -122,9 +124,11 @@ export function PaceCard({
 
       {score === null ? (
         <p className="mt-3 text-xs text-muted">
-          {result.displaced > 0
-            ? 'Every commitment displaced. Nothing left to score.'
-            : 'Add commitments with planned minutes to get a score.'}
+          {band === 'red'
+            ? 'Not planned. A day with nothing committed to scores red.'
+            : result.displaced > 0
+              ? 'Every commitment displaced. Nothing left to score.'
+              : 'These commitments carry no weight. Give them planned minutes to score.'}
         </p>
       ) : null}
     </section>

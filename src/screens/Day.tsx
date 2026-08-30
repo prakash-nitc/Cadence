@@ -108,9 +108,19 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
         <Card className="flex flex-col items-center justify-center py-6">
           <Ring value={score === null ? null : score / 100} tone={tone} label="of the day" />
-          <p className="mt-4 text-center font-mono text-sm text-soft">
-            {completedWeight} of {result.weight} committed minutes
-          </p>
+          {score === null ? (
+            <p className="mt-4 max-w-[15rem] text-center text-sm text-soft">
+              {result.band === 'red'
+                ? 'Not planned. A day with nothing committed to scores red.'
+                : result.displaced > 0
+                  ? 'Every commitment displaced. Nothing left to score.'
+                  : 'These commitments carry no weight. Give them planned minutes to score.'}
+            </p>
+          ) : (
+            <p className="mt-4 text-center font-mono text-sm text-soft">
+              {completedWeight} of {result.weight} committed minutes
+            </p>
+          )}
           {result.displaced > 0 ? (
             <p className="mt-1 text-center text-xs text-muted">
               {result.displaced} displaced, out of the ratio

@@ -733,8 +733,8 @@ function HistoryView({
       <Panel title="Activity" icon="bolt">
         <Heatmap cells={cells} />
         <p className="mt-3 text-xs text-muted">
-          Each square is a day, shaded by the work that actually landed. Not a streak:
-          nothing here resets, and one quiet day costs you nothing.
+          Each square is a day, shaded by the work that actually landed. Nothing here
+          resets, and one quiet day costs you nothing.
         </p>
       </Panel>
 

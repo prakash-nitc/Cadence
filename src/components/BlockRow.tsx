@@ -99,7 +99,7 @@ export function BlockRow({
 
   if (block.kind === 'gap') {
     return (
-      <div className="flex gap-4">
+      <div className="flex gap-4" data-block={block.blockId} data-status="gap">
         <span className="w-[76px] shrink-0 pt-2 text-right font-mono text-xs text-muted">
           {toHHMM(block.startsAt)}
         </span>
@@ -120,7 +120,7 @@ export function BlockRow({
   const icon = STATUS_ICON[status];
 
   return (
-    <div className="flex gap-4">
+    <div className="flex gap-4" data-block={block.blockId} data-status={status}>
       {/* The rail: start time, dot, and the line running down to the next block. */}
       <span className="w-[76px] shrink-0 pt-3 text-right font-mono text-xs text-muted">
         {toHHMM(block.startsAt)}
