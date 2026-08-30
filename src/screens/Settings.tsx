@@ -15,12 +15,13 @@ import { usePrefs } from '../store/prefsStore';
  * same it is a setting.
  */
 const field =
-  'w-full border border-edge bg-panel px-2 py-1.5 font-mono text-sm text-text focus:border-signal focus:outline-none';
+  'w-full rounded-md border border-edge bg-panel px-3 py-2 font-mono text-sm text-text '
+  + 'transition-shadow focus:border-signal focus:shadow-focus focus:outline-none';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-2">
-      <h2 className="text-xs uppercase tracking-block text-muted">{title}</h2>
+    <section className="space-y-3">
+      <h2 className="eyebrow">{title}</h2>
       {children}
     </section>
   );
@@ -44,12 +45,24 @@ function Toggle({
       aria-checked={on}
       aria-label={label}
       onClick={() => onChange(!on)}
-      className="flex w-full items-center gap-3 border border-edge bg-panel px-3 py-2.5 text-left"
+      className={`flex w-full items-center gap-4 rounded-lg border bg-panel px-4 py-3.5 text-left transition-colors ${
+        on ? 'border-signal/40' : 'border-edge hover:border-muted'
+      }`}
     >
-      <span className={`h-4 w-4 shrink-0 border ${on ? 'border-signal bg-signal' : 'border-edge'}`} />
       <span className="min-w-0 flex-1">
-        <span className="block text-sm text-text">{label}</span>
-        {detail ? <span className="block text-xs text-muted">{detail}</span> : null}
+        <span className="block text-sm font-medium text-text">{label}</span>
+        {detail ? <span className="mt-0.5 block text-xs text-soft">{detail}</span> : null}
+      </span>
+      <span
+        className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-xl border transition-colors ${
+          on ? 'border-signal bg-signal' : 'border-edge bg-sunk'
+        }`}
+      >
+        <span
+          className={`absolute h-4 w-4 rounded-xl bg-panel shadow-card transition-[left] duration-200 ${
+            on ? 'left-[21px]' : 'left-[3px]'
+          }`}
+        />
       </span>
     </button>
   );
@@ -73,9 +86,9 @@ function Number_({
   onChange: (value: number) => void;
 }) {
   return (
-    <label className="block">
-      <span className="block text-sm text-text">{label}</span>
-      {detail ? <span className="block text-xs text-muted">{detail}</span> : null}
+    <label className="block rounded-lg border border-edge bg-panel p-4">
+      <span className="block text-sm font-medium text-text">{label}</span>
+      {detail ? <span className="mt-0.5 block text-xs text-soft">{detail}</span> : null}
       <NumberField
         value={value}
         onChange={onChange}
@@ -83,7 +96,7 @@ function Number_({
         {...(max === undefined ? {} : { max })}
         step={step}
         label={label}
-        className={`${field} mt-1`}
+        className={`${field} mt-2.5`}
       />
     </label>
   );
@@ -133,12 +146,9 @@ export function Settings({ prefs }: { prefs: Prefs }) {
 
   return (
     <div className="space-y-7">
-      <header>
-        <h1 className="font-display text-2xl tracking-display text-text">Settings</h1>
-        <p className="mt-1 text-sm text-muted">
-          How the app behaves. The timetable lives in config and is changed by committing.
-        </p>
-      </header>
+      <p className="text-sm text-soft">
+        How the app behaves. The timetable lives in config and is changed by committing.
+      </p>
 
       <Section title="Scoring">
         <Toggle
@@ -148,7 +158,7 @@ export function Settings({ prefs }: { prefs: Prefs }) {
           onChange={(value) => set('nonNegotiableGate', value)}
         />
 
-        <div className="border border-edge bg-panel px-3 py-2.5">
+        <div className="rounded-lg border border-edge bg-panel px-4 py-3.5">
           <p className="text-sm text-text">Non-negotiables</p>
           <p className="text-xs text-muted">
             Commitment tags or block ids. This list belongs to the current roadmap.
@@ -166,7 +176,7 @@ export function Settings({ prefs }: { prefs: Prefs }) {
                   )
                 }
                 aria-label={`Remove ${key}`}
-                className="border border-edge px-2 py-1 font-mono text-xs text-text hover:border-fail hover:text-fail"
+                className="rounded-md border border-edge px-2.5 py-1 font-mono text-xs text-text transition-colors hover:border-fail hover:text-fail"
               >
                 {key} ×
               </button>
@@ -224,15 +234,15 @@ export function Settings({ prefs }: { prefs: Prefs }) {
         />
 
         <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="block text-sm text-text">Day end</span>
-            <span className="block text-xs text-muted">Capacity is measured to here.</span>
+          <label className="block rounded-lg border border-edge bg-panel p-4">
+            <span className="block text-sm font-medium text-text">Day end</span>
+            <span className="mt-0.5 block text-xs text-soft">Capacity is measured to here.</span>
             <input
               type="time"
               value={prefs.dayEnd}
               aria-label="Day end"
               onChange={(event) => set('dayEnd', event.target.value)}
-              className={`${field} mt-1`}
+              className={`${field} mt-2.5`}
             />
           </label>
           <Number_
@@ -322,7 +332,7 @@ export function Settings({ prefs }: { prefs: Prefs }) {
             None yet. Build one from Start day and save it — an OA day, an interview day.
           </p>
         ) : (
-          <div className="border border-edge bg-panel">
+          <div className="overflow-hidden rounded-lg border border-edge bg-panel">
             {savedTemplates.map((template) => (
               <div
                 key={template.id}
@@ -383,7 +393,7 @@ export function Settings({ prefs }: { prefs: Prefs }) {
               <button
                 type="button"
                 onClick={() => setImporting(false)}
-                className="border border-edge px-3 py-1.5 text-sm text-text"
+                className="rounded-md border border-edge px-3 py-2 text-sm text-text transition-colors hover:bg-sunk"
               >
                 Cancel
               </button>

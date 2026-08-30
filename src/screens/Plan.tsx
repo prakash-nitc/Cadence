@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BlockBuilder } from '../components/BlockBuilder';
 import { CommitmentRow } from '../components/CommitmentRow';
+import { Icon } from '../components/ui/Icon';
+import { Button, Card, Empty, SectionTitle } from '../components/ui/primitives';
+
+/** One input treatment across the screen — §31. */
+const FIELD =
+  'mt-1 w-full rounded-md border border-edge bg-panel px-3 py-2 text-sm text-text ' +
+  'transition-shadow placeholder:text-muted focus:border-signal focus:shadow-focus focus:outline-none';
 import { PlanItemRow } from '../components/PlanItemRow';
 import { TemplatePicker } from '../components/TemplatePicker';
 import { containment } from '../engine/boundaries';
@@ -194,106 +201,117 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
   const canSaveLog = energy !== null && recallDone !== null;
 
   return (
-    <div className="space-y-8">
-      <header>
-        <h1 className="font-display text-2xl tracking-display text-text">Log and plan</h1>
-        <p className="mt-1 text-sm text-muted">
-          Two parts, one sitting. Everything is filled in — change what is wrong.
-        </p>
-      </header>
+    <div className="space-y-6">
 
-      {/* ── Part 1 ──────────────────────────────────────────────────────────── */}
-      <section className="space-y-4">
-        <h2 className="text-xs uppercase tracking-block text-muted">Log today</h2>
-
-        {commitments.length > 0 ? (
-          <div className="border border-edge bg-panel px-3 py-2">
-            <p className="mb-1 text-xs text-muted">
-              Tapped through the day. Confirm, or fix what is wrong.
-            </p>
-            {commitments.map((commitment) => (
-              <CommitmentRow
-                key={commitment.id}
-                commitment={commitment}
-                onDone={(done) => void setDone(commitment.id, done)}
-                onDrop={(reason, displacedBy) =>
-                  void dropCommitment(commitment.id, reason, displacedBy)
-                }
-              />
-            ))}
-          </div>
-        ) : null}
-
-        <dl className="grid grid-cols-2 gap-px border border-edge bg-edge">
-          <div className="bg-panel px-3 py-2">
-            <dt className="text-xs text-muted">Blocks contained</dt>
-            <dd className="font-mono text-sm text-text">
-              {tally.contained} of {tally.total}
-            </dd>
-          </div>
-          <div className="bg-panel px-3 py-2">
-            <dt className="text-xs text-muted">Recall drill</dt>
-            <dd className="mt-0.5 flex gap-1">
-              {[true, false].map((value) => (
-                <button
-                  key={String(value)}
-                  type="button"
-                  onClick={() => setRecallDone(value)}
-                  className={`border px-2 py-0.5 text-xs ${
-                    recallDone === value ? 'border-signal text-signal' : 'border-edge text-muted'
-                  }`}
-                >
-                  {value ? 'Yes' : 'No'}
-                </button>
-              ))}
-            </dd>
-          </div>
-        </dl>
-
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="block text-xs text-muted">Sleep hours</span>
-            <input
-              type="number"
-              step="0.5"
-              min="0"
-              value={sleep}
-              onChange={(event) => setSleep(event.target.value)}
-              className="mt-1 w-full border border-edge bg-panel px-2 py-1.5 font-mono text-sm text-text focus:border-signal focus:outline-none"
+      {/* ── Part 1: what actually happened ────────────────────────────────────── */}
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div>
+          <SectionTitle>Log today</SectionTitle>
+          {commitments.length > 0 ? (
+            <Card>
+              <p className="mb-2 text-xs text-muted">
+                Tapped through the day. Confirm, or fix what is wrong.
+              </p>
+              <div className="-my-1">
+                {commitments.map((commitment) => (
+                  <CommitmentRow
+                    key={commitment.id}
+                    commitment={commitment}
+                    onDone={(done) => void setDone(commitment.id, done)}
+                    onDrop={(reason, displacedBy) =>
+                      void dropCommitment(commitment.id, reason, displacedBy)
+                    }
+                  />
+                ))}
+              </div>
+            </Card>
+          ) : (
+            <Empty
+              icon="target"
+              title="Nothing committed today"
+              body="There is nothing to confirm. Commitments are added on the Day screen, against the blocks they belong to."
             />
-          </label>
-
-          <div>
-            <span className="block text-xs text-muted">Energy</span>
-            <div className="mt-1 flex gap-1">
-              {ENERGY_LEVELS.map((level) => (
-                <button
-                  key={level}
-                  type="button"
-                  onClick={() => setEnergy(level)}
-                  aria-label={`Energy ${level}`}
-                  className={`flex-1 border py-1.5 font-mono text-xs ${
-                    energy === level ? 'border-signal text-signal' : 'border-edge text-muted'
-                  }`}
-                >
-                  {level}
-                </button>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
+
+        <div>
+          <SectionTitle>Day reflection</SectionTitle>
+          <Card className="space-y-4">
+            <div>
+              <p className="text-xs text-muted">Blocks contained</p>
+              <p className="mt-1 font-mono text-2xl font-semibold text-text">
+                {tally.contained}
+                <span className="text-base text-muted"> of {tally.total}</span>
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted">Recall drill</p>
+              <div className="mt-1.5 inline-flex rounded-md border border-edge p-1">
+                {[true, false].map((value) => (
+                  <button
+                    key={String(value)}
+                    type="button"
+                    onClick={() => setRecallDone(value)}
+                    className={`rounded-sm px-4 py-1 text-xs transition-colors ${
+                      recallDone === value
+                        ? 'bg-wash font-medium text-deep'
+                        : 'text-soft hover:text-text'
+                    }`}
+                  >
+                    {value ? 'Yes' : 'No'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <label className="block">
+              <span className="text-xs text-muted">Sleep hours</span>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                value={sleep}
+                onChange={(event) => setSleep(event.target.value)}
+                className={`${FIELD} font-mono`}
+              />
+            </label>
+
+            <div>
+              <span className="text-xs text-muted">Energy</span>
+              <div className="mt-1.5 flex gap-1.5">
+                {ENERGY_LEVELS.map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => setEnergy(level)}
+                    aria-label={`Energy ${level}`}
+                    className={`flex-1 rounded-md border py-2 font-mono text-sm transition-colors ${
+                      energy === level
+                        ? 'border-signal bg-wash font-semibold text-deep'
+                        : 'border-edge text-soft hover:border-muted'
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+            </div>
 
         <label className="block">
           <span className="block text-xs text-muted">Hardest thing today</span>
           <input
             value={hardest}
             onChange={(event) => setHardest(event.target.value)}
-            className="mt-1 w-full border border-edge bg-panel px-2 py-1.5 text-sm text-text focus:border-signal focus:outline-none"
+            className={FIELD}
           />
         </label>
 
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="lg"
+          icon="check"
+          className="w-full"
           disabled={!canSaveLog}
           onClick={() => {
             void saveLog(
@@ -310,41 +328,46 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
             );
             setLogSaved(true);
           }}
-          className="w-full border border-edge py-2.5 text-sm text-text hover:border-muted disabled:opacity-40"
         >
           {logSaved ? 'Log saved' : 'Save log'}
-        </button>
-        {!canSaveLog ? (
-          <p className="text-xs text-muted">Energy is the one field the app cannot guess.</p>
-        ) : null}
+        </Button>
+            {!canSaveLog ? (
+              <p className="text-xs text-muted">
+                Energy is the one field the app cannot guess.
+              </p>
+            ) : null}
+          </Card>
+        </div>
       </section>
 
-      {/* ── Part 2 ──────────────────────────────────────────────────────────── */}
+      {/* ── Part 2: tomorrow ─────────────────────────────────────────────────── */}
       <section className="space-y-4 border-t border-edge pt-6">
-        <h2 className="text-xs uppercase tracking-block text-muted">
-          Plan tomorrow — {tomorrow}
-        </h2>
+        <SectionTitle
+          action={<span className="font-mono text-xs text-muted">{tomorrow}</span>}
+        >
+          Plan tomorrow
+        </SectionTitle>
 
-        <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
+        <Card className="grid gap-4 sm:grid-cols-[11rem_1fr] sm:items-center">
           <label className="block">
-            <span className="block text-xs uppercase tracking-block text-muted">Wake at</span>
+            <span className="text-xs text-muted">Wake at</span>
             <input
               type="time"
               value={wakeAt}
               onChange={(event) => setWakeAt(event.target.value)}
               aria-label="Wake at"
-              className="mt-1 w-full border border-edge bg-panel px-2 py-2 font-mono text-lg text-text focus:border-signal focus:outline-none"
+              className={`${FIELD} font-mono text-lg`}
             />
           </label>
-          <p className="self-end pb-1 text-xs text-muted">
+          <p className="text-xs leading-relaxed text-soft">
             The plan assumes this. Tomorrow the day still starts when you tap Start day —
             this only decides the shape and shows you the real times.
           </p>
-        </div>
+        </Card>
 
         <div>
-          <h3 className="mb-1 text-xs uppercase tracking-block text-muted">Start from</h3>
-          <p className="mb-2 text-xs text-muted">
+          <SectionTitle>Start from</SectionTitle>
+          <p className="-mt-1 mb-2 text-xs text-muted">
             An ideal day to work from. Arrange it below into the day you actually want.
           </p>
           <TemplatePicker
@@ -356,9 +379,7 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
         </div>
 
         <div>
-          <h3 className="mb-2 text-xs uppercase tracking-block text-muted">
-            Tomorrow, slot by slot
-          </h3>
+          <SectionTitle>Tomorrow, slot by slot</SectionTitle>
           <BlockBuilder
             blocks={templateBlocks}
             onChange={setTemplateBlocks}
@@ -367,18 +388,16 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
           />
         </div>
 
-        <h3 className="mb-2 text-xs uppercase tracking-block text-muted">
-          What gets finished
-        </h3>
+        <SectionTitle>What gets finished</SectionTitle>
         {items.length === 0 ? (
           <p className="text-sm text-muted">
             Nothing suggested for these blocks. You can add commitments tomorrow on the Day
             screen.
           </p>
         ) : (
-          <div className="border border-edge bg-panel">
+          <div className="overflow-hidden rounded-lg border border-edge bg-panel">
             {/* The two number columns are otherwise unlabelled boxes. */}
-            <div className="flex items-center gap-3 border-b border-edge px-3 py-1.5">
+            <div className="flex items-center gap-3 border-b border-edge bg-sunk px-3 py-2">
               <span className="h-4 w-4 shrink-0" aria-hidden />
               <span className="min-w-0 flex-1 text-xs text-muted">Commitment</span>
               <span className="w-16 shrink-0 text-right text-xs text-muted">Target</span>
@@ -410,15 +429,16 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
         )}
 
         <div
-          className={`border p-3 ${
-            verdict.status === 'within' ? 'border-edge' : 'border-warn'
-          } bg-panel`}
+          className={`rounded-lg border p-4 ${
+            verdict.status === 'within' ? 'border-edge bg-panel' : 'border-warn/50 bg-warn/5'
+          }`}
         >
           <p
-            className={`font-mono text-sm ${
-              verdict.status === 'within' ? 'text-muted' : 'text-warn'
+            className={`flex items-center gap-2 font-mono text-sm ${
+              verdict.status === 'within' ? 'text-soft' : 'text-warn'
             }`}
           >
+            {verdict.status === 'within' ? null : <Icon name="alert" size={14} />}
             {verdictLine(verdict)}
           </p>
           {verdict.status !== 'within' ? (
