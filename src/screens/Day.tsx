@@ -5,7 +5,15 @@ import { CommitmentRow } from '../components/CommitmentRow';
 import { DayBar } from '../components/DayBar';
 import { BAND_TONE } from '../components/now/NowParts';
 import { Icon } from '../components/ui/Icon';
-import { Button, Card, Panel, Pill, Ring, SectionTitle } from '../components/ui/primitives';
+import {
+  Button,
+  Card,
+  MetricRow,
+  Panel,
+  Pill,
+  Ring,
+  SectionTitle,
+} from '../components/ui/primitives';
 import { containment, isActionable, isDayComplete, isResolved } from '../engine/boundaries';
 import { completionOf, isDropped, scoreDay } from '../engine/scoring';
 import { availableMinutes } from '../engine/capacity';
@@ -207,14 +215,21 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
             />
           </Panel>
 
-          <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-edge bg-edge">
-            {[
+          <MetricRow
+            metrics={[
               {
                 label: 'Contained',
                 value: tally.percent === null ? '\u2014' : `${tally.percent}%`,
                 sub: `${tally.contained} of ${tally.total} answered`,
+                icon: 'check',
+                ...(tally.percent === 100 ? { tone: 'pass' as const } : {}),
               },
-              { label: 'Blocks', value: String(actionable.length), sub: 'laid today' },
+              {
+                label: 'Blocks',
+                value: String(actionable.length),
+                sub: 'laid today',
+                icon: 'day',
+              },
               {
                 label: 'Pushed',
                 value: day.pushes.length === 0 ? '\u2014' : `${day.pushes.length}\u00d7`,
@@ -222,15 +237,11 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
                   day.pushes.length === 0
                     ? 'no boundaries moved'
                     : formatDuration(pushedMinutes) + ' in total',
+                icon: 'chevronRight',
+                ...(day.pushes.length > 2 ? { tone: 'warn' as const } : {}),
               },
-            ].map((cell) => (
-              <div key={cell.label} className="bg-panel px-4 py-3.5">
-                <p className="text-[11px] uppercase tracking-block text-muted">{cell.label}</p>
-                <p className="mt-1.5 font-mono text-xl font-semibold text-text">{cell.value}</p>
-                <p className="mt-0.5 text-xs text-muted">{cell.sub}</p>
-              </div>
-            ))}
-          </div>
+            ]}
+          />
         </div>
       </section>
 
@@ -387,8 +398,8 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
             aria-checked={day.placementMode}
             aria-label="Placement mode"
             onClick={() => void setPlacementMode(!day.placementMode)}
-            className={`w-full rounded-lg border p-4 text-left transition-colors ${
-              day.placementMode ? 'border-signal bg-wash' : 'border-edge bg-panel hover:bg-sunk'
+            className={`lift w-full rounded-lg border p-4 text-left ${
+              day.placementMode ? 'border-signal bg-wash' : 'border-edge bg-panel'
             }`}
           >
             <span className="flex items-center gap-2.5">

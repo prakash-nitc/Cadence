@@ -127,6 +127,76 @@ export function Stat({
   );
 }
 
+/** Soft grounds for a metric tile. Neutral is the default; a tone is a statement. */
+const TILE_GROUND: Record<Tone, string> = {
+  neutral: 'border-edge bg-panel',
+  pass: 'border-signal/25 bg-wash',
+  warn: 'border-warn/25 bg-warn/[0.07]',
+  fail: 'border-fail/25 bg-fail/[0.06]',
+  signal: 'border-signal/25 bg-wash',
+  info: 'border-info/25 bg-info/[0.06]',
+};
+
+export interface Metric {
+  label: string;
+  value: string;
+  /** A second line under the number — what it is measured against, or why it is red. */
+  sub?: string;
+  tone?: Tone;
+  icon?: IconName;
+}
+
+/**
+ * The headline numbers, as tinted tiles rather than a row of white cells.
+ *
+ * The tint is not decoration: neutral is the resting state, and a tile only takes a
+ * colour when its number is saying something. A strip where every tile is tinted is a
+ * strip where the tint has stopped meaning anything — the same trap as §34's green rule.
+ */
+export function MetricRow({ metrics }: { metrics: Metric[] }) {
+  return (
+    <div
+      className="grid gap-3"
+      style={{ gridTemplateColumns: `repeat(${metrics.length}, minmax(0, 1fr))` }}
+    >
+      {metrics.map((metric) => {
+        const tone = metric.tone ?? 'neutral';
+        return (
+          <div
+            key={metric.label}
+            className={`rounded-lg border p-4 transition-colors ${TILE_GROUND[tone]}`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-[11px] uppercase tracking-block text-muted">{metric.label}</p>
+              {metric.icon ? (
+                <Icon
+                  name={metric.icon}
+                  size={15}
+                  className={tone === 'neutral' ? 'text-muted' : TONE_TEXT[tone]}
+                />
+              ) : null}
+            </div>
+            <p
+              className={`mt-2 font-mono text-2xl font-semibold ${
+                tone === 'neutral' ? 'text-text' : TONE_TEXT[tone]
+              }`}
+            >
+              {metric.value}
+            </p>
+            {metric.sub ? (
+              <p
+                className={`mt-0.5 text-xs ${tone === 'neutral' ? 'text-muted' : TONE_TEXT[tone]}`}
+              >
+                {metric.sub}
+              </p>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * A horizontal progress bar.
  *
@@ -151,9 +221,9 @@ export function Bar({
   const at = marker === null || marker === undefined ? null : Math.max(0, Math.min(1, marker)) * 100;
 
   return (
-    <div className={`relative w-full overflow-hidden rounded-sm bg-sunk ${height}`}>
+    <div className={`relative w-full overflow-hidden rounded-full bg-sunk ${height}`}>
       <div
-        className={`h-full rounded-sm ${TONE_FILL[tone]} ${animate ? 'origin-left animate-draw-bar' : ''} transition-[width] duration-500`}
+        className={`h-full rounded-full ${TONE_FILL[tone]} ${animate ? 'origin-left animate-draw-bar' : ''} transition-[width] duration-500`}
         style={{ width: `${pct}%` }}
       />
       {at === null ? null : (
@@ -244,7 +314,7 @@ export function Pill({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-xs font-medium ${TONE_SOFT[tone]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${TONE_SOFT[tone]}`}
     >
       {icon ? <Icon name={icon} size={13} /> : null}
       {children}
@@ -284,7 +354,7 @@ export function Button({
   return (
     <button
       type="button"
-      className={`inline-flex items-center justify-center gap-2 rounded-md border transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${VARIANTS[variant]} ${pad} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${VARIANTS[variant]} ${pad} ${className}`}
       {...rest}
     >
       {icon ? <Icon name={icon} size={size === 'sm' ? 13 : 15} /> : null}

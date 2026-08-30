@@ -11,7 +11,7 @@ import type { ScoreResult } from '../../engine/scoring';
 import { formatDuration, toHHMM } from '../../lib/time';
 import { Countdown } from '../Countdown';
 import { Icon } from '../ui/Icon';
-import { Bar, Ring, type Tone } from '../ui/primitives';
+import { Bar, MetricRow, Ring, type Metric, type Tone } from '../ui/primitives';
 
 export const BAND_TONE: Record<Band, Tone> = {
   green: 'pass',
@@ -149,37 +149,35 @@ export function DailyMetrics({
   pushed: number;
   stranded: number;
 }) {
-  const cells: { label: string; value: string; tone?: Tone; sub?: string }[] = [
-    { label: 'Committed', value: formatDuration(committed) },
+  const over = committed > remaining;
+
+  /*
+   * Only a tile with something to say takes a tint. Day remaining goes amber when the
+   * day cannot hold what is left; containment goes green once it is perfect. Everything
+   * else stays neutral, so a coloured tile is worth looking at.
+   */
+  const metrics: Metric[] = [
+    { label: 'Committed', value: formatDuration(committed), icon: 'target' },
     {
       label: 'Day remaining',
       value: formatDuration(remaining),
-      tone: committed > remaining ? 'fail' : 'neutral',
-      ...(committed > remaining
-        ? { sub: `over by ${formatDuration(committed - remaining)}` }
+      icon: 'clock',
+      ...(over
+        ? { tone: 'warn' as Tone, sub: `over by ${formatDuration(committed - remaining)}` }
         : {}),
     },
-    { label: 'Contained', value: contained === null ? '—' : `${contained}%` },
-    { label: 'Pushed', value: pushed === 0 ? '—' : `${pushed}×` },
+    {
+      label: 'Contained',
+      value: contained === null ? '—' : `${contained}%`,
+      icon: 'check',
+      ...(contained === 100 ? { tone: 'pass' as Tone } : {}),
+    },
+    { label: 'Pushed', value: pushed === 0 ? '—' : `${pushed}×`, icon: 'chevronRight' },
   ];
 
   return (
     <section>
-      <div className="grid grid-cols-4 gap-px overflow-hidden rounded-lg border border-edge bg-edge">
-        {cells.map((cell) => (
-          <div key={cell.label} className="bg-panel px-4 py-3.5">
-            <p className="text-[11px] uppercase tracking-block text-muted">{cell.label}</p>
-            <p
-              className={`mt-1.5 font-mono text-xl font-semibold ${
-                cell.tone === 'fail' ? 'text-fail' : 'text-text'
-              }`}
-            >
-              {cell.value}
-            </p>
-            {cell.sub ? <p className="mt-0.5 text-xs text-fail">{cell.sub}</p> : null}
-          </div>
-        ))}
-      </div>
+      <MetricRow metrics={metrics} />
 
       {stranded > 0 ? (
         <p className="mt-2 flex items-start gap-2 px-1 text-xs text-muted">

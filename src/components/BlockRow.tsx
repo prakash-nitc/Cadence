@@ -135,7 +135,7 @@ export function BlockRow({
 
       <div className="min-w-0 flex-1 pb-3">
         <div
-          className={`rounded-lg border px-4 py-3 transition-colors ${
+          className={`lift rounded-lg border px-4 py-3 ${
             status === 'active'
               ? 'border-signal/45 bg-wash/70'
               : status === 'contained'

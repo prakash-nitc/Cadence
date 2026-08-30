@@ -56,7 +56,7 @@ export function MilestoneRow({ milestone, onToggleItem, onToggleDone }: Mileston
   const fraction = status === 'done' ? 1 : total === 0 ? null : done / total;
 
   return (
-    <div className="border-b border-edge px-4 py-3 last:border-b-0">
+    <div className="border-b border-edge px-4 py-3 transition-colors last:border-b-0 hover:bg-sunk/60">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}

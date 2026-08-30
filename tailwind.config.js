@@ -6,7 +6,8 @@ export default {
     extend: {
       colors: {
         // Surfaces, lightest-sitting-on-darkest last.
-        ink: '#F7F9F7', // page background
+        shell: '#EAEFEB', // the ground the app frame floats on
+        ink: '#F7F9F7', // page background, inside the frame
         sunk: '#F1F5F2', // recessed sections, table headers, inset wells
         panel: '#FFFFFF', // cards, raised surfaces
         edge: '#E4EAE6', // borders, dividers, grid lines
@@ -41,16 +42,18 @@ export default {
         block: '0.08em',
       },
       borderRadius: {
-        DEFAULT: '10px',
-        sm: '6px',
-        md: '10px',
-        lg: '14px', // the standard card — §33
-        xl: '18px',
+        DEFAULT: '12px',
+        sm: '6px', // dots, chips, small marks
+        md: '12px', // inputs, inner surfaces
+        lg: '18px', // the standard card
+        xl: '24px', // the app frame
       },
       boxShadow: {
         // Hierarchy comes from borders and spacing; shadow only lifts what floats.
         card: '0 1px 3px rgba(23, 34, 28, 0.05)',
         lift: '0 4px 14px rgba(23, 34, 28, 0.08)',
+        // The frame reads as an object on a desk rather than a page in a window.
+        frame: '0 1px 2px rgba(23, 34, 28, 0.04), 0 8px 32px rgba(23, 34, 28, 0.06)',
         focus: '0 0 0 3px rgba(16, 185, 129, 0.18)',
       },
       transitionDuration: {

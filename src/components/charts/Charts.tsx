@@ -142,9 +142,9 @@ export function BarChart({
         return (
           <div key={point.label} className="flex items-center gap-3">
             <span className="w-10 shrink-0 font-mono text-[11px] text-muted">{point.label}</span>
-            <div className="h-4 flex-1 overflow-hidden rounded-sm bg-sunk">
+            <div className="h-4 flex-1 overflow-hidden rounded-full bg-sunk">
               <div
-                className="h-full rounded-sm bg-signal/80 transition-[width] duration-500"
+                className="h-full rounded-full bg-signal/80 transition-[width] duration-500"
                 style={{ width: `${(value / peak) * 100}%` }}
                 title={`${point.label} — ${value.toFixed(1)}${unit}`}
               />
@@ -322,7 +322,7 @@ export function MonthCalendar({
               className={`flex aspect-square items-center justify-center rounded-sm font-mono text-xs transition-colors ${
                 tone ? CALENDAR_TONE[tone] : 'bg-sunk text-muted'
               } ${isSelected ? 'ring-2 ring-text ring-offset-1 ring-offset-panel' : ''} ${
-                onPick ? 'hover:opacity-80' : ''
+                onPick ? 'hover:scale-[1.08] hover:shadow-card' : ''
               }`}
             >
               {index + 1}

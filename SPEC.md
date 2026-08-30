@@ -631,7 +631,8 @@ That five-step hierarchy governs every screen.
 **Palette** (Tailwind theme names — use these, never raw hex):
 
 ```
-ink      #F7F9F7   page background
+shell    #EAEFEB   the ground the app frame floats on
+ink      #F7F9F7   page background, inside the frame
 sunk     #F1F5F2   recessed sections, inset wells, chart tracks
 panel    #FFFFFF   cards, raised surfaces
 edge     #E4EAE6   borders, dividers, grid lines
@@ -674,9 +675,25 @@ status, with commitment completion filling within the segment and a live marker 
 current position. At a glance: how much of the day is spent, how much was finished, how
 much was lost.
 
-**Surfaces.** Cards are white on `ink`, 1px `edge`, 14px radius, 20–24px padding, with a
+**The frame.** The whole app sits in a rounded container inset from the window edge, on
+the slightly deeper `shell` ground — an object on a desk rather than a page filling a
+browser. Behind it, inside the frame, a contour layer: abstract topographic curves in
+inline SVG at 5–7% opacity, top-right and bottom-left. Never an asset, never interactive,
+never anything to actually look at. It gives the ground depth and nothing else.
+
+**Surfaces.** Cards are white on `ink`, 1px `edge`, 18px radius, 20–24px padding, with a
 shadow so faint it only separates what floats. Hierarchy comes from **borders and spacing**,
-not from shadow. Inputs are 10px radius with a visible focus ring.
+not from shadow. Inputs are 12px radius with a visible focus ring; buttons and status
+pills are fully rounded, and every progress fill has round caps.
+
+**Tinted tiles.** Headline metrics sit on soft tinted grounds rather than white cells, and
+a tile only takes a tint when its number is saying something — amber when the day cannot
+hold what is left, green when containment is perfect, neutral otherwise. A strip where
+every tile is tinted is a strip where the tint means nothing: the green rule again, in
+another costume.
+
+**Hover.** Controls lift one pixel and warm their border on hover, over 200ms. Only
+controls. A static card that moves under the cursor is a lie about what it does.
 
 **Three states, everywhere.** Completed is green and quiet. Current is emphasised with an
 emerald marker. Future is neutral grey. The same three read identically on Now, Day, Plan

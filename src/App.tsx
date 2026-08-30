@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Header, greetingFor } from './components/Header';
 import { Nav, type Tab } from './components/Nav';
+import { Contours } from './components/ui/Contours';
 import { blockAt, isDayComplete, isResolved } from './engine/boundaries';
 import { completionOf, isDropped } from './engine/scoring';
 import { dayStatusLine } from './lib/copy';
@@ -84,36 +85,45 @@ export default function App() {
       : SUBTITLES[tab];
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-ink">
-      <Nav tab={tab} onChange={setTab} />
+    /*
+     * The app sits inside a rounded frame inset from the window, on a slightly deeper
+     * ground — an object on a desk rather than a page filling a browser. The contour
+     * layer lives inside the frame, behind everything, so cards float over it.
+     */
+    <div className="h-dvh bg-shell p-3.5">
+      <div className="relative flex h-full overflow-hidden rounded-xl border border-edge bg-ink shadow-frame">
+        <Contours />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Header
-          title={tab === 'Now' ? greetingFor(now) : tab}
-          {...(subtitle ? { subtitle } : {})}
-          now={now}
-        />
+        <Nav tab={tab} onChange={setTab} />
 
-        {/*
-          The content column is capped at 1250px and centred — §32. Below that the app
-          simply uses the width it is given; there is no mobile layout, because there is
-          no phone.
-        */}
-        <main className="min-w-0 flex-1 overflow-y-auto px-8 py-6">
-          <div className="mx-auto w-full max-w-[1250px]">
-            {!ready ? (
-              <p className="text-sm text-muted">Loading.</p>
-            ) : (
-              <div key={tab} className="animate-rise-in">
-                {tab === 'Now' ? <Now now={now} prefs={prefs} /> : null}
-                {tab === 'Day' ? <Day now={now} prefs={prefs} /> : null}
-                {tab === 'Plan' ? <Plan now={now} prefs={prefs} /> : null}
-                {tab === 'Progress' ? <Progress prefs={prefs} targets={targets} /> : null}
-                {tab === 'Settings' ? <Settings prefs={prefs} /> : null}
-              </div>
-            )}
-          </div>
-        </main>
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          <Header
+            title={tab === 'Now' ? greetingFor(now) : tab}
+            {...(subtitle ? { subtitle } : {})}
+            now={now}
+          />
+
+          {/*
+            The content column is capped at 1250px and centred — §32. Below that the app
+            simply uses the width it is given; there is no mobile layout, because there
+            is no phone.
+          */}
+          <main className="min-w-0 flex-1 overflow-y-auto px-8 py-6">
+            <div className="mx-auto w-full max-w-[1250px]">
+              {!ready ? (
+                <p className="text-sm text-muted">Loading.</p>
+              ) : (
+                <div key={tab} className="animate-rise-in">
+                  {tab === 'Now' ? <Now now={now} prefs={prefs} /> : null}
+                  {tab === 'Day' ? <Day now={now} prefs={prefs} /> : null}
+                  {tab === 'Plan' ? <Plan now={now} prefs={prefs} /> : null}
+                  {tab === 'Progress' ? <Progress prefs={prefs} targets={targets} /> : null}
+                  {tab === 'Settings' ? <Settings prefs={prefs} /> : null}
+                </div>
+              )}
+            </div>
+          </main>
+        </div>
       </div>
     </div>
   );
