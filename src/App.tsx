@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Header, greetingFor } from './components/Header';
 import { Nav, type Tab } from './components/Nav';
 import { notifier } from './lib/notify';
 import { useNow } from './lib/useNow';
@@ -9,6 +10,14 @@ import { Progress } from './screens/Progress';
 import { Settings } from './screens/Settings';
 import { useDay } from './store/dayStore';
 import { usePrefs } from './store/prefsStore';
+
+/** What each screen is for, said once in the header rather than on every screen. */
+const SUBTITLES: Partial<Record<Tab, string>> = {
+  Day: 'Every block today, and what got finished in it',
+  Plan: "Log what happened, then arrange tomorrow",
+  Progress: 'Targets, pace and history',
+  Settings: 'Thresholds and behaviour, kept across roadmaps',
+};
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('Now');
@@ -44,25 +53,40 @@ export default function App() {
 
   const ready = prefsLoaded && dayLoaded && prefs !== null && date !== null;
 
+  const subtitle = SUBTITLES[tab];
+
   return (
-    <div className="flex min-h-dvh bg-ink">
+    <div className="flex h-dvh overflow-hidden bg-ink">
       <Nav tab={tab} onChange={setTab} />
 
-      <main className="min-w-0 flex-1 px-5 pb-24 pt-6 lg:px-8 lg:pb-8">
-        <div className="mx-auto max-w-2xl lg:max-w-3xl">
-          {!ready ? (
-            <p className="text-sm text-muted">Loading.</p>
-          ) : (
-            <>
-              {tab === 'Now' ? <Now now={now} prefs={prefs} /> : null}
-              {tab === 'Day' ? <Day now={now} prefs={prefs} /> : null}
-              {tab === 'Plan' ? <Plan now={now} prefs={prefs} /> : null}
-              {tab === 'Progress' ? <Progress prefs={prefs} targets={targets} /> : null}
-              {tab === 'Settings' ? <Settings prefs={prefs} /> : null}
-            </>
-          )}
-        </div>
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Header
+          title={tab === 'Now' ? greetingFor(now) : tab}
+          {...(subtitle ? { subtitle } : {})}
+          now={now}
+        />
+
+        {/*
+          The content column is capped at 1250px and centred — §32. Below that the app
+          simply uses the width it is given; there is no mobile layout, because there is
+          no phone.
+        */}
+        <main className="min-w-0 flex-1 overflow-y-auto px-8 py-6">
+          <div className="mx-auto w-full max-w-[1250px]">
+            {!ready ? (
+              <p className="text-sm text-muted">Loading.</p>
+            ) : (
+              <div key={tab} className="animate-rise-in">
+                {tab === 'Now' ? <Now now={now} prefs={prefs} /> : null}
+                {tab === 'Day' ? <Day now={now} prefs={prefs} /> : null}
+                {tab === 'Plan' ? <Plan now={now} prefs={prefs} /> : null}
+                {tab === 'Progress' ? <Progress prefs={prefs} targets={targets} /> : null}
+                {tab === 'Settings' ? <Settings prefs={prefs} /> : null}
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

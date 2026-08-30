@@ -2,33 +2,79 @@
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
-    // Dark only. No light mode — SPEC §8.
+    // Light, warm-neutral. Desktop only — SPEC §8.
     extend: {
       colors: {
-        ink: '#0E1116',    // page background
-        panel: '#171B22',  // cards, raised surfaces
-        edge: '#262C36',   // borders, dividers, grid lines
-        text: '#E6E9EE',   // primary
-        muted: '#8A94A3',  // labels, secondary
-        signal: '#E8A33D', // live / now / active — ONE thing at a time
-        pass: '#4FA97B',   // green band, complete, contained
-        warn: '#D9A441',   // yellow band, at risk
-        fail: '#C4553F',   // red band, overran, skipped, over-committed
+        // Surfaces, lightest-sitting-on-darkest last.
+        ink: '#F7F9F7', // page background
+        sunk: '#F1F5F2', // recessed sections, table headers, inset wells
+        panel: '#FFFFFF', // cards, raised surfaces
+        edge: '#E4EAE6', // borders, dividers, grid lines
+
+        // Type. Three weights of voice, not three shades picked by eye.
+        text: '#17221C', // primary
+        soft: '#66716A', // secondary — descriptions, sub-labels
+        muted: '#98A29C', // tertiary — axis labels, placeholders, disabled
+
+        /*
+         * Green carries every positive state: current, complete, on pace. §34 puts the
+         * ratio at roughly 90% neutral to 10% green — if every heading and border is
+         * green then green has stopped meaning anything, and the bands stop reading.
+         */
+        signal: '#10B981', // live / current / on pace — the one thing happening now
+        deep: '#047857', // emphasis on green ground, green text on white
+        mint: '#34D399', // light green — chart fills, secondary series
+        wash: '#ECFDF5', // very subtle green ground — selected nav, completed rows
+
+        pass: '#10B981', // green band, complete, contained
+        warn: '#F59E0B', // yellow band, at risk, pushed
+        fail: '#EF4444', // red band, overran, skipped, over-committed
+        info: '#3B82F6', // neutral-informational, never a judgement
       },
       fontFamily: {
-        display: ['Archivo', 'system-ui', 'sans-serif'],
-        mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+        display: ['Inter', 'system-ui', 'sans-serif'],
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
       },
       letterSpacing: {
         display: '-0.02em',
         block: '0.08em',
       },
       borderRadius: {
-        DEFAULT: '4px',
-        sm: '2px',
-        md: '4px',
-        lg: '4px',   // nothing above 4px — SPEC §8
+        DEFAULT: '10px',
+        sm: '6px',
+        md: '10px',
+        lg: '14px', // the standard card — §33
+        xl: '18px',
+      },
+      boxShadow: {
+        // Hierarchy comes from borders and spacing; shadow only lifts what floats.
+        card: '0 1px 3px rgba(23, 34, 28, 0.05)',
+        lift: '0 4px 14px rgba(23, 34, 28, 0.08)',
+        focus: '0 0 0 3px rgba(16, 185, 129, 0.18)',
+      },
+      transitionDuration: {
+        DEFAULT: '180ms',
+      },
+      keyframes: {
+        'rise-in': {
+          from: { opacity: '0', transform: 'translateY(4px)' },
+          to: { opacity: '1', transform: 'none' },
+        },
+        'pop-check': {
+          '0%': { transform: 'scale(0.7)', opacity: '0.4' },
+          '60%': { transform: 'scale(1.12)' },
+          '100%': { transform: 'scale(1)', opacity: '1' },
+        },
+        'draw-bar': {
+          from: { transform: 'scaleX(0)' },
+          to: { transform: 'scaleX(1)' },
+        },
+      },
+      animation: {
+        'rise-in': 'rise-in 260ms ease-out both',
+        'pop-check': 'pop-check 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
+        'draw-bar': 'draw-bar 420ms ease-out both',
       },
     },
   },

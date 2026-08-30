@@ -4,16 +4,24 @@
 
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   body {
-    @apply bg-ink text-text font-sans antialiased;
+    @apply bg-ink font-sans text-text antialiased;
   }
 
   /* Tabular figures everywhere numbers appear — SPEC §8. */
   .font-mono {
     font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * One focus treatment for the whole app. Keyboard-only, so a mouse click does not
+   * leave a ring behind on every card it touches.
+   */
+  :focus-visible {
+    @apply outline-none ring-2 ring-signal/45 ring-offset-2 ring-offset-ink;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -24,5 +32,17 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+@layer components {
+  /* The standard card — §33. Borders and spacing carry the hierarchy, not shadow. */
+  .card {
+    @apply rounded-lg border border-edge bg-panel shadow-card;
+  }
+
+  /* A section label: small, tracked, muted. Above a card, never inside its border. */
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-block text-muted;
   }
 }
