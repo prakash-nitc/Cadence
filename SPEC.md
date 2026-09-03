@@ -111,9 +111,20 @@ blocks.
 20:00–21:00. The only wall-clock facts in the system, because the mess doesn't care when
 the user woke up.
 
-**Anchor** — the timestamp when the user taps **Start day**. If he opens the app after
-noon without having started, prompt for the anchor with a time picker defaulting to now.
-Never silently backdate.
+**Anchor** — when the *day* started, which is rarely when the laptop opened. Start day
+asks for it directly, seeded from the `dayStartsAt` setting, and states the gap to now in
+words: waking at 06:30 and sitting down at 09:00 is a 06:30 day with a morning already
+behind it, not a 09:00 day. Never silently backdate — saying the number out loud is the
+opposite of silent.
+
+Past six hours the usual start is no longer offered and the field falls back to the clock:
+at that distance it is not "I showered and ate", it is a day already lost, and pre-filling
+it would tick a morning that plausibly never happened.
+
+Blocks the anchor puts in the past are answered for in one pass at Start day rather than
+arriving as a queue of containment prompts. Routine, meals and breaks are pre-ticked as
+contained; **work is never assumed**. The answering is written into the day's notes, and
+`actualEndedAt` is the scheduled end — the claim is that it ran as laid.
 
 **ScheduledBlock** — the output. `blockId`, `startsAt`, `endsAt`, `status`
 (`pending | active | contained | overran | skipped`), `actualEndedAt`.
@@ -300,7 +311,7 @@ Implementation in §7. The set:
 | Burn-down goes negative | `Over-committed by 1h 15m. Triage.` |
 | Plan + log block | `Log today. Plan tomorrow.` |
 | Screens off | `Screens off. Book.` |
-| Not anchored by 10:00 | `Day not started.` |
+| Not anchored by `notAnchoredBy` | `Day not started.` |
 
 All individually toggleable in Settings.
 
