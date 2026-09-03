@@ -85,7 +85,7 @@ export function dayNotifications(dayDate: string, prefs: Prefs): Notification[] 
   if (prefs.notifications.notAnchored) {
     out.push({
       key: 'notAnchored',
-      at: at('10:00'),
+      at: at(prefs.notAnchoredBy),
       title: 'Day not started',
       body: 'Anchor it or the day is unplanned.',
     });

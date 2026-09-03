@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { exportAll, importAll, isBackup } from '../db/repo';
+import { backupState } from '../lib/copy';
 import { NumberField } from '../components/NumberField';
+import { Icon } from '../components/ui/Icon';
 import { TargetEditor } from '../components/TargetEditor';
 import { NOTIFICATION_SAMPLES, notifier } from '../lib/notify';
 import type { NotificationKey, Prefs } from '../lib/prefs';
@@ -124,8 +126,12 @@ export function Settings({ prefs }: { prefs: Prefs }) {
     link.download = `cadence-${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
     URL.revokeObjectURL(url);
+    // Recorded so the reminder can stop. Nothing else reads it.
+    void update('lastBackupAt', Date.now());
     setMessage(`Exported ${backup.days.length} days.`);
   };
+
+  const backup = backupState(prefs.lastBackupAt, prefs.backupReminderDays, Date.now());
 
   const restore = async (file: File): Promise<void> => {
     try {
@@ -372,13 +378,41 @@ export function Settings({ prefs }: { prefs: Prefs }) {
       </Section>
 
       <Section title="Data">
-        <button
-          type="button"
-          onClick={() => void download()}
-          className="w-full border border-edge px-3 py-2.5 text-sm text-text hover:border-muted"
+        <div
+          className={`rounded-lg border p-4 ${
+            backup.overdue ? 'border-warn/40 bg-warn/[0.06]' : 'border-edge bg-panel'
+          }`}
         >
-          Export everything to JSON
-        </button>
+          <p
+            className={`flex items-center gap-2 text-sm font-medium ${
+              backup.overdue ? 'text-warn' : 'text-text'
+            }`}
+          >
+            <Icon name={backup.overdue ? 'alert' : 'check'} size={15} />
+            {backup.line}
+          </p>
+          <p className="mt-1 text-xs text-soft">
+            Everything is in this browser and nowhere else. An export is a plain JSON file
+            you can keep anywhere and import back into a fresh browser.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => void download()}
+            className="mt-3 w-full rounded-full border border-signal bg-wash px-3 py-2.5 text-sm text-deep transition-colors hover:bg-mint/25"
+          >
+            Export everything to JSON
+          </button>
+        </div>
+
+        <Number_
+          label="Remind me to export after"
+          detail="Days between exports before the reminder appears. Zero switches it off."
+          value={prefs.backupReminderDays}
+          min={0}
+          max={365}
+          onChange={(value) => set('backupReminderDays', value)}
+        />
 
         <input
           ref={fileInput}

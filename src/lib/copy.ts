@@ -131,3 +131,47 @@ export function dayStatusLine(input: {
   const done = `${percent}% of today\u2019s committed minutes done`;
   return runningLabel ? `${runningLabel} \u00b7 ${done}` : done;
 }
+
+export interface BackupState {
+  /** Whole days since the last export, or null if there has never been one. */
+  daysSince: number | null;
+  overdue: boolean;
+  line: string;
+}
+
+/**
+ * How the backup reminder reads — pure, so the clock is passed in.
+ *
+ * Deliberately not alarming. It states a fact and offers the action; a local-only app
+ * nagging about data loss every session would be the sort of thing the user turns off,
+ * and then it protects nothing.
+ */
+export function backupState(
+  lastBackupAt: number | null,
+  reminderDays: number,
+  now: number,
+): BackupState {
+  if (reminderDays <= 0) {
+    return { daysSince: null, overdue: false, line: 'Backup reminders are off.' };
+  }
+
+  if (lastBackupAt === null) {
+    return {
+      daysSince: null,
+      overdue: true,
+      line: 'Never exported. Everything lives in this browser only.',
+    };
+  }
+
+  const daysSince = Math.floor((now - lastBackupAt) / 86_400_000);
+  const overdue = daysSince >= reminderDays;
+
+  return {
+    daysSince,
+    overdue,
+    line:
+      daysSince === 0
+        ? 'Exported today.'
+        : `Last exported ${daysSince} ${daysSince === 1 ? 'day' : 'days'} ago.`,
+  };
+}

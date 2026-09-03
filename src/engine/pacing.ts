@@ -7,6 +7,7 @@
 import type { Milestone, TargetSource, WeeklyTarget } from '../config/schedule.config';
 import type { Band, CommitmentRecord, DayRecord, LogRecord } from '../db/schema';
 import type { Prefs } from '../lib/prefs';
+import { dateKey } from '../lib/time';
 import { completionOf, scoreDay } from './scoring';
 
 /** Everything the pacing functions read about a stretch of days. */
@@ -422,7 +423,9 @@ export function weeksInRange(from: string, to: string): WeekSlice[] {
     const at = new Date(`${date}T12:00:00`);
     return at.getTime() - ((at.getDay() + 6) % 7) * dayMs;
   };
-  const key = (at: number): string => new Date(at).toISOString().slice(0, 10);
+  // `dateKey` is local; toISOString is UTC. Mixing them shifts the date by one for any
+  // user more than twelve hours off UTC, which is a silent, seasonal, unreproducible bug.
+  const key = (at: number): string => dateKey(at);
 
   const out: WeekSlice[] = [];
   const end = Date.parse(`${to}T12:00:00`);
@@ -636,7 +639,7 @@ export function streak(bands: DayBand[], today: string): Streak {
     at <= Date.parse(`${today}T12:00:00`);
     at += 86_400_000
   ) {
-    walk.push(new Date(at).toISOString().slice(0, 10));
+    walk.push(dateKey(at));
   }
 
   let best = 0;

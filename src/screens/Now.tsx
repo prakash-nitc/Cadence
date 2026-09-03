@@ -9,6 +9,7 @@ import {
   PaceCard,
   RuleCard,
 } from '../components/now/NowParts';
+import { Icon } from '../components/ui/Icon';
 import { Button, Card, Empty, Panel } from '../components/ui/primitives';
 import { StartDay } from '../components/StartDay';
 import { Triage } from '../components/Triage';
@@ -22,7 +23,7 @@ import {
   unconfirmed,
 } from '../engine/boundaries';
 import { burnDown, projectDay } from '../engine/scoring';
-import { freeTimeLine, pullForwardWarning, ruleForDate } from '../lib/copy';
+import { backupState, freeTimeLine, pullForwardWarning, ruleForDate } from '../lib/copy';
 import { blockPassed, blockPriority, gateLabel, runwayMinutes, unslotted } from '../lib/dayScoring';
 import type { Prefs } from '../lib/prefs';
 import { formatDuration, toHHMM } from '../lib/time';
@@ -105,6 +106,7 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
   );
   const labelFor = gateLabel(commitments, day.blocks);
   const tally = containment(day.blocks);
+  const backup = backupState(prefs.lastBackupAt, prefs.backupReminderDays, now);
 
   const blockCommitments = (blockId: string): typeof commitments =>
     commitments.filter((commitment) => commitment.blockId === blockId);
@@ -309,6 +311,15 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
         )}
 
         {rule ? <RuleCard rule={rule} /> : null}
+
+        {backup.overdue ? (
+          <p className="flex items-start gap-2 px-1 text-xs text-muted">
+            <Icon name="download" size={13} className="mt-px shrink-0" />
+            <span>
+              {backup.line} Everything is in this browser only — export it from Settings.
+            </span>
+          </p>
+        ) : null}
       </aside>
     </div>
   );

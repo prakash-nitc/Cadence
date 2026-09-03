@@ -82,7 +82,12 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
   // The wake time the plan assumes. Not the anchor — that is still whenever Start day is
   // actually tapped tomorrow — but without it the plan cannot show real clock times, and
   // "which slot" is not answerable.
-  const [wakeAt, setWakeAt] = useState('05:45');
+  //
+  // Seeded from `dayStartsAt` rather than a literal. It was hardcoded to 05:45, so
+  // changing when your day starts moved Start day and left every plan you made for
+  // tomorrow laid out from a time you had already told the app was wrong.
+  const [wakeAt, setWakeAt] = useState(prefs.dayStartsAt);
+  useEffect(() => setWakeAt(prefs.dayStartsAt), [prefs.dayStartsAt]);
 
   const seeded = useMemo(
     () => blocksForTemplate(templateId, savedTemplates) ?? [],

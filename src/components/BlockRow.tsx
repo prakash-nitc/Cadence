@@ -99,7 +99,12 @@ export function BlockRow({
 
   if (block.kind === 'gap') {
     return (
-      <div className="flex gap-4" data-block={block.blockId} data-status="gap">
+      <div
+        className="flex gap-4"
+        data-block={block.blockId}
+        data-status="gap"
+        data-starts={block.startsAt}
+      >
         <span className="w-[76px] shrink-0 pt-2 text-right font-mono text-xs text-muted">
           {toHHMM(block.startsAt)}
         </span>
@@ -120,7 +125,14 @@ export function BlockRow({
   const icon = STATUS_ICON[status];
 
   return (
-    <div className="flex gap-4" data-block={block.blockId} data-status={status}>
+    <div
+      className="flex gap-4"
+      data-block={block.blockId}
+      data-status={status}
+      /* The real timestamp. Clock strings cannot be compared across midnight, and a
+         Cadence day routinely runs past it. */
+      data-starts={block.startsAt}
+    >
       {/* The rail: start time, dot, and the line running down to the next block. */}
       <span className="w-[76px] shrink-0 pt-3 text-right font-mono text-xs text-muted">
         {toHHMM(block.startsAt)}

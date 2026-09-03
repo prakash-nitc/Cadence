@@ -55,6 +55,16 @@ const FIELD =
 /** The kinds that reliably did happen if their time has passed. Work never assumes. */
 const ASSUME_DONE = new Set(['routine', 'meal', 'break']);
 
+/**
+ * How far back the usual start time may be offered from.
+ *
+ * Two or three hours after waking is the ordinary case this exists for — shower,
+ * breakfast, then the laptop. Opening at 23:00 is not that: it is a day already lost, and
+ * pre-filling 06:30 there would tick five blocks that plausibly never happened. Past this,
+ * the field falls back to now and the user has to claim the morning deliberately.
+ */
+const MAX_ASSUMED_GAP_MINUTES = 6 * 60;
+
 export function StartDay({
   date,
   plannedBlocks,
@@ -79,8 +89,9 @@ export function StartDay({
    */
   const [pickedTime, setPickedTime] = useState<string | null>(null);
   const defaultTime = plannedAnchor ?? prefs.dayStartsAt;
-  const suggestedIsPast = Date.parse(`${date}T${defaultTime}:00`) < now;
-  const anchorTime = pickedTime ?? (suggestedIsPast ? defaultTime : toHHMM(now));
+  const gap = (now - Date.parse(`${date}T${defaultTime}:00`)) / 60_000;
+  const offerUsual = gap > 0 && gap <= MAX_ASSUMED_GAP_MINUTES;
+  const anchorTime = pickedTime ?? (offerUsual ? defaultTime : toHHMM(now));
 
   const anchor = useMemo(() => {
     const parsed = new Date(`${date}T${anchorTime}:00`);
@@ -155,6 +166,12 @@ export function StartDay({
               : 'Not when you opened the laptop — when you actually got up.'}
         </p>
 
+        {plannedAnchor && pickedTime === null ? (
+          <p className="mt-2 font-mono text-xs text-muted">
+            Planned to start at {plannedAnchor}.
+          </p>
+        ) : null}
+
         <div className="mt-4 grid gap-4 sm:grid-cols-[11rem_minmax(0,1fr)] sm:items-center">
           <input
             id="anchor-time"
@@ -171,6 +188,13 @@ export function StartDay({
                 <span className="font-mono text-text">{toHHMM(now)}</span>, {formatDuration(lateBy)}{' '}
                 later. The blocks before now land where they happened rather than being
                 pushed into the afternoon.
+              </>
+            ) : gap > MAX_ASSUMED_GAP_MINUTES ? (
+              <>
+                Your usual{' '}
+                <span className="font-mono text-text">{defaultTime}</span> is more than six
+                hours ago, so this starts from now. Set it back only to a time you actually
+                started.
               </>
             ) : (
               'Starting now. Set it back only to a time you actually started.'

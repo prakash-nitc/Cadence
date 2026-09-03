@@ -406,6 +406,25 @@ export const DEFAULT_PREFS = {
    */
   dayStartsAt: '06:30',
 
+  /**
+   * When to nudge that the day is still unanchored — SPEC §3.5.
+   *
+   * A setting rather than a literal, because it only makes sense relative to when the
+   * user's day begins: a fixed 10:00 is a reminder for one person's schedule and noise
+   * for everyone else's.
+   */
+  notAnchoredBy: '10:00',
+
+  /**
+   * When the database was last exported, and how long before the app says so.
+   *
+   * Everything lives in one browser's IndexedDB. Clearing site data, switching browser,
+   * or losing the machine loses every day ever logged, and an export nobody is reminded
+   * to take is an export nobody takes. Zero days disables the reminder.
+   */
+  lastBackupAt: null as number | null,
+  backupReminderDays: 14,
+
   /** Week shape targets. Three yellows is the early warning, not the failure. */
   weekShape: { minGreen: 4, maxYellow: 2, maxRed: 1 },
 
