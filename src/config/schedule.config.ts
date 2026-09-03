@@ -395,6 +395,17 @@ export const DEFAULT_PREFS = {
   dayEnd: DAY_END_DEFAULT,
   gymCutoffHour: GYM_CUTOFF_HOUR,
 
+  /**
+   * When the day actually begins — not when the laptop opens.
+   *
+   * The two are rarely the same. Waking at 06:30 and sitting down at 09:00 does not make
+   * it a 09:00 day: the morning routine happened, and anchoring at the laptop would lay
+   * Wake and Breakfast across the middle of the morning and push everything two hours
+   * late. Start day offers this as the anchor and says plainly how long ago it was, which
+   * is the difference between backdating and silently backdating (§2.1).
+   */
+  dayStartsAt: '06:30',
+
   /** Week shape targets. Three yellows is the early warning, not the failure. */
   weekShape: { minGreen: 4, maxYellow: 2, maxRed: 1 },
 

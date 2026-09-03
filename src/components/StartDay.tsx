@@ -2,22 +2,30 @@ import { useMemo, useState } from 'react';
 import { FIXED_WINDOWS, type BlockDef } from '../config/schedule.config';
 import type { SavedTemplate } from '../db/schema';
 import { planDay } from '../engine/capacity';
+import { layoutDay, type ScheduledBlock } from '../engine/layout';
 import { describeDegradation } from '../lib/copy';
 import type { Prefs } from '../lib/prefs';
 import { blocksForTemplate, suggestedTemplate } from '../lib/templates';
-import { toHHMM } from '../lib/time';
+import { formatDuration, toHHMM } from '../lib/time';
 import { availableMinutes } from '../engine/capacity';
 import { CustomDay } from './CustomDay';
 import { TemplatePicker } from './TemplatePicker';
+import { Icon } from './ui/Icon';
+import { Button, Card, SectionTitle } from './ui/primitives';
 
 /**
- * The unanchored state — SPEC §3.1. The whole screen is Start day plus a template picker.
+ * The unanchored state — SPEC §3.1. Start day, a template picker, and an honest account
+ * of what has already happened.
  *
- * The anchor is the timestamp of the tap. Opening the app after noon without having
- * started prompts for it with a picker defaulting to now: the day is never silently
- * backdated to a morning that did not happen.
+ * The anchor is when the *day* started, which is rarely when the laptop opened. Waking at
+ * 06:30 and sitting down at 09:00 is not a 09:00 day: the morning routine happened, and
+ * anchoring at the laptop lays Wake and Breakfast across the middle of the morning and
+ * pushes everything two hours late.
  *
- * What the template loses to a late start is shown before anchoring, not after — SPEC §2.4.
+ * So the field is offered up front, seeded from `dayStartsAt`, with the gap to now stated
+ * in words. §2.1 forbids *silently* backdating — this is the opposite of silent, and the
+ * blocks the anchor puts in the past are then answered for in one pass rather than
+ * arriving as a queue of containment prompts.
  */
 interface StartDayProps {
   date: string;
@@ -31,11 +39,21 @@ interface StartDayProps {
   planned: boolean;
   /** Commitments already waiting on this day, planned the night before. */
   commitmentCount: number;
-  onStart: (anchor: Date, templateId: string, blocks?: BlockDef[]) => void;
+  onStart: (
+    anchor: Date,
+    templateId: string,
+    blocks?: BlockDef[],
+    settle?: Record<string, 'contained' | 'skipped'>,
+  ) => void;
   onSaveTemplate: (name: string, blocks: BlockDef[]) => void;
 }
 
-const NOON_HOUR = 12;
+const FIELD =
+  'w-full rounded-md border border-edge bg-panel px-3 py-2 font-mono text-lg text-text ' +
+  'transition-shadow focus:border-signal focus:shadow-focus focus:outline-none';
+
+/** The kinds that reliably did happen if their time has passed. Work never assumes. */
+const ASSUME_DONE = new Set(['routine', 'meal', 'break']);
 
 export function StartDay({
   date,
@@ -51,29 +69,61 @@ export function StartDay({
 }: StartDayProps) {
   const suggested = useMemo(() => suggestedTemplate(new Date(now)), [now]);
   const [templateId, setTemplateId] = useState<string>(suggested);
-  // Only once the user picks a time does it stop tracking the clock. Freezing it at
-  // mount meant leaving this screen open and tapping Start day 40 minutes later
-  // silently backdated the day to when the screen happened to load — SPEC §2.1 says
-  // never silently backdate, and that includes backdating to a stale render.
-  const [pickedTime, setPickedTime] = useState<string | null>(null);
-  const anchorTime = pickedTime ?? toHHMM(now);
-  const setAnchorTime = setPickedTime;
   const [building, setBuilding] = useState(false);
 
-  const afterNoon = new Date(now).getHours() >= NOON_HOUR;
+  /*
+   * The default anchor: last night's plan if there was one, otherwise the usual start.
+   * Only once the user picks does it stop tracking the clock — freezing at mount meant
+   * leaving this screen open and tapping Start day 40 minutes later silently backdated
+   * the day to whenever the screen happened to load.
+   */
+  const [pickedTime, setPickedTime] = useState<string | null>(null);
+  const defaultTime = plannedAnchor ?? prefs.dayStartsAt;
+  const suggestedIsPast = Date.parse(`${date}T${defaultTime}:00`) < now;
+  const anchorTime = pickedTime ?? (suggestedIsPast ? defaultTime : toHHMM(now));
 
   const anchor = useMemo(() => {
-    if (pickedTime === null) return new Date(now);
-    const parsed = new Date(`${date}T${pickedTime}:00`);
+    const parsed = new Date(`${date}T${anchorTime}:00`);
     return Number.isNaN(parsed.getTime()) ? new Date(now) : parsed;
-  }, [date, pickedTime, now]);
+  }, [date, anchorTime, now]);
+
+  const lateBy = Math.max(0, Math.round((now - anchor.getTime()) / 60_000));
+
+  const template = useMemo(
+    () => plannedBlocks ?? blocksForTemplate(templateId, saved),
+    [plannedBlocks, templateId, saved],
+  );
+
+  /** The day as it would be laid, so "already happened" is the real list, not a guess. */
+  const laid = useMemo<ScheduledBlock[]>(() => {
+    if (!template) return [];
+    return plannedBlocks
+      ? layoutDay(anchor, plannedBlocks, FIXED_WINDOWS)
+      : planDay(anchor, template, FIXED_WINDOWS, prefs).blocks;
+  }, [template, plannedBlocks, anchor, prefs]);
+
+  const past = useMemo(
+    () => laid.filter((block) => block.kind !== 'gap' && block.endsAt <= now),
+    [laid, now],
+  );
+
+  /** Ticked means contained. Seeded per kind and then owned by the user. */
+  const [answers, setAnswers] = useState<Record<string, boolean>>({});
+  const answerFor = (block: ScheduledBlock): boolean =>
+    answers[block.blockId] ?? ASSUME_DONE.has(block.kind);
 
   const preview = useMemo(() => {
-    const template = blocksForTemplate(templateId, saved);
-    if (!template) return null;
+    if (!template || plannedBlocks) return null;
     const { degradation } = planDay(anchor, template, FIXED_WINDOWS, prefs);
     return describeDegradation(degradation, anchor, prefs.gymCutoffHour);
-  }, [templateId, saved, anchor, prefs]);
+  }, [template, plannedBlocks, anchor, prefs]);
+
+  const start = (): void => {
+    const settle: Record<string, 'contained' | 'skipped'> = {};
+    for (const block of past) settle[block.blockId] = answerFor(block) ? 'contained' : 'skipped';
+    const id = plannedBlocks ? 'planned' : templateId;
+    onStart(anchor, id, plannedBlocks ?? undefined, past.length > 0 ? settle : undefined);
+  };
 
   if (building) {
     return (
@@ -88,50 +138,50 @@ export function StartDay({
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="font-display text-2xl tracking-display text-text">Day not started</h1>
-        {plannedAnchor ? (
-          <p className="mt-1 font-mono text-xs text-muted">
-            Planned to start at {plannedAnchor}. Starting now anchors it at {toHHMM(now)}.
-          </p>
-        ) : null}
-        <p className="mt-1 text-sm text-muted">
-          {commitmentCount > 0
-            ? `${commitmentCount} ${commitmentCount === 1 ? 'commitment' : 'commitments'} waiting. Anchor the day to lay the blocks out.`
-            : planned
-              ? 'Planned, with nothing committed to. Anchor it to lay the blocks out.'
-              : 'No plan for this day. Anchoring lays the blocks out from now.'}
-        </p>
-      </header>
+  const doneCount = past.filter(answerFor).length;
 
-      {afterNoon ? (
-        <section>
-          <label
-            htmlFor="anchor-time"
-            className="block text-xs uppercase tracking-block text-muted"
-          >
-            Anchor at
-          </label>
+  return (
+    <div className="mx-auto max-w-3xl space-y-5">
+      <Card className="p-6">
+        <p className="eyebrow">Day not started</p>
+        <h1 className="mt-2 font-display text-2xl font-semibold tracking-display text-text">
+          When did your day start?
+        </h1>
+        <p className="mt-1 text-sm text-soft">
+          {commitmentCount > 0
+            ? `${commitmentCount} ${commitmentCount === 1 ? 'commitment' : 'commitments'} waiting. Anchoring lays the blocks out.`
+            : planned
+              ? 'Planned, with nothing committed to. Anchoring lays the blocks out.'
+              : 'Not when you opened the laptop — when you actually got up.'}
+        </p>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-[11rem_minmax(0,1fr)] sm:items-center">
           <input
             id="anchor-time"
             type="time"
+            aria-label="Day started at"
             value={anchorTime}
-            onChange={(event) => setAnchorTime(event.target.value)}
-            className="mt-2 w-full border border-edge bg-panel px-3 py-2 font-mono text-lg text-text focus:border-signal focus:outline-none"
+            onChange={(event) => setPickedTime(event.target.value)}
+            className={FIELD}
           />
-          <p className="mt-1 text-xs text-muted">
-            Defaults to now. Set it back only to a time you actually started.
+          <p className="text-xs leading-relaxed text-soft">
+            {lateBy > 0 ? (
+              <>
+                You are opening this at{' '}
+                <span className="font-mono text-text">{toHHMM(now)}</span>, {formatDuration(lateBy)}{' '}
+                later. The blocks before now land where they happened rather than being
+                pushed into the afternoon.
+              </>
+            ) : (
+              'Starting now. Set it back only to a time you actually started.'
+            )}
           </p>
-        </section>
-      ) : null}
+        </div>
+      </Card>
 
       <section>
-        <h2 className="mb-1 text-xs uppercase tracking-block text-muted">
-          {plannedBlocks ? 'Or start from something else' : 'Start from'}
-        </h2>
-        <p className="mb-2 text-xs text-muted">
+        <SectionTitle>{plannedBlocks ? 'Or start from something else' : 'Start from'}</SectionTitle>
+        <p className="-mt-1 mb-2 text-xs text-muted">
           A template is the ideal day, not a rule. Take it as it is, or arrange it.
         </p>
         <TemplatePicker
@@ -142,35 +192,92 @@ export function StartDay({
         />
       </section>
 
-      {preview ? (
-        <section className="border border-edge bg-panel p-3">
-          {preview.map((line) => (
-            <p key={line} className="text-sm text-muted first:text-text">
-              {line}
+      {past.length > 0 ? (
+        <section>
+          <SectionTitle
+            action={
+              <span className="font-mono text-xs text-muted">
+                {doneCount} of {past.length} contained
+              </span>
+            }
+          >
+            Already happened
+          </SectionTitle>
+
+          <Card flush>
+            <p className="border-b border-edge px-5 py-3 text-xs text-soft">
+              These fall before {toHHMM(now)}. Ticked is contained, unticked is skipped —
+              answered once here instead of one prompt at a time.
             </p>
-          ))}
+
+            <ul>
+              {past.map((block) => {
+                const done = answerFor(block);
+                return (
+                  <li key={block.blockId}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAnswers((current) => ({ ...current, [block.blockId]: !done }))
+                      }
+                      aria-pressed={done}
+                      className="flex w-full items-center gap-3 border-b border-edge px-5 py-3 text-left transition-colors last:border-b-0 hover:bg-sunk/60"
+                    >
+                      <span
+                        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border transition-colors ${
+                          done ? 'border-signal bg-signal text-panel' : 'border-edge'
+                        }`}
+                      >
+                        {done ? <Icon name="check" size={12} /> : null}
+                      </span>
+
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={`block text-sm font-medium ${
+                            done ? 'text-text' : 'text-muted line-through'
+                          }`}
+                        >
+                          {block.label}
+                        </span>
+                        <span className="mt-0.5 block font-mono text-xs text-muted">
+                          {toHHMM(block.startsAt)}–{toHHMM(block.endsAt)}
+                          <span className="mx-1.5 text-edge">·</span>
+                          {formatDuration(block.minutes)}
+                          <span className="ml-2 font-sans capitalize">{block.kind}</span>
+                        </span>
+                      </span>
+
+                      <span className={`shrink-0 text-xs ${done ? 'text-deep' : 'text-muted'}`}>
+                        {done ? 'Contained' : 'Skipped'}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
         </section>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() =>
-          plannedBlocks
-            ? onStart(anchor, 'planned', plannedBlocks)
-            : onStart(anchor, templateId)
-        }
-        className="w-full border border-signal bg-signal/10 py-4 font-display text-lg tracking-display text-signal hover:bg-signal/20"
-      >
-        {plannedBlocks ? 'Start the day you planned' : 'Start day'}
-      </button>
+      {preview ? (
+        <Card className="space-y-0.5 bg-sunk">
+          {preview.map((line) => (
+            <p key={line} className="text-sm text-soft first:font-medium first:text-text">
+              {line}
+            </p>
+          ))}
+        </Card>
+      ) : null}
 
-      <button
-        type="button"
-        onClick={() => setBuilding(true)}
-        className="w-full border border-edge py-3 text-sm text-text hover:border-muted"
-      >
-        Arrange the day first
-      </button>
+      <div className="space-y-3">
+        <Button variant="primary" size="lg" icon="check" className="w-full" onClick={start}>
+          {plannedBlocks ? 'Start the day you planned' : 'Start day'}
+        </Button>
+
+        <Button className="w-full" onClick={() => setBuilding(true)}>
+          Arrange the day first
+        </Button>
+      </div>
     </div>
   );
 }

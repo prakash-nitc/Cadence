@@ -75,6 +75,13 @@ interface DayState {
     templateId: string,
     prefs: Prefs,
     customBlocks?: BlockDef[],
+    /**
+     * What to do with blocks the anchor puts in the past — by block id, contained or
+     * skipped. Anchoring at wake time means the morning routine lands where it actually
+     * happened; without this the user would then answer four containment prompts in a
+     * row for blocks they finished before opening the laptop.
+     */
+    settle?: Record<string, 'contained' | 'skipped'>,
   ) => Promise<void>;
   /**
    * Re-lay the part of the day that has not happened yet. What was already resolved
@@ -190,7 +197,7 @@ export const useDay = create<DayState>((set, get) => {
       });
     },
 
-    startDay: async (anchor, templateId, prefs, customBlocks) => {
+    startDay: async (anchor, templateId, prefs, customBlocks, settle) => {
       const { date, savedTemplates } = get();
       if (!date) return;
 
@@ -204,6 +211,25 @@ export const useDay = create<DayState>((set, get) => {
       const { blocks, degradation } = customBlocks
         ? { blocks: layoutDay(anchor, customBlocks, FIXED_WINDOWS), degradation: null }
         : planDay(anchor, template, FIXED_WINDOWS, prefs);
+
+      /*
+       * Blocks the user answered for up front. `actualEndedAt` is the scheduled end
+       * rather than now: they are saying it ran as laid, and inventing a finishing
+       * timestamp from the moment they opened the laptop would be worse than none.
+       */
+      const settled = settle
+        ? blocks.map((block) => {
+            const outcome = settle[block.blockId];
+            return outcome
+              ? { ...block, status: outcome, actualEndedAt: block.endsAt }
+              : block;
+          })
+        : blocks;
+
+      const answered = settle ? Object.keys(settle).length : 0;
+      const contained = settle
+        ? Object.values(settle).filter((outcome) => outcome === 'contained').length
+        : 0;
 
       const existing = await getDay(date);
 
@@ -222,12 +248,18 @@ export const useDay = create<DayState>((set, get) => {
         date,
         anchorAt: anchor.getTime(),
         template: templateId,
-        blocks,
+        blocks: settled,
         degradation: [
           ...(existing?.degradation ?? []).filter((line) => line.startsWith(RESTART_NOTE)),
           ...(degradation
             ? describeDegradation(degradation, anchor, prefs.gymCutoffHour)
             : [`Arranged at ${toHHMM(anchor)}. ${customBlocks?.length ?? 0} blocks, as laid out.`]),
+          // Answering for the morning up front is a fact about the day, so it is recorded.
+          ...(answered > 0
+            ? [
+                `Anchored at ${toHHMM(anchor)}, answered for at start: ${contained} of ${answered} contained.`,
+              ]
+            : []),
         ],
         pushes: existing?.pushes ?? [],
       });

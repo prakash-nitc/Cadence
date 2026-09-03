@@ -233,6 +233,21 @@ export function Settings({ prefs }: { prefs: Prefs }) {
           onChange={(value) => set('planningSlack', value / 100)}
         />
 
+        <label className="block rounded-lg border border-edge bg-panel p-4">
+          <span className="block text-sm font-medium text-text">Day starts at</span>
+          <span className="mt-0.5 block text-xs text-soft">
+            When you actually get up — not when the laptop opens. Start day offers this as
+            the anchor, so the morning routine lands in the morning.
+          </span>
+          <input
+            type="time"
+            value={prefs.dayStartsAt}
+            aria-label="Day starts at"
+            onChange={(event) => set('dayStartsAt', event.target.value)}
+            className={`${field} mt-2.5`}
+          />
+        </label>
+
         <div className="grid grid-cols-2 gap-3">
           <label className="block rounded-lg border border-edge bg-panel p-4">
             <span className="block text-sm font-medium text-text">Day end</span>
