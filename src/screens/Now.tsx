@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { RULES } from '../config/schedule.config';
 import { CommitmentRow } from '../components/CommitmentRow';
 import { ContainmentPrompt } from '../components/ContainmentPrompt';
@@ -9,6 +9,7 @@ import {
   PaceCard,
   RuleCard,
 } from '../components/now/NowParts';
+import { WeekStrip } from '../components/now/WeekStrip';
 import { Icon } from '../components/ui/Icon';
 import { Button, Card, Empty, Panel } from '../components/ui/primitives';
 import { StartDay } from '../components/StartDay';
@@ -22,12 +23,14 @@ import {
   nextBlock,
   unconfirmed,
 } from '../engine/boundaries';
-import { burnDown, projectDay } from '../engine/scoring';
+import { bandDays, type DayBand } from '../engine/pacing';
+import { burnDown, projectDay, scoreDay } from '../engine/scoring';
 import { backupState, freeTimeLine, pullForwardWarning, ruleForDate } from '../lib/copy';
 import { blockPassed, blockPriority, gateLabel, runwayMinutes, unslotted } from '../lib/dayScoring';
 import type { Prefs } from '../lib/prefs';
 import { formatDuration, toHHMM } from '../lib/time';
 import { useDay } from '../store/dayStore';
+import { useProgress } from '../store/progressStore';
 
 const PUSH_OPTIONS = [15, 30, 60];
 
@@ -50,6 +53,44 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
   } = useDay();
   const [confirmingEarly, setConfirmingEarly] = useState(false);
   const [triaging, setTriaging] = useState(false);
+
+  const {
+    loaded: weekLoaded,
+    days: weekDays,
+    commitments: weekCommitments,
+    logs: weekLogs,
+    load: loadWeek,
+  } = useProgress();
+
+  useEffect(() => {
+    if (date && !weekLoaded) void loadWeek(date);
+  }, [date, weekLoaded, loadWeek]);
+
+  const weekBands = useMemo(() => {
+    const stored = weekLoaded
+      ? bandDays({ days: weekDays, commitments: weekCommitments, logs: weekLogs }, prefs)
+      : [];
+
+    /*
+     * Today comes from the live day rather than the stored snapshot. The progress store
+     * loads once; without this, starting the day or ticking a commitment left the strip
+     * reporting an empty today on a day actively being worked.
+     */
+    if (!date || !day) return stored;
+
+    const live = scoreDay(commitments, prefs, day.plannedAt !== null);
+    const today: DayBand = {
+      date,
+      band: live.band,
+      score: live.score,
+      template: day.template,
+      placementMode: day.placementMode,
+      planned: day.plannedAt !== null,
+      anchored: day.anchorAt !== null,
+    };
+
+    return [...stored.filter((band) => band.date !== date), today];
+  }, [weekLoaded, weekDays, weekCommitments, weekLogs, prefs, date, day, commitments]);
 
   if (!date) return null;
 
@@ -312,12 +353,14 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
 
         {rule ? <RuleCard rule={rule} /> : null}
 
+        {date ? (
+          <WeekStrip bands={weekBands} today={date} minGreen={prefs.weekShape.minGreen} />
+        ) : null}
+
         {backup.overdue ? (
           <p className="flex items-start gap-2 px-1 text-xs text-muted">
             <Icon name="download" size={13} className="mt-px shrink-0" />
-            <span>
-              {backup.line} Everything is in this browser only — export it from Settings.
-            </span>
+            <span>{backup.line} Export it from Settings.</span>
           </p>
         ) : null}
       </aside>
