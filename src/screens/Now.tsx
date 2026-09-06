@@ -9,6 +9,7 @@ import {
   PaceCard,
   RuleCard,
 } from '../components/now/NowParts';
+import { MorningCheck } from '../components/now/MorningCheck';
 import { WeekStrip } from '../components/now/WeekStrip';
 import { Icon } from '../components/ui/Icon';
 import { Button, Card, Empty, Panel } from '../components/ui/primitives';
@@ -42,6 +43,10 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
     commitments,
     savedTemplates,
     yesterdayLesson,
+    todayLog,
+    previousSleep,
+    refreshLog,
+    saveVitals,
     startDay,
     saveTemplate,
     closeBlock,
@@ -66,6 +71,12 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
   useEffect(() => {
     if (date && !weekLoaded) void loadWeek(date);
   }, [date, weekLoaded, loadWeek]);
+
+  // Plan writes the same log. One record read on mount keeps the two from drifting.
+  useEffect(() => {
+    void refreshLog();
+  }, [refreshLog]);
+
 
   const weekBands = useMemo(() => {
     const stored = weekLoaded
@@ -340,6 +351,12 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
       {/* Summary column: am I on pace, what is next, what is the standing rule. */}
       <aside className="space-y-5">
         <PaceCard result={projected} labelFor={labelFor} />
+
+        <MorningCheck
+          log={todayLog}
+          lastSleep={previousSleep}
+          onSave={(sleepHours, energy) => void saveVitals(sleepHours, energy, now)}
+        />
 
         {heldBack ? (
           <Card>

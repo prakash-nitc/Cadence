@@ -9,11 +9,12 @@ import {
   listSavedTemplates,
   putDay,
   putCommitments,
+  putLog,
   putSavedTemplate,
   resolveActiveDate,
 } from '../db/repo';
 import type { BlockDef } from '../config/schedule.config';
-import type { CommitmentRecord, DayRecord, SavedTemplate } from '../db/schema';
+import type { CommitmentRecord, DayRecord, LogRecord, SavedTemplate } from '../db/schema';
 import { isResolved, pullForward, pushRemaining, resolveBlock } from '../engine/boundaries';
 import { layoutDay } from '../engine/layout';
 import { planDay } from '../engine/capacity';
@@ -73,6 +74,19 @@ interface DayState {
    * lesson written at 23:00 and never re-read is a diary entry, not a correction.
    */
   yesterdayLesson: string | null;
+  /**
+   * Today's log, so sleep and energy can be recorded when they are actually known.
+   *
+   * They were only reachable from Plan, which is filled at 23:00 — by which point how you
+   * slept is a recollection and how you felt at 09:00 is a reconstruction. The night
+   * review can still correct both; this is about capturing them while they are facts.
+   */
+  todayLog: LogRecord | null;
+  /** Last night's hours, to seed the field rather than starting from a guess. */
+  previousSleep: number | null;
+  /** Re-read the log from the database. Cheap, and the two screens can both write it. */
+  refreshLog: () => Promise<void>;
+  saveVitals: (sleepHours: number, energy: LogRecord['energy'], at: number) => Promise<void>;
   load: (now: number) => Promise<void>;
   /**
    * `blocks` overrides the template lookup — a custom day or a quick carve is a set of
@@ -180,6 +194,8 @@ export const useDay = create<DayState>((set, get) => {
     commitments: [],
     previous: null,
     yesterdayLesson: null,
+    todayLog: null,
+    previousSleep: null,
     savedTemplates: [],
     loaded: false,
 
@@ -187,15 +203,23 @@ export const useDay = create<DayState>((set, get) => {
       const date = await resolveActiveDate(now);
       const yesterday = dateKey(addDays(new Date(`${date}T12:00:00`), -1));
 
-      const [day, commitments, savedTemplates, previousDay, previousCommitments, previousLog] =
-        await Promise.all([
-          getDay(date),
-          commitmentsFor(date),
-          listSavedTemplates(),
-          getDay(yesterday),
-          commitmentsFor(yesterday),
-          getLog(yesterday),
-        ]);
+      const [
+        day,
+        commitments,
+        savedTemplates,
+        previousDay,
+        previousCommitments,
+        previousLog,
+        todayLog,
+      ] = await Promise.all([
+        getDay(date),
+        commitmentsFor(date),
+        listSavedTemplates(),
+        getDay(yesterday),
+        commitmentsFor(yesterday),
+        getLog(yesterday),
+        getLog(date),
+      ]);
 
       set({
         date,
@@ -204,8 +228,46 @@ export const useDay = create<DayState>((set, get) => {
         savedTemplates,
         previous: previousDay ? { day: previousDay, commitments: previousCommitments } : null,
         yesterdayLesson: previousLog?.toImprove?.trim() || null,
+        previousSleep: previousLog?.sleepHours ?? null,
+        todayLog,
         loaded: true,
       });
+    },
+
+    refreshLog: async () => {
+      const { date } = get();
+      if (!date) return;
+      set({ todayLog: await getLog(date) });
+    },
+
+    /*
+     * Write sleep and energy without touching anything else on the log.
+     *
+     * A log may not exist yet at nine in the morning, and the night review fills the rest
+     * of it; spreading an existing record keeps whatever is already there rather than
+     * blanking the review because the morning got there first.
+     */
+    saveVitals: async (sleepHours, energy, at) => {
+      const { date } = get();
+      if (!date) return;
+
+      const existing = await getLog(date);
+      const log: LogRecord = {
+        ...(existing ?? {
+          date,
+          recallDrillDone: false,
+          hardestThing: '',
+          blocksContained: 0,
+          blocksTotal: 0,
+          createdAt: at,
+        }),
+        date,
+        sleepHours,
+        energy,
+      };
+
+      await putLog(log);
+      set({ todayLog: log });
     },
 
     startDay: async (anchor, templateId, prefs, customBlocks, settle) => {
