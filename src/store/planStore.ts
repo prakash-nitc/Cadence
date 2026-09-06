@@ -35,6 +35,9 @@ export interface LogInput {
   sleepHours: number;
   energy: LogRecord['energy'];
   hardestThing: string;
+  wentWell: string;
+  wentWrong: string;
+  toImprove: string;
   blocksContained: number;
   blocksTotal: number;
 }
@@ -52,6 +55,8 @@ interface PlanState {
 
   load: (today: string, prefs: Prefs) => Promise<void>;
   saveLog: (today: string, input: LogInput, at: number) => Promise<void>;
+  /** Tomorrow's free-text note, saved on its own so it survives a half-finished plan. */
+  saveBrainDump: (text: string) => Promise<void>;
   savePlan: (
     templateId: string,
     items: PlanItem[],
@@ -108,6 +113,35 @@ export const usePlan = create<PlanState>((set, get) => ({
     const log: LogRecord = { date: today, ...input, createdAt: at };
     await putLog(log);
     set({ todayLog: log });
+  },
+
+  saveBrainDump: async (text) => {
+    const { tomorrow, tomorrowDay } = get();
+    if (!tomorrow) return;
+
+    const day: DayRecord = {
+      ...(tomorrowDay ?? {
+        date: tomorrow,
+        anchorAt: null,
+        template: 'full',
+        blocks: [],
+        degradation: [],
+        pushes: [],
+        placementMode: false,
+        score: null,
+        band: null,
+        gatePassed: null,
+        // Writing a note is not planning the day. Only savePlan sets this.
+        plannedAt: null,
+        plannedBlocks: null,
+        plannedAnchor: null,
+      }),
+      date: tomorrow,
+      brainDump: text,
+    };
+
+    await putDay(day);
+    set({ tomorrowDay: day });
   },
 
   savePlan: async (templateId, items, at, arrangement) => {

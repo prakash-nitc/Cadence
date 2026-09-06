@@ -425,6 +425,17 @@ export const DEFAULT_PREFS = {
   lastBackupAt: null as number | null,
   backupReminderDays: 14,
 
+  /**
+   * The shape a day of commitments should take — one big, two medium, three small.
+   *
+   * A ceiling on ambition rather than a quota: being under it is fine, being over it is
+   * the thing worth knowing at 23:00 rather than at 16:00 tomorrow. Sizes come from
+   * planned minutes, so a commitment's size is a fact the app already holds.
+   */
+  dayShape: { big: 1, medium: 2, small: 3 },
+  bigMinutes: 90,
+  mediumMinutes: 45,
+
   /** Week shape targets. Three yellows is the early warning, not the failure. */
   weekShape: { minGreen: 4, maxYellow: 2, maxRed: 1 },
 

@@ -5,6 +5,7 @@ import {
   deleteCommitment,
   deleteSavedTemplate,
   getDay,
+  getLog,
   listSavedTemplates,
   putDay,
   putCommitments,
@@ -65,6 +66,13 @@ interface DayState {
    * between two different scales.
    */
   previous: { day: DayRecord; commitments: CommitmentRecord[] } | null;
+  /**
+   * The one thing yesterday said to improve, if anything.
+   *
+   * Read back at Start day, which is the only moment it can still change the day. A
+   * lesson written at 23:00 and never re-read is a diary entry, not a correction.
+   */
+  yesterdayLesson: string | null;
   load: (now: number) => Promise<void>;
   /**
    * `blocks` overrides the template lookup — a custom day or a quick carve is a set of
@@ -171,6 +179,7 @@ export const useDay = create<DayState>((set, get) => {
     day: null,
     commitments: [],
     previous: null,
+    yesterdayLesson: null,
     savedTemplates: [],
     loaded: false,
 
@@ -178,13 +187,14 @@ export const useDay = create<DayState>((set, get) => {
       const date = await resolveActiveDate(now);
       const yesterday = dateKey(addDays(new Date(`${date}T12:00:00`), -1));
 
-      const [day, commitments, savedTemplates, previousDay, previousCommitments] =
+      const [day, commitments, savedTemplates, previousDay, previousCommitments, previousLog] =
         await Promise.all([
           getDay(date),
           commitmentsFor(date),
           listSavedTemplates(),
           getDay(yesterday),
           commitmentsFor(yesterday),
+          getLog(yesterday),
         ]);
 
       set({
@@ -193,6 +203,7 @@ export const useDay = create<DayState>((set, get) => {
         commitments,
         savedTemplates,
         previous: previousDay ? { day: previousDay, commitments: previousCommitments } : null,
+        yesterdayLesson: previousLog?.toImprove?.trim() || null,
         loaded: true,
       });
     },

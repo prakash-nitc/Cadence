@@ -298,6 +298,26 @@ can be blank. This is the single most load-bearing interaction in the app — an
 day is a red day by definition, so the app should make planning nearly frictionless and
 skipping it unmistakably visible.
 
+
+**The nightly ritual is two named halves**, each headed with its weekday and date: *How
+today went* and *What tomorrow is for*. It read as one long form before, and which half
+you were in was never obvious.
+
+**The three-line review.** What went well, where it went wrong, and one thing to improve.
+Short single-line fields on purpose: a box the size of a page gets left empty. `toImprove`
+is read back at Start day the next morning — a lesson written at 23:00 and never re-read
+is a diary entry, not a correction.
+
+**Brain dump.** Free text on tomorrow's day record, saved on its own so thinking written
+at 22:00 survives closing the laptop before the plan is finished. Never parsed, never
+scored: commitments are what the day is measured by, this is the reasoning around them.
+
+**The shape — one big, two medium, three small.** A lens over the commitments already
+ticked, not a second to-do list: size comes from planned minutes, which the app already
+holds. A parallel list would be work the day never scores, and the two would disagree
+inside a week. The shape is a ceiling on ambition rather than a quota — under it is fine,
+over it is the thing worth knowing at 23:00 rather than at 16:00 tomorrow. Counts live in
+Settings; big is 90 minutes, medium 45.
 ### 3.5 Notifications
 
 Implementation in §7. The set:

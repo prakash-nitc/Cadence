@@ -52,6 +52,14 @@ export interface DayRecord {
    * seeds the picker and lets the plan show real clock times while it is being made.
    */
   plannedAnchor: string | null;
+  /**
+   * Free text written the night before — what tomorrow is actually for.
+   *
+   * Never scored and never parsed. Commitments are the things the day is measured by;
+   * this is the thinking around them, which has nowhere else to go and was previously
+   * being lost. Undefined on every day written before it existed.
+   */
+  brainDump?: string;
 }
 
 export interface CommitmentRecord {
@@ -77,6 +85,16 @@ export interface LogRecord {
   sleepHours: number;
   energy: 1 | 2 | 3 | 4 | 5;
   hardestThing: string;
+  /**
+   * The three-line review — SPEC §3.4.
+   *
+   * Absent on every log written before they existed, so every read defaults to ''.
+   * `toImprove` is the one that matters: it is shown back at Start day tomorrow, when it
+   * can still be acted on. A lesson written at 23:00 and never re-read is a diary entry.
+   */
+  wentWell?: string;
+  wentWrong?: string;
+  toImprove?: string;
   blocksContained: number;
   blocksTotal: number;
   createdAt: number;

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BlockBuilder } from '../components/BlockBuilder';
 import { CommitmentRow } from '../components/CommitmentRow';
-import { Icon } from '../components/ui/Icon';
+import { Icon, type IconName } from '../components/ui/Icon';
 import { Button, Card, Empty, SectionTitle } from '../components/ui/primitives';
 
 /** One input treatment across the screen — §31. */
@@ -9,9 +9,11 @@ const FIELD =
   'mt-1 w-full rounded-md border border-edge bg-panel px-3 py-2 text-sm text-text ' +
   'transition-shadow placeholder:text-muted focus:border-signal focus:shadow-focus focus:outline-none';
 import { PlanItemRow } from '../components/PlanItemRow';
+import { ShapeBar } from '../components/plan/ShapeBar';
 import { TemplatePicker } from '../components/TemplatePicker';
 import { containment } from '../engine/boundaries';
 import { checkFeasibility, committableMinutes } from '../engine/feasibility';
+import { dayShape, shapeVerdict } from '../engine/shape';
 import { verdictLine } from '../lib/copy';
 import { suggestionsFor } from '../lib/roadmap';
 import type { Prefs } from '../lib/prefs';
@@ -32,6 +34,42 @@ import { usePlan, type PlanItem } from '../store/planStore';
  */
 const ENERGY_LEVELS = [1, 2, 3, 4, 5] as const;
 
+/**
+ * The banner for each half of the ritual.
+ *
+ * The screen is two jobs — close today, open tomorrow — and previously read as one long
+ * form, so it was never obvious which half you were in. Naming the day out loud also
+ * catches the case where the app is in a different day than you think it is.
+ */
+function Heading({
+  step,
+  title,
+  date,
+  icon,
+}: {
+  step: string;
+  title: string;
+  date: string;
+  icon: IconName;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-wash text-deep">
+        <Icon name={icon} size={17} />
+      </span>
+      <div className="min-w-0">
+        <p className="eyebrow">{step}</p>
+        <h2 className="font-display text-lg font-semibold tracking-display text-text">
+          {title}
+          {/* A real separator, so the two do not run together when the text is read. */}
+          <span className="mx-2 font-sans text-sm font-normal text-edge">·</span>
+          <span className="font-sans text-sm font-normal text-soft">{date}</span>
+        </h2>
+      </div>
+    </div>
+  );
+}
+
 export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
   const { date, day, commitments, savedTemplates, setDone, dropCommitment } = useDay();
   const {
@@ -41,9 +79,11 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
     problemsDone,
     todayLog,
     lastLog,
+    tomorrowDay,
     loaded,
     load,
     saveLog,
+    saveBrainDump,
     savePlan,
   } = usePlan();
 
@@ -61,6 +101,9 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
   const [sleep, setSleep] = useState('');
   const [energy, setEnergy] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
   const [hardest, setHardest] = useState('');
+  const [wentWell, setWentWell] = useState('');
+  const [wentWrong, setWentWrong] = useState('');
+  const [toImprove, setToImprove] = useState('');
   const [logSaved, setLogSaved] = useState(false);
 
   useEffect(() => {
@@ -69,6 +112,9 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
     setSleep(String(todayLog?.sleepHours ?? lastLog?.sleepHours ?? 7));
     setEnergy(todayLog?.energy ?? null);
     setHardest(todayLog?.hardestThing ?? '');
+    setWentWell(todayLog?.wentWell ?? '');
+    setWentWrong(todayLog?.wentWrong ?? '');
+    setToImprove(todayLog?.toImprove ?? '');
   }, [loaded, todayLog, lastLog, recallComplete]);
 
   // ── Part 2: tomorrow, pre-composed ────────────────────────────────────────
@@ -88,6 +134,16 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
   // tomorrow laid out from a time you had already told the app was wrong.
   const [wakeAt, setWakeAt] = useState(prefs.dayStartsAt);
   useEffect(() => setWakeAt(prefs.dayStartsAt), [prefs.dayStartsAt]);
+
+  /*
+   * Tomorrow's free-text note. Saved on its own rather than with the plan, so thinking
+   * written at 22:00 survives closing the laptop before the plan is finished.
+   */
+  const [brainDump, setBrainDump] = useState('');
+  const [dumpSaved, setDumpSaved] = useState(false);
+  useEffect(() => {
+    if (loaded) setBrainDump(tomorrowDay?.brainDump ?? '');
+  }, [loaded, tomorrowDay]);
 
   const seeded = useMemo(
     () => blocksForTemplate(templateId, savedTemplates) ?? [],
@@ -205,10 +261,31 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
 
   const canSaveLog = energy !== null && recallDone !== null;
 
+  const longDate = (iso: string): string =>
+    new Date(`${iso}T12:00:00`).toLocaleDateString('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+
+  /* The shape of what is actually ticked, not of everything on offer. */
+  const shape = shapeVerdict(
+    dayShape(
+      items.filter((item) => item.selected),
+      { bigMinutes: prefs.bigMinutes, mediumMinutes: prefs.mediumMinutes },
+    ),
+    prefs.dayShape,
+  );
+
   return (
     <div className="space-y-6">
+      <Heading
+        step="Tonight, part one"
+        title="How today went"
+        date={longDate(date)}
+        icon="check"
+      />
 
-      {/* ── Part 1: what actually happened ────────────────────────────────────── */}
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div>
           <SectionTitle>Log today</SectionTitle>
@@ -312,6 +389,46 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
           />
         </label>
 
+        {/*
+          The three-line review. Short fields on purpose: a box the size of a page gets
+          left empty, and the point is one honest sentence each, not an essay.
+        */}
+        <label className="block">
+          <span className="text-xs text-muted">What went well</span>
+          <input
+            value={wentWell}
+            onChange={(event) => setWentWell(event.target.value)}
+            placeholder="The thing worth repeating"
+            aria-label="What went well"
+            className={FIELD}
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-xs text-muted">Where it went wrong</span>
+          <input
+            value={wentWrong}
+            onChange={(event) => setWentWrong(event.target.value)}
+            placeholder="The moment the day turned"
+            aria-label="Where it went wrong"
+            className={FIELD}
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-xs text-muted">One thing to improve</span>
+          <input
+            value={toImprove}
+            onChange={(event) => setToImprove(event.target.value)}
+            placeholder="Shown back to you tomorrow morning"
+            aria-label="One thing to improve"
+            className={FIELD}
+          />
+          <span className="mt-1 block text-xs text-muted">
+            This one is read back at Start day tomorrow, when it can still be acted on.
+          </span>
+        </label>
+
         <Button
           variant="primary"
           size="lg"
@@ -326,6 +443,9 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
                 sleepHours: Number(sleep) || 0,
                 energy: energy ?? 3,
                 hardestThing: hardest.trim(),
+                wentWell: wentWell.trim(),
+                wentWrong: wentWrong.trim(),
+                toImprove: toImprove.trim(),
                 blocksContained: tally.contained,
                 blocksTotal: tally.total,
               },
@@ -345,13 +465,54 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
         </div>
       </section>
 
-      {/* ── Part 2: tomorrow ─────────────────────────────────────────────────── */}
-      <section className="space-y-4 border-t border-edge pt-6">
-        <SectionTitle
-          action={<span className="font-mono text-xs text-muted">{tomorrow}</span>}
-        >
-          Plan tomorrow
-        </SectionTitle>
+      <section className="space-y-4 border-t border-edge pt-8">
+        <Heading
+          step="Tonight, part two"
+          title="What tomorrow is for"
+          date={tomorrow ? longDate(tomorrow) : ''}
+          icon="plan"
+        />
+
+        {/*
+          Free text, saved on its own. Thinking written at 22:00 has to survive closing
+          the laptop before the plan is finished, and it is never parsed or scored:
+          commitments are what the day is measured by, this is the reasoning around them.
+        */}
+        <Card>
+          <label className="block">
+            <span className="text-sm font-medium text-text">Brain dump</span>
+            <span className="mt-0.5 block text-xs text-soft">
+              What tomorrow is actually about. Not scored, not turned into commitments —
+              somewhere for the thinking to go.
+            </span>
+            <textarea
+              value={brainDump}
+              onChange={(event) => {
+                setBrainDump(event.target.value);
+                setDumpSaved(false);
+              }}
+              rows={4}
+              aria-label="Brain dump"
+              placeholder="The thing I keep not getting to. Why today stalled. What would make tomorrow count."
+              className={`${FIELD} resize-y leading-relaxed`}
+            />
+          </label>
+
+          <div className="mt-3 flex items-center gap-3">
+            <Button
+              size="sm"
+              icon="check"
+              disabled={dumpSaved}
+              onClick={() => {
+                void saveBrainDump(brainDump.trim());
+                setDumpSaved(true);
+              }}
+            >
+              {dumpSaved ? 'Note saved' : 'Save note'}
+            </Button>
+            <span className="text-xs text-muted">Saves on its own, before the plan.</span>
+          </div>
+        </Card>
 
         <Card className="grid gap-4 sm:grid-cols-[11rem_1fr] sm:items-center">
           <label className="block">
@@ -393,7 +554,18 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
           />
         </div>
 
-        <SectionTitle>What gets finished</SectionTitle>
+        <SectionTitle
+          action={
+            <span className="font-mono text-xs text-muted">
+              {items.filter((item) => item.selected).length} ticked
+            </span>
+          }
+        >
+          What gets finished
+        </SectionTitle>
+
+        <ShapeBar verdict={shape} />
+
         {items.length === 0 ? (
           <p className="text-sm text-muted">
             Nothing suggested for these blocks. You can add commitments tomorrow on the Day

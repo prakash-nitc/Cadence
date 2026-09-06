@@ -39,6 +39,8 @@ interface StartDayProps {
   planned: boolean;
   /** Commitments already waiting on this day, planned the night before. */
   commitmentCount: number;
+  /** What last night's log said to improve. Read back here, where it can still land. */
+  yesterdayLesson?: string;
   onStart: (
     anchor: Date,
     templateId: string,
@@ -74,6 +76,7 @@ export function StartDay({
   saved,
   planned,
   commitmentCount,
+  yesterdayLesson,
   onStart,
   onSaveTemplate,
 }: StartDayProps) {
@@ -202,6 +205,20 @@ export function StartDay({
           </p>
         </div>
       </Card>
+
+      {yesterdayLesson ? (
+        /*
+         * Last night's one thing, at the only moment it can still change the day. This is
+         * the whole reason the log has a "to improve" line rather than three of reflection.
+         */
+        <div className="rounded-lg border border-signal/30 bg-wash p-4">
+          <p className="eyebrow flex items-center gap-2 text-deep">
+            <Icon name="sparkle" size={13} />
+            Yesterday you said
+          </p>
+          <p className="mt-1.5 text-sm leading-relaxed text-text">{yesterdayLesson}</p>
+        </div>
+      ) : null}
 
       <section>
         <SectionTitle>{plannedBlocks ? 'Or start from something else' : 'Start from'}</SectionTitle>

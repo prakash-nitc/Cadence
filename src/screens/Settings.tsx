@@ -284,6 +284,36 @@ export function Settings({ prefs }: { prefs: Prefs }) {
           max={10}
           onChange={(value) => set('maxCarryOverMoves', value)}
         />
+        <div className="rounded-lg border border-edge bg-panel p-4">
+          <p className="text-sm font-medium text-text">Shape of a planned day</p>
+          <p className="mt-0.5 text-xs text-soft">
+            How many of each size a day should hold. A ceiling on ambition, not a quota —
+            being under it is fine. Size comes from a commitment's planned minutes: big is
+            {' '}
+            {prefs.bigMinutes} minutes or more, medium {prefs.mediumMinutes} or more.
+          </p>
+
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            {([
+              ['big', 'Big'],
+              ['medium', 'Medium'],
+              ['small', 'Small'],
+            ] as const).map(([key, label]) => (
+              <label key={key} className="block">
+                <span className="block text-xs text-muted">{label}</span>
+                <NumberField
+                  value={prefs.dayShape[key]}
+                  onChange={(value) => set('dayShape', { ...prefs.dayShape, [key]: value })}
+                  min={0}
+                  max={20}
+                  label={`${label} things per day`}
+                  className={`${field} mt-1`}
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+
       </Section>
 
       <Section title="Weekly targets">
