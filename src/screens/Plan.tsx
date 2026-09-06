@@ -84,6 +84,7 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
     load,
     saveLog,
     saveBrainDump,
+    retireCarried,
     savePlan,
   } = usePlan();
 
@@ -599,7 +600,12 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
                       : {}),
                   });
                 }}
-                onDelete={() => setItems((c) => c.filter((entry) => entry.key !== item.key))}
+                onDelete={() => {
+                  // Carried work is a real record: retiring it is what stops tomorrow
+                  // offering it again. A suggestion only ever existed in this list.
+                  if (item.carriedFrom) void retireCarried(item.carriedFrom.id, now);
+                  setItems((c) => c.filter((entry) => entry.key !== item.key));
+                }}
               />
             ))}
           </div>

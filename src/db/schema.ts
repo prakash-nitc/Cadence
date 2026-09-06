@@ -77,6 +77,15 @@ export interface CommitmentRecord {
   movedCount: number;
   /** First date it was planned. Drives movedCount and avoidance detection. */
   originDate: string;
+  /**
+   * When the user said they were never doing this — SPEC §3.4.
+   *
+   * Deliberately not a status. Marking a carried commitment 'avoided' would zero its
+   * completion, and a commitment carried at 2-of-4 would silently lower the score of the
+   * day it was worked on. Retiring takes it out of the carry-over pool and leaves every
+   * past day exactly as it was scored.
+   */
+  retiredAt?: number | null;
 }
 
 export interface LogRecord {

@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import type { HistoryNote } from '../engine/feasibility';
 import type { PlanItem } from '../store/planStore';
 import { NumberField } from './NumberField';
+import { Icon } from './ui/Icon';
+import { Button } from './ui/primitives';
 
 /**
  * One line of tomorrow's plan — SPEC §3.4.
@@ -11,6 +14,12 @@ import { NumberField } from './NumberField';
  * At `maxCarryOverMoves` the row stops offering a third move and offers exactly two
  * options instead: do it first tomorrow, or delete it. That is what surfaces avoidance
  * in three days instead of three weeks — SPEC §4.1.
+ *
+ * Every row can be deleted, not only a stuck one. Unticking and deleting are different
+ * things and the row says which is which: unticking means *not tomorrow*, and carried
+ * work returns the next night; deleting means *not at all*, and it stops coming back.
+ * Deleting carried work asks first, because a record is being retired rather than a
+ * suggestion being waved away.
  */
 interface PlanItemRowProps {
   item: PlanItem;
@@ -35,7 +44,9 @@ export function PlanItemRow({
   onDoFirst,
   onDelete,
 }: PlanItemRowProps) {
-  const stuck = item.source === 'carry' && item.movedCount >= maxMoves;
+  const [confirming, setConfirming] = useState(false);
+  const carried = item.source === 'carry';
+  const stuck = carried && item.movedCount >= maxMoves;
 
   return (
     <div className={`px-3 py-2.5 ${first ? '' : 'border-t border-edge'}`}>
@@ -84,7 +95,51 @@ export function PlanItemRow({
           label={`${item.label} weight`}
           className="w-16 shrink-0 border border-edge bg-ink px-1.5 py-1 text-right font-mono text-xs text-muted focus:border-signal focus:outline-none"
         />
+
+        <button
+          type="button"
+          aria-label={`Delete ${item.label}`}
+          title={
+            carried
+              ? 'Drop it for good — it stops being carried forward'
+              : 'Remove it from tomorrow'
+          }
+          onClick={() => (carried ? setConfirming(true) : onDelete())}
+          className="shrink-0 rounded-full p-1.5 text-muted transition-colors hover:bg-fail/10 hover:text-fail"
+        >
+          <Icon name="trash" size={14} />
+        </button>
       </div>
+
+      {confirming ? (
+        <div className="mt-2 rounded-md border border-fail/40 bg-fail/5 px-3 py-2.5">
+          <p className="text-xs text-text">
+            Drop <span className="font-medium">{item.label}</span> for good? It has been
+            carried {item.movedCount === 0 ? 'once' : `${item.movedCount + 1} times`} and
+            will stop being offered.
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            Unticking instead keeps it in the pool for another night. Nothing already
+            scored changes either way.
+          </p>
+          <div className="mt-2.5 flex gap-2">
+            <Button
+              size="sm"
+              variant="danger"
+              icon="trash"
+              onClick={() => {
+                onDelete();
+                setConfirming(false);
+              }}
+            >
+              Drop it
+            </Button>
+            <Button size="sm" onClick={() => setConfirming(false)}>
+              Keep it
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {stuck ? (
         <div className="mt-2 border border-fail bg-fail/5 px-2 py-2">
@@ -101,7 +156,7 @@ export function PlanItemRow({
             </button>
             <button
               type="button"
-              onClick={onDelete}
+              onClick={() => setConfirming(true)}
               className="border border-edge px-2 py-1 text-xs text-muted hover:border-muted hover:text-text"
             >
               Delete it

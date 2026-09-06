@@ -101,6 +101,18 @@ export async function deleteCommitment(id: string): Promise<void> {
   await db.commitments.delete(id);
 }
 
+/**
+ * Take a commitment out of the carry-over pool for good.
+ *
+ * A no-op if it has already gone. The record stays, with its progress and its status
+ * untouched, so the day it belonged to still scores exactly what it scored.
+ */
+export async function retireCommitment(id: string, at: number): Promise<void> {
+  const existing = await db.commitments.get(id);
+  if (!existing) return;
+  await db.commitments.put({ ...existing, retiredAt: at });
+}
+
 // ─── Logs ─────────────────────────────────────────────────────────────────────
 
 export async function getLog(date: string): Promise<LogRecord | null> {

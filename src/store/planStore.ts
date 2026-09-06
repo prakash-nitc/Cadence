@@ -7,6 +7,7 @@ import {
   putDay,
   putLog,
   replaceCommitments,
+  retireCommitment,
 } from '../db/repo';
 import type { BlockDef } from '../config/schedule.config';
 import type { CommitmentRecord, DayRecord, LogRecord } from '../db/schema';
@@ -57,6 +58,13 @@ interface PlanState {
   saveLog: (today: string, input: LogInput, at: number) => Promise<void>;
   /** Tomorrow's free-text note, saved on its own so it survives a half-finished plan. */
   saveBrainDump: (text: string) => Promise<void>;
+  /**
+   * Drop a carried commitment for good, so tomorrow stops offering it.
+   *
+   * Unticking means "not tomorrow" and the work returns; this means "not at all". Only
+   * carried work needs it — a suggestion that is never ticked was never a record.
+   */
+  retireCarried: (id: string, at: number) => Promise<void>;
   savePlan: (
     templateId: string,
     items: PlanItem[],
@@ -113,6 +121,11 @@ export const usePlan = create<PlanState>((set, get) => ({
     const log: LogRecord = { date: today, ...input, createdAt: at };
     await putLog(log);
     set({ todayLog: log });
+  },
+
+  retireCarried: async (id, at) => {
+    await retireCommitment(id, at);
+    set({ carryOver: get().carryOver.filter((commitment) => commitment.id !== id) });
   },
 
   saveBrainDump: async (text) => {
@@ -210,6 +223,9 @@ function carryOverPool(past: CommitmentRecord[], tomorrow: string): CommitmentRe
   const undone = past.filter(
     (commitment) =>
       commitment.dayDate < tomorrow &&
+      // Retired work is not undone work. Deleting it from a plan has to mean it stops
+      // coming back, or "delete" is just a slower way of unticking.
+      !commitment.retiredAt &&
       (commitment.status === 'open' || commitment.status === 'partial'),
   );
 

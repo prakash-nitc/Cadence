@@ -38,6 +38,8 @@ export type IconName =
   | 'download'
   | 'upload'
   | 'alert'
+  | 'close'
+  | 'trash'
   | 'arrowUp'
   | 'arrowDown';
 
@@ -123,6 +125,14 @@ const PATHS: Record<IconName, JSX.Element> = {
   sparkle: <path d="M12 3.5 13.9 9l5.6 2-5.6 2-1.9 5.5L10.1 13 4.5 11l5.6-2L12 3.5Z" />,
   download: <path d="M12 3.5v12M7 11l5 5 5-5M4.5 20.5h15" />,
   upload: <path d="M12 20.5v-12M7 13l5-5 5 5M4.5 3.5h15" />,
+  close: <path d="M6 6l12 12M18 6L6 18" />,
+  trash: (
+    <>
+      <path d="M4 7h16M9.5 7V5.2A1.2 1.2 0 0 1 10.7 4h2.6A1.2 1.2 0 0 1 14.5 5.2V7" />
+      <path d="M6.5 7l.9 12.1a1.5 1.5 0 0 0 1.5 1.4h6.2a1.5 1.5 0 0 0 1.5-1.4L17.5 7" />
+      <path d="M10.5 11v6M13.5 11v6" />
+    </>
+  ),
   alert: (
     <>
       <path d="M12 3.5 21.5 20H2.5L12 3.5Z" />
