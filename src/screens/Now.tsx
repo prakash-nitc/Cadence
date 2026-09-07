@@ -343,6 +343,12 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
           </Card>
         ) : null}
 
+        {/*
+          What the day is for sits above the numbers. It is the thing that answers "why
+          this block" — below a metrics strip it reads as a footnote to arithmetic.
+        */}
+        <TodayNote note={day.brainDump ?? ''} onSave={(text) => void saveNote(text)} />
+
         {commitments.length > 0 ? (
           <DailyMetrics
             committed={burn.committedMinutes}
@@ -358,11 +364,6 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
             body="A day with no commitments scores red whatever gets done. Add them on the Day screen, against the blocks they belong to."
           />
         )}
-
-        <TodayNote
-          note={day.brainDump ?? ''}
-          onSave={(text) => void saveNote(text)}
-        />
 
         {unslottedMinutes > 0 ? (
           <p className="px-1 text-xs text-muted">
