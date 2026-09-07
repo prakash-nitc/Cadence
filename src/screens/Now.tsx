@@ -109,8 +109,23 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
   if (!date) return null;
 
   if (!day?.anchorAt) {
+    /*
+     * Before the day is anchored, the two things worth having in front of you are what
+     * the day is for and how you slept — both written or known before the laptop opens.
+     * They used to live only past the anchor, which is the one moment they are no use.
+     */
     return (
-      <StartDay
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] xl:items-start">
+          <TodayNote note={day?.brainDump ?? ''} onSave={(text) => void saveNote(text)} />
+          <MorningCheck
+            log={todayLog}
+            lastSleep={previousSleep}
+            onSave={(sleepHours, energy) => void saveVitals(sleepHours, energy, now)}
+          />
+        </div>
+
+        <StartDay
         date={date}
         now={now}
         prefs={prefs}
@@ -123,8 +138,9 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
         onStart={(anchor, templateId, blocks, settle) =>
           void startDay(anchor, templateId, prefs, blocks, settle)
         }
-        onSaveTemplate={(name, blocks) => void saveTemplate(name, blocks, now)}
-      />
+          onSaveTemplate={(name, blocks) => void saveTemplate(name, blocks, now)}
+        />
+      </div>
     );
   }
 

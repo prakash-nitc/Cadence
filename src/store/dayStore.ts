@@ -281,11 +281,32 @@ export const useDay = create<DayState>((set, get) => {
       const { date, day } = get();
       if (!date) return;
 
+      /*
+       * A note can be the first thing written about a day. Requiring the record to exist
+       * meant that on an unplanned morning there was nowhere to put one — which is
+       * exactly the morning worth writing a line about.
+       */
       const existing = day ?? (await getDay(date));
-      // Nothing to attach a note to until the day exists; Plan writes it before then.
-      if (!existing) return;
-
-      await commit({ ...existing, brainDump: text });
+      await commit({
+        ...(existing ?? {
+          date,
+          anchorAt: null,
+          template: 'full',
+          blocks: [],
+          degradation: [],
+          pushes: [],
+          placementMode: false,
+          score: null,
+          band: null,
+          gatePassed: null,
+          // Writing a note is not planning the day; only Plan sets this.
+          plannedAt: null,
+          plannedBlocks: null,
+          plannedAnchor: null,
+        }),
+        date,
+        brainDump: text,
+      });
     },
 
     startDay: async (anchor, templateId, prefs, customBlocks, settle) => {

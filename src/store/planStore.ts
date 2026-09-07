@@ -65,6 +65,18 @@ interface PlanState {
   planDay: DayRecord | null;
   /** The day being logged. The one you actually worked, which may be yesterday. */
   logDate: string | null;
+  /**
+   * Dates the user picked by hand, and the default they were picked against.
+   *
+   * Held here rather than in the screen because the screen unmounts on every tab switch.
+   * Setting the plan date to today, glancing at Day and coming back used to silently
+   * put it back to tomorrow — and then the note you wrote went to the wrong day.
+   *
+   * `against` is the default at the time of picking; once that moves, the day has rolled
+   * over and the picks are stale rather than deliberate.
+   */
+  picks: { against: string; log: string | null; plan: string | null };
+  setPick: (which: 'log' | 'plan', date: string, against: string) => void;
   /** Commitments on the day being logged, so the review lists the right ones. */
   logCommitments: CommitmentRecord[];
   /** Undone work from days already gone, one line per lineage. */
@@ -105,6 +117,7 @@ export const usePlan = create<PlanState>((set, get) => ({
   planDay: null,
   logDate: null,
   logCommitments: [],
+  picks: { against: '', log: null, plan: null },
   carryOver: [],
   history: [],
   problemsDone: 0,
@@ -146,6 +159,13 @@ export const usePlan = create<PlanState>((set, get) => ({
     const log: LogRecord = { date: today, ...input, createdAt: at };
     await putLog(log);
     set({ todayLog: log });
+  },
+
+  setPick: (which, date, against) => {
+    const current = get().picks;
+    const base =
+      current.against === against ? current : { against, log: null, plan: null };
+    set({ picks: { ...base, against, [which]: date } });
   },
 
   retireCarried: async (id, at) => {

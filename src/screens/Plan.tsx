@@ -114,6 +114,8 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
     lastLog,
     planDay,
     logCommitments,
+    picks,
+    setPick,
     loaded,
     load,
     saveLog,
@@ -144,16 +146,14 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
     return beforeWaking && previous?.day.anchorAt ? dayBefore : date;
   }, [date, day, previous, now, prefs.dayStartsAt]);
 
-  const [logPick, setLogPick] = useState<string | null>(null);
-  const [planPick, setPlanPick] = useState<string | null>(null);
-  useEffect(() => {
-    setLogPick(null);
-    setPlanPick(null);
-  }, [workedDay]);
-
-  const logFor = logPick ?? workedDay;
+  /*
+   * A pick only counts while the default it was made against still holds. Once the day
+   * rolls over it is stale, not deliberate, and the defaults take back over.
+   */
+  const live = picks.against === (workedDay ?? '') ? picks : null;
+  const logFor = live?.log ?? workedDay;
   const planFor =
-    planPick ??
+    live?.plan ??
     (logFor ? dateKey(addDays(new Date(`${logFor}T12:00:00`), 1)) : null);
 
   useEffect(() => {
@@ -358,7 +358,7 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
         date={logFor ? longDate(logFor) : ''}
         icon="check"
         value={logFor ?? ''}
-        onPick={setLogPick}
+        onPick={(picked) => setPick('log', picked, workedDay ?? '')}
         {...(logFor !== date
           ? { hint: 'Defaulting to the day you last worked, not the calendar date.' }
           : {})}
@@ -425,37 +425,62 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
               </div>
             </div>
 
-            <label className="block">
-              <span className="text-xs text-muted">Sleep hours</span>
-              <input
-                type="number"
-                step="0.5"
-                min="0"
-                value={sleep}
-                onChange={(event) => setSleep(event.target.value)}
-                className={`${FIELD} font-mono`}
-              />
-            </label>
+            {/*
+              Sleep and energy are recorded on Now, in the morning, when they are still
+              facts rather than recollections. Shown here because the review reads better
+              with them, and editable here only when the morning was missed — otherwise
+              the same number would have two homes and drift between them.
+            */}
+            <div className="rounded-lg border border-edge bg-sunk p-3.5">
+              <p className="eyebrow">Slept and started</p>
 
-            <div>
-              <span className="text-xs text-muted">Energy</span>
-              <div className="mt-1.5 flex gap-1.5">
-                {ENERGY_LEVELS.map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    onClick={() => setEnergy(level)}
-                    aria-label={`Energy ${level}`}
-                    className={`flex-1 rounded-md border py-2 font-mono text-sm transition-colors ${
-                      energy === level
-                        ? 'border-signal bg-wash font-semibold text-deep'
-                        : 'border-edge text-soft hover:border-muted'
-                    }`}
-                  >
-                    {level}
-                  </button>
-                ))}
-              </div>
+              {energy === null ? (
+                <>
+                  <p className="mt-1.5 text-xs text-soft">
+                    Not recorded this morning. Set it here, or on Now tomorrow.
+                  </p>
+                  <label className="mt-2.5 block">
+                    <span className="text-xs text-muted">Sleep hours</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      value={sleep}
+                      aria-label="Sleep hours"
+                      onChange={(event) => setSleep(event.target.value)}
+                      className={`${FIELD} font-mono`}
+                    />
+                  </label>
+                  <div className="mt-2.5">
+                    <span className="text-xs text-muted">Energy</span>
+                    <div className="mt-1.5 flex gap-1.5">
+                      {ENERGY_LEVELS.map((level) => (
+                        <button
+                          key={level}
+                          type="button"
+                          onClick={() => setEnergy(level)}
+                          aria-label={`Energy ${level}`}
+                          className="flex-1 rounded-md border border-edge py-2 font-mono text-sm text-soft transition-colors hover:border-muted"
+                        >
+                          {level}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="mt-2 flex items-baseline gap-5">
+                  <span>
+                    <span className="font-mono text-xl font-semibold text-text">{sleep}</span>
+                    <span className="ml-1 text-xs text-muted">hours slept</span>
+                  </span>
+                  <span>
+                    <span className="font-mono text-xl font-semibold text-text">{energy}</span>
+                    <span className="ml-1 text-xs text-muted">energy</span>
+                  </span>
+                  <span className="ml-auto text-xs text-muted">recorded on Now</span>
+                </div>
+              )}
             </div>
 
         <label className="block">
@@ -550,7 +575,7 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
           date={planFor ? longDate(planFor) : ''}
           icon="plan"
           value={planFor ?? ''}
-          onPick={setPlanPick}
+          onPick={(picked) => setPick('plan', picked, workedDay ?? '')}
         />
 
         {/*
