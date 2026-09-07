@@ -80,7 +80,7 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
 
   const weekBands = useMemo(() => {
     const stored = weekLoaded
-      ? bandDays({ days: weekDays, commitments: weekCommitments, logs: weekLogs }, prefs)
+      ? bandDays({ days: weekDays, commitments: weekCommitments, logs: weekLogs }, prefs, date ?? undefined)
       : [];
 
     /*

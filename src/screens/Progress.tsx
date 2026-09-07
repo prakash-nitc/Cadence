@@ -307,6 +307,7 @@ export function Progress({ prefs, targets }: { prefs: Prefs; targets: WeeklyTarg
           label={`Week of ${weekFrom}`}
           from={weekFrom}
           to={weekTo}
+          asOf={date}
           targets={targets}
         />
       ) : null}
@@ -387,6 +388,7 @@ function WeekView({
   label,
   from,
   to,
+  asOf,
   targets,
 }: {
   period: Period;
@@ -396,9 +398,11 @@ function WeekView({
   label: string;
   from: string;
   to: string;
+  /** Today. Days after it are not scored — they have not happened. */
+  asOf: string;
   targets: WeeklyTarget[];
 }) {
-  const bands = bandDays(period, prefs);
+  const bands = bandDays(period, prefs, asOf);
   const shape = weekShape(bands, prefs);
   const paces = weeklyPacing(period, targets, daysLeft, capacity);
   const verdict = weekVerdict(shape, prefs);
@@ -524,9 +528,9 @@ function MonthView({
   const previousEnd = dateKey(addDays(new Date(`${from}T12:00:00`), -1));
   const lastMonth = slice(period, startOfMonth(previousEnd), previousEnd);
 
-  const monthBands = bandDays(thisMonth, prefs);
+  const monthBands = bandDays(thisMonth, prefs, today);
   const shape = weekShape(monthBands, prefs);
-  const previousShape = weekShape(bandDays(lastMonth, prefs), prefs);
+  const previousShape = weekShape(bandDays(lastMonth, prefs, today), prefs);
   const totals = tagTotals(thisMonth);
   const delta = shape.green - previousShape.green;
 
@@ -727,7 +731,7 @@ function HistoryView({
   onToggleItem: (key: string, item: string) => void;
   onToggleDone: (key: string) => void;
 }) {
-  const bands = bandDays(period, prefs);
+  const bands = bandDays(period, prefs, asOf);
   const milestones = milestoneStatuses(MILESTONES, progress, asOf);
 
   /*

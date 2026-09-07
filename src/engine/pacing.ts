@@ -40,7 +40,7 @@ export interface DayBand {
  * A day with no record at all is not in the result: it is a day that never happened, not
  * a red one. Only days the user actually opened the app on get judged.
  */
-export function bandDays(period: Period, prefs: Prefs): DayBand[] {
+export function bandDays(period: Period, prefs: Prefs, asOf?: string): DayBand[] {
   const byDay = new Map<string, CommitmentRecord[]>();
   for (const commitment of period.commitments) {
     const list = byDay.get(commitment.dayDate);
@@ -52,11 +52,22 @@ export function bandDays(period: Period, prefs: Prefs): DayBand[] {
     .slice()
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((day) => {
-      const result = scoreDay(byDay.get(day.date) ?? [], prefs, day.plannedAt !== null);
+      /*
+       * A day that has not happened cannot have gone badly.
+       *
+       * Planning tomorrow creates its record and its commitments, none of them done —
+       * which scored 0 and painted tomorrow red on today's week strip. Planning a day
+       * well is not a reason to mark it failed.
+       */
+      const ahead = asOf !== undefined && day.date > asOf;
+      const result = ahead
+        ? null
+        : scoreDay(byDay.get(day.date) ?? [], prefs, day.plannedAt !== null);
+
       return {
         date: day.date,
-        band: result.band,
-        score: result.score,
+        band: result?.band ?? null,
+        score: result?.score ?? null,
         template: day.template,
         placementMode: day.placementMode,
         planned: day.plannedAt !== null,

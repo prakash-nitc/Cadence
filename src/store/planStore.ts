@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import {
   commitmentsBetween,
+  commitmentsFor,
   countedDoneForTag,
   getDay,
   getLog,
@@ -44,8 +45,20 @@ export interface LogInput {
 }
 
 interface PlanState {
-  tomorrow: string | null;
-  tomorrowDay: DayRecord | null;
+  /**
+   * The day being planned. Usually tomorrow, and not always.
+   *
+   * It used to be derived as `activeDate + 1`, and the active date rolls to the calendar
+   * day once the laid day's blocks have run out. Sitting down at 01:30 having worked the
+   * previous day therefore logged a day with nothing on it and planned the day after the
+   * one you meant — the plan simply was not there the next morning.
+   */
+  planDate: string | null;
+  planDay: DayRecord | null;
+  /** The day being logged. The one you actually worked, which may be yesterday. */
+  logDate: string | null;
+  /** Commitments on the day being logged, so the review lists the right ones. */
+  logCommitments: CommitmentRecord[];
   /** Undone work from days already gone, one line per lineage. */
   carryOver: CommitmentRecord[];
   history: CommitmentRecord[];
@@ -54,7 +67,7 @@ interface PlanState {
   lastLog: LogRecord | null;
   loaded: boolean;
 
-  load: (today: string, prefs: Prefs) => Promise<void>;
+  load: (logDate: string, planDate: string, prefs: Prefs) => Promise<void>;
   saveLog: (today: string, input: LogInput, at: number) => Promise<void>;
   /** Tomorrow's free-text note, saved on its own so it survives a half-finished plan. */
   saveBrainDump: (text: string) => Promise<void>;
@@ -80,8 +93,10 @@ interface PlanState {
  * without waiting on the database. The whole point is that it takes under three minutes.
  */
 export const usePlan = create<PlanState>((set, get) => ({
-  tomorrow: null,
-  tomorrowDay: null,
+  planDate: null,
+  planDay: null,
+  logDate: null,
+  logCommitments: [],
   carryOver: [],
   history: [],
   problemsDone: 0,
@@ -89,26 +104,28 @@ export const usePlan = create<PlanState>((set, get) => ({
   lastLog: null,
   loaded: false,
 
-  load: async (today, prefs) => {
-    const tomorrow = dateKey(addDays(new Date(`${today}T12:00:00`), 1));
+  load: async (logDate, planDate, prefs) => {
     const windowStart = dateKey(
-      addDays(new Date(`${today}T12:00:00`), -prefs.historyWindowDays),
+      addDays(new Date(`${logDate}T12:00:00`), -prefs.historyWindowDays),
     );
 
-    const yesterday = dateKey(addDays(new Date(`${today}T12:00:00`), -1));
+    const dayBefore = dateKey(addDays(new Date(`${logDate}T12:00:00`), -1));
 
-    const [tomorrowDay, past, problemsDone, todayLog, lastLog] = await Promise.all([
-      getDay(tomorrow),
-      commitmentsBetween(windowStart, today),
+    const [planDay, past, problemsDone, todayLog, lastLog, logCommitments] = await Promise.all([
+      getDay(planDate),
+      commitmentsBetween(windowStart, logDate),
       countedDoneForTag('dsa_new'),
-      getLog(today),
-      getLog(yesterday),
+      getLog(logDate),
+      getLog(dayBefore),
+      commitmentsFor(logDate),
     ]);
 
     set({
-      tomorrow,
-      tomorrowDay,
-      carryOver: carryOverPool(past, tomorrow),
+      logDate,
+      logCommitments,
+      planDate,
+      planDay,
+      carryOver: carryOverPool(past, planDate),
       history: past,
       problemsDone,
       todayLog,
@@ -129,12 +146,12 @@ export const usePlan = create<PlanState>((set, get) => ({
   },
 
   saveBrainDump: async (text) => {
-    const { tomorrow, tomorrowDay } = get();
-    if (!tomorrow) return;
+    const { planDate, planDay } = get();
+    if (!planDate) return;
 
     const day: DayRecord = {
-      ...(tomorrowDay ?? {
-        date: tomorrow,
+      ...(planDay ?? {
+        date: planDate,
         anchorAt: null,
         template: 'full',
         blocks: [],
@@ -149,23 +166,23 @@ export const usePlan = create<PlanState>((set, get) => ({
         plannedBlocks: null,
         plannedAnchor: null,
       }),
-      date: tomorrow,
+      date: planDate,
       brainDump: text,
     };
 
     await putDay(day);
-    set({ tomorrowDay: day });
+    set({ planDay: day });
   },
 
   savePlan: async (templateId, items, at, arrangement) => {
-    const { tomorrow, tomorrowDay } = get();
-    if (!tomorrow) return;
+    const { planDate, planDay } = get();
+    if (!planDate) return;
 
     const chosen = items.filter((item) => item.selected);
 
     const commitments: CommitmentRecord[] = chosen.map((item) => ({
       id: crypto.randomUUID(),
-      dayDate: tomorrow,
+      dayDate: planDate,
       blockId: item.blockId,
       label: item.label,
       targetType: item.targetType,
@@ -179,14 +196,14 @@ export const usePlan = create<PlanState>((set, get) => ({
       status: 'open',
       displacedBy: null,
       movedCount: item.carriedFrom ? item.carriedFrom.movedCount + 1 : 0,
-      originDate: item.carriedFrom ? item.carriedFrom.originDate : tomorrow,
+      originDate: item.carriedFrom ? item.carriedFrom.originDate : planDate,
     }));
 
-    await replaceCommitments(tomorrow, commitments);
+    await replaceCommitments(planDate, commitments);
 
     const day: DayRecord = {
-      ...(tomorrowDay ?? {
-        date: tomorrow,
+      ...(planDay ?? {
+        date: planDate,
         anchorAt: null,
         blocks: [],
         degradation: [],
@@ -198,7 +215,7 @@ export const usePlan = create<PlanState>((set, get) => ({
         plannedBlocks: null,
         plannedAnchor: null,
       }),
-      date: tomorrow,
+      date: planDate,
       template: templateId,
       // This is what makes the day planned. An unplanned day is red regardless — §4.1.
       plannedAt: at,
@@ -207,7 +224,7 @@ export const usePlan = create<PlanState>((set, get) => ({
     };
 
     await putDay(day);
-    set({ tomorrowDay: day, tomorrow });
+    set({ planDay: day, planDate });
   },
 }));
 

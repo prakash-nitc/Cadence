@@ -891,3 +891,71 @@ describe('partOfDay', () => {
     expect(partOfDay(at('05:00'))).toBe('Morning');
   });
 });
+
+describe('bandDays — days that have not happened', () => {
+  const planned = (date: string): DayRecord => ({
+    date,
+    anchorAt: null,
+    template: 'full',
+    blocks: [],
+    degradation: [],
+    pushes: [],
+    placementMode: false,
+    score: null,
+    band: null,
+    gatePassed: null,
+    // Planned, which is what savePlan writes the moment you finish planning tomorrow.
+    plannedAt: Date.parse(`${date}T22:00:00`),
+    plannedBlocks: null,
+    plannedAnchor: null,
+  });
+
+  const commitment = (dayDate: string): CommitmentRecord => ({
+    id: `c-${dayDate}`,
+    dayDate,
+    blockId: null,
+    label: 'planned work',
+    targetType: 'count',
+    target: 4,
+    done: 0,
+    plannedMinutes: 180,
+    tags: [],
+    status: 'open',
+    displacedBy: null,
+    movedCount: 0,
+    originDate: dayDate,
+  });
+
+  const period: Period = {
+    days: [planned('2026-09-07'), planned('2026-09-08')],
+    commitments: [commitment('2026-09-07'), commitment('2026-09-08')],
+    logs: [],
+  };
+
+  it('does not paint tomorrow red for being planned', () => {
+    // The reported bug: planning Tuesday on Monday night marked Tuesday failed.
+    const bands = bandDays(period, prefs, '2026-09-07');
+    expect(bands.find((band) => band.date === '2026-09-08')).toMatchObject({
+      band: null,
+      score: null,
+    });
+  });
+
+  it('still scores today and everything behind it', () => {
+    const bands = bandDays(period, prefs, '2026-09-07');
+    expect(bands.find((band) => band.date === '2026-09-07')).toMatchObject({
+      band: 'red',
+      score: 0,
+    });
+  });
+
+  it('keeps the day on the list, so the calendar still shows it as planned', () => {
+    const bands = bandDays(period, prefs, '2026-09-07');
+    expect(bands.map((band) => band.date)).toEqual(['2026-09-07', '2026-09-08']);
+    expect(bands.find((band) => band.date === '2026-09-08')?.planned).toBe(true);
+  });
+
+  it('scores everything when no date is given, as it always did', () => {
+    expect(bandDays(period, prefs).every((band) => band.band !== null)).toBe(true);
+  });
+});

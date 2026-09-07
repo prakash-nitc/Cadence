@@ -18,7 +18,7 @@ import { verdictLine } from '../lib/copy';
 import { suggestionsFor } from '../lib/roadmap';
 import type { Prefs } from '../lib/prefs';
 import { blocksForTemplate, suggestedTemplate } from '../lib/templates';
-import { addDays, formatDuration } from '../lib/time';
+import { addDays, dateKey, formatDuration } from '../lib/time';
 import { availableMinutes } from '../engine/capacity';
 import type { BlockDef } from '../config/schedule.config';
 import { useDay } from '../store/dayStore';
@@ -46,14 +46,24 @@ function Heading({
   title,
   date,
   icon,
+  value,
+  onPick,
+  hint,
 }: {
   step: string;
   title: string;
   date: string;
   icon: IconName;
+  /** 'YYYY-MM-DD' — which day this half is actually working on. */
+  value: string;
+  onPick: (date: string) => void;
+  /** Said only when the default is not the obvious one. */
+  hint?: string;
 }) {
+  const [picking, setPicking] = useState(false);
+
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-wash text-deep">
         <Icon name={icon} size={17} />
       </span>
@@ -65,21 +75,45 @@ function Heading({
           <span className="mx-2 font-sans text-sm font-normal text-edge">·</span>
           <span className="font-sans text-sm font-normal text-soft">{date}</span>
         </h2>
+        {hint ? <p className="mt-0.5 text-xs text-muted">{hint}</p> : null}
       </div>
+
+      {/*
+        The date is editable because no rule gets every night right. Logging at two in
+        the morning, or catching up a day late, both need to say which day is meant.
+      */}
+      {picking ? (
+        <input
+          type="date"
+          autoFocus
+          value={value}
+          aria-label={`${title} — date`}
+          onChange={(event) => {
+            if (event.target.value) onPick(event.target.value);
+          }}
+          onBlur={() => setPicking(false)}
+          className="rounded-md border border-edge bg-panel px-3 py-1.5 font-mono text-sm text-text transition-shadow focus:border-signal focus:shadow-focus focus:outline-none"
+        />
+      ) : (
+        <Button size="sm" variant="ghost" icon="calendar" onClick={() => setPicking(true)}>
+          Change day
+        </Button>
+      )}
     </div>
   );
 }
 
 export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
-  const { date, day, commitments, savedTemplates, setDone, dropCommitment } = useDay();
+  const { date, day, previous, savedTemplates, setDone, dropCommitment } = useDay();
   const {
-    tomorrow,
+    planDate,
     carryOver,
     history,
     problemsDone,
     todayLog,
     lastLog,
-    tomorrowDay,
+    planDay,
+    logCommitments,
     loaded,
     load,
     saveLog,
@@ -88,14 +122,43 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
     savePlan,
   } = usePlan();
 
-  useEffect(() => {
-    if (date) void load(date, prefs);
-  }, [date, prefs, load]);
+  /*
+   * Which day is being logged, and which is being planned.
+   *
+   * The active date rolls to the calendar day once the laid day's blocks have run out,
+   * so sitting down at 01:30 having worked the previous day used to log a day with
+   * nothing on it and plan the day after the one you meant. The day you actually worked
+   * is the one to log — and both are overridable, because no rule gets every night right.
+   */
+  const workedDay = useMemo(() => {
+    if (!date) return null;
+    const dayBefore = dateKey(addDays(new Date(`${date}T12:00:00`), -1));
+    // Nothing anchored today but something anchored yesterday: yesterday is the day.
+    return day?.anchorAt ? date : previous?.day.anchorAt ? dayBefore : date;
+  }, [date, day, previous]);
 
-  const tally = containment(day?.blocks ?? []);
+  const [logPick, setLogPick] = useState<string | null>(null);
+  const [planPick, setPlanPick] = useState<string | null>(null);
+  useEffect(() => {
+    setLogPick(null);
+    setPlanPick(null);
+  }, [workedDay]);
+
+  const logFor = logPick ?? workedDay;
+  const planFor =
+    planPick ??
+    (logFor ? dateKey(addDays(new Date(`${logFor}T12:00:00`), 1)) : null);
+
+  useEffect(() => {
+    if (logFor && planFor) void load(logFor, planFor, prefs);
+  }, [logFor, planFor, prefs, load]);
+
+  /* Containment for the day being logged — which is not always the one Now is showing. */
+  const loggedDay = logFor === date ? day : (previous?.day ?? null);
+  const tally = containment(loggedDay?.blocks ?? []);
 
   // ── Part 1: log today, every field prefilled ──────────────────────────────
-  const recallComplete = commitments.some(
+  const recallComplete = logCommitments.some(
     (commitment) => commitment.tags.includes('recall') && commitment.status === 'complete',
   );
   const [recallDone, setRecallDone] = useState<boolean | null>(null);
@@ -120,8 +183,8 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
 
   // ── Part 2: tomorrow, pre-composed ────────────────────────────────────────
   const defaultTemplate = useMemo(
-    () => (tomorrow ? suggestedTemplate(addDays(new Date(`${tomorrow}T09:00:00`), 0)) : 'full'),
-    [tomorrow],
+    () => (planDate ? suggestedTemplate(new Date(`${planDate}T09:00:00`)) : 'full'),
+    [planDate],
   );
   const [templateId, setTemplateId] = useState<string>(defaultTemplate);
   useEffect(() => setTemplateId(defaultTemplate), [defaultTemplate]);
@@ -143,8 +206,8 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
   const [brainDump, setBrainDump] = useState('');
   const [dumpSaved, setDumpSaved] = useState(false);
   useEffect(() => {
-    if (loaded) setBrainDump(tomorrowDay?.brainDump ?? '');
-  }, [loaded, tomorrowDay]);
+    if (loaded) setBrainDump(planDay?.brainDump ?? '');
+  }, [loaded, planDay]);
 
   const seeded = useMemo(
     () => blocksForTemplate(templateId, savedTemplates) ?? [],
@@ -156,12 +219,12 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
   useEffect(() => setTemplateBlocks(seeded), [seeded]);
 
   const plannedAnchor = useMemo(() => {
-    const parsed = new Date(`${tomorrow ?? '2026-01-01'}T${wakeAt}:00`);
+    const parsed = new Date(`${planDate ?? '2026-01-01'}T${wakeAt}:00`);
     return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
-  }, [tomorrow, wakeAt]);
+  }, [planDate, wakeAt]);
 
   const composed = useMemo<PlanItem[]>(() => {
-    if (!tomorrow) return [];
+    if (!planDate) return [];
     const minutesOf = new Map(templateBlocks.map((block) => [block.id, block.minutes]));
 
     // Carry-overs first, pre-selected, with their move counts — SPEC §3.4.
@@ -186,7 +249,7 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
 
     const suggested: PlanItem[] = suggestionsFor(
       templateBlocks.map((block) => block.id),
-      tomorrow,
+      planDate,
       problemsDone,
     )
       // A carry-over already owns its block; do not suggest the same slot twice.
@@ -231,7 +294,7 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
     }
 
     return [...carried, ...suggested];
-  }, [tomorrow, carryOver, templateBlocks, problemsDone, prefs.planningSlack]);
+  }, [planDate, carryOver, templateBlocks, problemsDone, prefs.planningSlack]);
 
   const [items, setItems] = useState<PlanItem[]>([]);
   useEffect(() => setItems(composed), [composed]);
@@ -282,21 +345,26 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
     <div className="space-y-6">
       <Heading
         step="Tonight, part one"
-        title="How today went"
-        date={longDate(date)}
+        title="How the day went"
+        date={logFor ? longDate(logFor) : ''}
         icon="check"
+        value={logFor ?? ''}
+        onPick={setLogPick}
+        {...(logFor !== date
+          ? { hint: 'Defaulting to the day you last worked, not the calendar date.' }
+          : {})}
       />
 
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div>
           <SectionTitle>Log today</SectionTitle>
-          {commitments.length > 0 ? (
+          {logCommitments.length > 0 ? (
             <Card>
               <p className="mb-2 text-xs text-muted">
                 Tapped through the day. Confirm, or fix what is wrong.
               </p>
               <div className="-my-1">
-                {commitments.map((commitment) => (
+                {logCommitments.map((commitment) => (
                   <CommitmentRow
                     key={commitment.id}
                     commitment={commitment}
@@ -469,9 +537,11 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
       <section className="space-y-4 border-t border-edge pt-8">
         <Heading
           step="Tonight, part two"
-          title="What tomorrow is for"
-          date={tomorrow ? longDate(tomorrow) : ''}
+          title="What the next day is for"
+          date={planFor ? longDate(planFor) : ''}
           icon="plan"
+          value={planFor ?? ''}
+          onPick={setPlanPick}
         />
 
         {/*
