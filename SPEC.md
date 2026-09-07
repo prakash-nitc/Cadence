@@ -312,9 +312,21 @@ is a diary entry, not a correction.
 at 22:00 survives closing the laptop before the plan is finished. Never parsed, never
 scored: commitments are what the day is measured by, this is the reasoning around them.
 
+**Dates are chosen, not assumed.** Plan tracks the day being logged and the day being
+planned separately, and both are editable. The active date rolls to the calendar day once
+the laid day's blocks have run out, so deriving "tomorrow" from it sent a plan made at
+01:30 to the day after the one meant. The default is the day last worked — today if it is
+anchored, otherwise yesterday, and only before the usual waking hour. After that you have
+woken into a new day even if you have not started it.
+
+**A day that has not happened is not scored.** `bandDays` takes an `asOf` and leaves
+anything past it unbanded. Planning tomorrow creates its record and its commitments, none
+of them done — which scored 0 and marked tomorrow failed on today's calendar.
+
 **The shape — one big, two medium, three small.** A lens over the commitments already
-ticked, not a second to-do list: size comes from planned minutes, which the app already
-holds. A parallel list would be work the day never scores, and the two would disagree
+ticked, not a second to-do list: size is *chosen* on each line, seeded from planned
+minutes and then owned by the user, because how big a piece of work feels is not a
+function of its clock time. A parallel list would be work the day never scores, and the two would disagree
 inside a week. The shape is a ceiling on ambition rather than a quota — under it is fine,
 over it is the thing worth knowing at 23:00 rather than at 16:00 tomorrow. Counts live in
 Settings; big is 90 minutes, medium 45.
