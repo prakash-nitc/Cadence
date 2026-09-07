@@ -73,8 +73,7 @@ export function ShapeBar({ verdict }: { verdict: ShapeVerdict }) {
       </div>
 
       <p className="mt-3 text-xs text-muted">
-        Big is {'≥'} 90 min, medium {'≥'} 45. Sizes come from what you gave each
-        commitment.
+        Set B, M or S on each line. The minutes only pick a starting guess.
       </p>
 
       {note ? (

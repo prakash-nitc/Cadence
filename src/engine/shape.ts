@@ -46,22 +46,38 @@ export interface ShapeVerdict {
   note: string | null;
 }
 
-/** Which bucket a commitment falls in, from what it is worth. */
-export function sizeOf(plannedMinutes: number, thresholds: SizeThresholds): Size {
+/**
+ * The size a commitment starts at, from what it is worth.
+ *
+ * A first guess only. How big a piece of work *feels* is not a function of its minutes:
+ * ninety minutes of reading and ninety minutes of a hard new pattern are not the same
+ * kind of day, and the user is a better judge of that than the clock. `sizeFor` is what
+ * everything else reads.
+ */
+export function suggestedSize(plannedMinutes: number, thresholds: SizeThresholds): Size {
   if (plannedMinutes >= thresholds.bigMinutes) return 'big';
   if (plannedMinutes >= thresholds.mediumMinutes) return 'medium';
   return 'small';
 }
 
+/** What something carries: a chosen size, or the guess from its minutes. */
+export interface Sized {
+  plannedMinutes: number;
+  /** Set once the user has said. Absent means "whatever the minutes suggest". */
+  size?: Size | null;
+}
+
+/** The size in force — the choice if there is one, otherwise the suggestion. */
+export function sizeFor(item: Sized, thresholds: SizeThresholds): Size {
+  return item.size ?? suggestedSize(item.plannedMinutes, thresholds);
+}
+
 /** Count a set of commitments into big, medium and small. */
-export function dayShape(
-  commitments: { plannedMinutes: number }[],
-  thresholds: SizeThresholds,
-): DayShape {
+export function dayShape(commitments: Sized[], thresholds: SizeThresholds): DayShape {
   const shape: DayShape = { big: 0, medium: 0, small: 0, minutes: 0 };
 
   for (const commitment of commitments) {
-    shape[sizeOf(commitment.plannedMinutes, thresholds)] += 1;
+    shape[sizeFor(commitment, thresholds)] += 1;
     shape.minutes += commitment.plannedMinutes;
   }
 

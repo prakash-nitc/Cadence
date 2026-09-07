@@ -87,6 +87,13 @@ interface DayState {
   /** Re-read the log from the database. Cheap, and the two screens can both write it. */
   refreshLog: () => Promise<void>;
   saveVitals: (sleepHours: number, energy: LogRecord['energy'], at: number) => Promise<void>;
+  /**
+   * Today's note — the brain dump written for this day the night before.
+   *
+   * Editable from Now as well as from Plan: a thought that arrives at eleven is worth
+   * catching, and sending the user to another screen to catch it means it is not caught.
+   */
+  saveNote: (text: string) => Promise<void>;
   load: (now: number) => Promise<void>;
   /**
    * `blocks` overrides the template lookup — a custom day or a quick carve is a set of
@@ -268,6 +275,17 @@ export const useDay = create<DayState>((set, get) => {
 
       await putLog(log);
       set({ todayLog: log });
+    },
+
+    saveNote: async (text) => {
+      const { date, day } = get();
+      if (!date) return;
+
+      const existing = day ?? (await getDay(date));
+      // Nothing to attach a note to until the day exists; Plan writes it before then.
+      if (!existing) return;
+
+      await commit({ ...existing, brainDump: text });
     },
 
     startDay: async (anchor, templateId, prefs, customBlocks, settle) => {

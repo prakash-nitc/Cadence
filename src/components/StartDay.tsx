@@ -155,7 +155,11 @@ export function StartDay({
   const doneCount = past.filter(answerFor).length;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    /*
+     * Two columns where there is room. Capped at 3xl it left half the screen empty and
+     * pushed the block list below the fold on the one screen that is read standing up.
+     */
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] xl:items-start">
       <Card className="p-6">
         <p className="eyebrow">Day not started</p>
         <h1 className="mt-2 font-display text-2xl font-semibold tracking-display text-text">

@@ -132,10 +132,17 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
    */
   const workedDay = useMemo(() => {
     if (!date) return null;
+    if (day?.anchorAt) return date;
+
+    /*
+     * Before the usual waking hour you are still finishing last night, so the day to
+     * close is yesterday. After it you have woken into a new day even if you have not
+     * started it yet, and looking back would offer to plan a morning already spent.
+     */
+    const beforeWaking = now < Date.parse(`${date}T${prefs.dayStartsAt}:00`);
     const dayBefore = dateKey(addDays(new Date(`${date}T12:00:00`), -1));
-    // Nothing anchored today but something anchored yesterday: yesterday is the day.
-    return day?.anchorAt ? date : previous?.day.anchorAt ? dayBefore : date;
-  }, [date, day, previous]);
+    return beforeWaking && previous?.day.anchorAt ? dayBefore : date;
+  }, [date, day, previous, now, prefs.dayStartsAt]);
 
   const [logPick, setLogPick] = useState<string | null>(null);
   const [planPick, setPlanPick] = useState<string | null>(null);
@@ -332,12 +339,14 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
       month: 'long',
     });
 
+  const thresholds = {
+    bigMinutes: prefs.bigMinutes,
+    mediumMinutes: prefs.mediumMinutes,
+  };
+
   /* The shape of what is actually ticked, not of everything on offer. */
   const shape = shapeVerdict(
-    dayShape(
-      items.filter((item) => item.selected),
-      { bigMinutes: prefs.bigMinutes, mediumMinutes: prefs.mediumMinutes },
-    ),
+    dayShape(items.filter((item) => item.selected), thresholds),
     prefs.dayShape,
   );
 
@@ -661,6 +670,8 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
                 onToggle={() => patch(item.key, { selected: !item.selected })}
                 onTarget={(target) => patch(item.key, { target })}
                 onMinutes={(plannedMinutes) => patch(item.key, { plannedMinutes })}
+                onSize={(size) => patch(item.key, { size })}
+                thresholds={thresholds}
                 onDoFirst={() => {
                   const firstWork = templateBlocks.find((block) => block.kind === 'work');
                   patch(item.key, {

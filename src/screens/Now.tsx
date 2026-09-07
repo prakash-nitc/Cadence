@@ -10,6 +10,7 @@ import {
   RuleCard,
 } from '../components/now/NowParts';
 import { MorningCheck } from '../components/now/MorningCheck';
+import { TodayNote } from '../components/now/TodayNote';
 import { WeekStrip } from '../components/now/WeekStrip';
 import { Icon } from '../components/ui/Icon';
 import { Button, Card, Empty, Panel } from '../components/ui/primitives';
@@ -47,6 +48,7 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
     previousSleep,
     refreshLog,
     saveVitals,
+    saveNote,
     startDay,
     saveTemplate,
     closeBlock,
@@ -340,6 +342,11 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
             body="A day with no commitments scores red whatever gets done. Add them on the Day screen, against the blocks they belong to."
           />
         )}
+
+        <TodayNote
+          note={day.brainDump ?? ''}
+          onSave={(text) => void saveNote(text)}
+        />
 
         {unslottedMinutes > 0 ? (
           <p className="px-1 text-xs text-muted">

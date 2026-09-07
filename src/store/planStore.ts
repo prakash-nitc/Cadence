@@ -12,11 +12,19 @@ import {
 } from '../db/repo';
 import type { BlockDef } from '../config/schedule.config';
 import type { CommitmentRecord, DayRecord, LogRecord } from '../db/schema';
+import type { Size } from '../engine/shape';
 import type { Prefs } from '../lib/prefs';
 import { addDays, dateKey } from '../lib/time';
 
 /** One line of tomorrow's plan, before it becomes a commitment. */
 export interface PlanItem {
+  /**
+   * Big, medium or small — chosen, not computed.
+   *
+   * Seeded from planned minutes and then owned by the user: how big a piece of work
+   * feels is not a function of its clock time.
+   */
+  size?: Size | null;
   key: string;
   source: 'carry' | 'suggestion';
   /** The commitment being carried, if any. */

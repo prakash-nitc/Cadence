@@ -1,31 +1,62 @@
 import { describe, expect, it } from 'vitest';
-import { dayShape, shapeVerdict, sizeOf, type ShapeTarget, type SizeThresholds } from './shape';
+import {
+  dayShape,
+  shapeVerdict,
+  sizeFor,
+  suggestedSize,
+  type ShapeTarget,
+  type SizeThresholds,
+} from './shape';
 
 const thresholds: SizeThresholds = { bigMinutes: 90, mediumMinutes: 45 };
 const target: ShapeTarget = { big: 1, medium: 2, small: 3 };
 
 const items = (...minutes: number[]) => minutes.map((plannedMinutes) => ({ plannedMinutes }));
 
-describe('sizeOf', () => {
+describe('suggestedSize', () => {
   it('sorts by what the commitment is worth, not by its name', () => {
-    expect(sizeOf(180, thresholds)).toBe('big');
-    expect(sizeOf(60, thresholds)).toBe('medium');
-    expect(sizeOf(20, thresholds)).toBe('small');
+    expect(suggestedSize(180, thresholds)).toBe('big');
+    expect(suggestedSize(60, thresholds)).toBe('medium');
+    expect(suggestedSize(20, thresholds)).toBe('small');
   });
 
   it('is inclusive at each boundary', () => {
-    expect(sizeOf(90, thresholds)).toBe('big');
-    expect(sizeOf(89, thresholds)).toBe('medium');
-    expect(sizeOf(45, thresholds)).toBe('medium');
-    expect(sizeOf(44, thresholds)).toBe('small');
+    expect(suggestedSize(90, thresholds)).toBe('big');
+    expect(suggestedSize(89, thresholds)).toBe('medium');
+    expect(suggestedSize(45, thresholds)).toBe('medium');
+    expect(suggestedSize(44, thresholds)).toBe('small');
   });
 
   it('treats a weightless commitment as small', () => {
-    expect(sizeOf(0, thresholds)).toBe('small');
+    expect(suggestedSize(0, thresholds)).toBe('small');
+  });
+});
+
+describe('sizeFor', () => {
+  it('uses the minutes when nothing has been chosen', () => {
+    expect(sizeFor({ plannedMinutes: 180 }, thresholds)).toBe('big');
+    expect(sizeFor({ plannedMinutes: 180, size: null }, thresholds)).toBe('big');
+  });
+
+  it('lets the choice win, however long the thing is', () => {
+    // Ninety minutes of reading and ninety of a hard new pattern are not the same day.
+    expect(sizeFor({ plannedMinutes: 180, size: 'small' }, thresholds)).toBe('small');
+    expect(sizeFor({ plannedMinutes: 10, size: 'big' }, thresholds)).toBe('big');
   });
 });
 
 describe('dayShape', () => {
+  it('counts by the chosen size, not the clock', () => {
+    const shape = dayShape(
+      [
+        { plannedMinutes: 180, size: 'small' },
+        { plannedMinutes: 15, size: 'big' },
+      ],
+      thresholds,
+    );
+    expect(shape).toMatchObject({ big: 1, medium: 0, small: 1, minutes: 195 });
+  });
+
   it('counts the three buckets and the total', () => {
     expect(dayShape(items(180, 60, 60, 20, 20, 20), thresholds)).toEqual({
       big: 1,
