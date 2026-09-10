@@ -24,6 +24,28 @@ export interface Push {
   minutes: number;
 }
 
+/** Why a block stopped being worked, in the words the app offers. */
+export type InterruptionReason =
+  | 'messages'
+  | 'someone'
+  | 'searching'
+  | 'flat'
+  | 'other';
+
+/**
+ * A moment the work stopped — SPEC §3.1.
+ *
+ * Recorded rather than acted on: it moves no boundary and changes no score. It exists so
+ * "the afternoon block goes four days in five" becomes a fact the app can state, instead
+ * of something you half-notice a month later.
+ */
+export interface Interruption {
+  at: number;
+  /** The block that was running, or null between blocks. */
+  blockId: string | null;
+  reason: InterruptionReason;
+}
+
 export interface DayRecord {
   /** 'YYYY-MM-DD', primary key. The anchor's calendar date, not the clock's. */
   date: string;
@@ -34,6 +56,8 @@ export interface DayRecord {
   /** Human-readable cut lines from degradation, as shown at Start day. */
   degradation: string[];
   pushes: Push[];
+  /** Absent on every day recorded before interruptions existed. */
+  interruptions?: Interruption[];
   placementMode: boolean;
   /** Computed at day close. */
   score: number | null;

@@ -8,6 +8,8 @@ import {
 import type { CommitmentRecord, DayRecord, LogRecord } from '../db/schema';
 import type { Prefs } from '../lib/prefs';
 import {
+  compareTargets,
+  type TargetPace,
   partOfDay,
   streak,
   type DayBand,
@@ -957,5 +959,63 @@ describe('bandDays — days that have not happened', () => {
 
   it('scores everything when no date is given, as it always did', () => {
     expect(bandDays(period, prefs).every((band) => band.band !== null)).toBe(true);
+  });
+});
+
+describe('compareTargets', () => {
+  const pace = (
+    id: string,
+    achieved: number,
+    tracked = true,
+    label = id,
+  ): TargetPace => ({
+    id,
+    label,
+    unit: 'hours',
+    min: 15,
+    max: null,
+    achieved,
+    tracked,
+    remainingDays: 0,
+    shortfall: 0,
+    requiredRate: null,
+    ratePerDay: true,
+    reachable: true,
+    shortBy: 0,
+    belowWarn: false,
+    displaced: { count: 0, reasons: [] },
+  });
+
+  it('reports the movement per target', () => {
+    const deltas = compareTargets([pace('dsa', 15)], [pace('dsa', 12.5)]);
+    expect(deltas).toEqual([
+      { id: 'dsa', label: 'dsa', unit: 'hours', before: 12.5, after: 15, change: 2.5 },
+    ]);
+  });
+
+  it('reports a fall as readily as a rise', () => {
+    const deltas = compareTargets([pace('core', 6.5)], [pace('core', 8)]);
+    expect(deltas[0]?.change).toBe(-1.5);
+  });
+
+  it('puts the biggest movement first, in either direction', () => {
+    const deltas = compareTargets(
+      [pace('a', 1), pace('b', 10), pace('c', 5)],
+      [pace('a', 0), pace('b', 2), pace('c', 9)],
+    );
+    expect(deltas.map((delta) => delta.id)).toEqual(['b', 'c', 'a']);
+  });
+
+  it('leaves out a target the earlier period never had', () => {
+    // Added on Wednesday: it did not fall from anything, so there is nothing to say.
+    expect(compareTargets([pace('new', 4)], [pace('old', 4)])).toEqual([]);
+  });
+
+  it('leaves out anything the app cannot measure', () => {
+    expect(compareTargets([pace('gym', 3, false)], [pace('gym', 1, false)])).toEqual([]);
+  });
+
+  it('says nothing at all with no earlier period', () => {
+    expect(compareTargets([pace('dsa', 15)], [])).toEqual([]);
   });
 });

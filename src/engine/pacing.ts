@@ -692,3 +692,50 @@ export function partOfDay(at: number): PartOfDay {
   if (hour < 22) return 'Evening';
   return 'Night';
 }
+
+// ─── Comparing one period against the one before ─────────────────────────────
+
+export interface TargetDelta {
+  id: string;
+  label: string;
+  unit: string;
+  /** What the earlier period reached. */
+  before: number;
+  /** What this one has reached. */
+  after: number;
+  /** after − before, rounded the way the numbers are shown. */
+  change: number;
+}
+
+/**
+ * Per-target movement between two periods — SPEC §4.3.
+ *
+ * The week strip compares how many days went green; nothing compared the targets
+ * themselves, which is where the work actually lives. "Four green days again" and "DSA
+ * hours 12.5 → 15.0" are different facts and only one of them says what changed.
+ *
+ * A target absent from either side is left out rather than compared against a zero it
+ * never recorded: a target added on Wednesday did not "fall from" anything.
+ */
+export function compareTargets(after: TargetPace[], before: TargetPace[]): TargetDelta[] {
+  const earlier = new Map(before.filter((pace) => pace.tracked).map((pace) => [pace.id, pace]));
+  const round = (value: number): number => Math.round(value * 10) / 10;
+
+  return after
+    .filter((pace) => pace.tracked && earlier.has(pace.id))
+    .map((pace) => {
+      const was = earlier.get(pace.id);
+      const from = round(was?.achieved ?? 0);
+      const to = round(pace.achieved);
+      return {
+        id: pace.id,
+        label: pace.label,
+        unit: pace.unit,
+        before: from,
+        after: to,
+        change: round(to - from),
+      };
+    })
+    // Biggest movement first, in either direction: a fall matters as much as a rise.
+    .sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+}

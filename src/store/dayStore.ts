@@ -14,8 +14,14 @@ import {
   resolveActiveDate,
 } from '../db/repo';
 import type { BlockDef } from '../config/schedule.config';
-import type { CommitmentRecord, DayRecord, LogRecord, SavedTemplate } from '../db/schema';
-import { isResolved, pullForward, pushRemaining, resolveBlock } from '../engine/boundaries';
+import type {
+  CommitmentRecord,
+  DayRecord,
+  InterruptionReason,
+  LogRecord,
+  SavedTemplate,
+} from '../db/schema';
+import { blockAt, isResolved, pullForward, pushRemaining, resolveBlock } from '../engine/boundaries';
 import { layoutDay } from '../engine/layout';
 import { planDay } from '../engine/capacity';
 import { statusForProgress } from '../engine/scoring';
@@ -138,6 +144,13 @@ interface DayState {
     at: number,
   ) => Promise<void>;
   push: (minutes: number, at: number) => Promise<void>;
+  /**
+   * Note that the work stopped, without moving anything.
+   *
+   * Deliberately not a push: a push buys time and shifts every boundary after it. This
+   * only records that the block was left, which is the thing worth counting.
+   */
+  recordInterruption: (reason: InterruptionReason, at: number) => Promise<void>;
   startNextEarly: (minutes: number, at: number) => Promise<void>;
   setPlacementMode: (on: boolean) => Promise<void>;
 
@@ -404,6 +417,20 @@ export const useDay = create<DayState>((set, get) => {
         ...day,
         blocks: pushRemaining(day.blocks, at, minutes),
         pushes: [...day.pushes, { at, minutes }],
+      });
+    },
+
+    recordInterruption: async (reason, at) => {
+      const { day } = get();
+      if (!day) return;
+
+      const running = blockAt(day.blocks, at);
+      await commit({
+        ...day,
+        interruptions: [
+          ...(day.interruptions ?? []),
+          { at, blockId: running && running.kind !== 'gap' ? running.blockId : null, reason },
+        ],
       });
     },
 
