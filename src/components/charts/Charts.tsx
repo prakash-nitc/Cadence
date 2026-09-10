@@ -159,6 +159,81 @@ export function BarChart({
   );
 }
 
+/** One group in a comparison: a measured value and what it rests on, in words. */
+export interface EvidenceBar {
+  label: string;
+  value: number;
+  sub: string;
+  /** One of the groups the claim is about — takes the accent, the rest recede. */
+  named?: boolean;
+  /** Too little behind it to claim from: drawn, but drawn quietly. */
+  thin?: boolean;
+}
+
+/**
+ * The comparison behind a sentence — SPEC §4.5.
+ *
+ * Sits under a claim so it can be watched instead of taken on trust: the same bars are
+ * there on the next visit, a little longer or a little shorter. Every group is drawn,
+ * including one still too thin to claim from, because watching it fill is the point.
+ *
+ * Three tones and no more. The accent lands only on the groups the sentence names, so the
+ * eye goes from the claim to the two bars it came from; everything else is context in
+ * mint, and anything still too thin to count is fainter again. There is no red end: long
+ * is good in a containment comparison and bad in an interruption one, so a judgement
+ * colour would mean opposite things on adjacent rows.
+ */
+export function EvidenceBars({
+  bars,
+  unit = '',
+  max = null,
+}: {
+  bars: EvidenceBar[];
+  unit?: string;
+  /** Fixed ceiling for percentages; null scales the longest bar to full width. */
+  max?: number | null;
+}) {
+  const peak = max ?? Math.max(1, ...bars.map((bar) => bar.value));
+
+  return (
+    <div className="space-y-1.5">
+      {bars.map((bar) => (
+        <div key={bar.label} className="flex items-center gap-2.5">
+          <span
+            className={`w-[7.5rem] shrink-0 truncate text-[11px] ${
+              bar.named ? 'text-text' : 'text-soft'
+            }`}
+            title={bar.label}
+          >
+            {bar.label}
+          </span>
+
+          <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-sunk">
+            <div
+              className={`h-full rounded-full transition-[width] duration-500 ${
+                bar.thin ? 'bg-mint/30' : bar.named ? 'bg-signal/80' : 'bg-mint/50'
+              }`}
+              style={{ width: `${Math.min(100, (bar.value / peak) * 100)}%` }}
+            />
+          </div>
+
+          <span
+            className={`w-9 shrink-0 text-right font-mono text-[11px] ${
+              bar.named ? 'text-text' : 'text-soft'
+            }`}
+          >
+            {bar.value}
+            {unit}
+          </span>
+          <span className="w-[7.5rem] shrink-0 truncate font-mono text-[11px] text-muted">
+            {bar.sub}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export interface HeatCell {
   date: string;
   /** 0–1 intensity, or null for a day with nothing logged. */

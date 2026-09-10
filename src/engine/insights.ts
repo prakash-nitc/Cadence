@@ -9,8 +9,10 @@
  *
  * 1. **Never speak without enough behind it.** Each insight declares its own minimum and
  *    returns nothing below it. A claim from four days is noise wearing a number.
- * 2. **Never speak without a gap worth acting on.** "You contain 61% in the morning and
- *    58% in the afternoon" is true and useless; it is left unsaid.
+ * 2. **Never claim more than the gap supports.** A sentence is chosen to fit its numbers:
+ *    a part of the day at 80% is not "failing" because something beat it, and one at 61%
+ *    against 58% is not a finding at all — it says so, and the bars underneath let the
+ *    reader watch it rather than take it on trust.
  *
  * Pure. The clock and the day are passed in.
  */
@@ -21,6 +23,19 @@ import { partOfDay, type PartOfDay } from './pacing';
 import { scoreDay } from './scoring';
 import type { Prefs } from '../lib/prefs';
 
+/** One group in the comparison a claim rests on — a part of the day, a sleep band. */
+export interface InsightBar {
+  label: string;
+  /** The measured value. Percentages are 0–100; counts are counts. */
+  value: number;
+  /** What it rests on, in words: "12 blocks", "6 days". */
+  sub: string;
+  /** One of the groups the sentence above is actually about. Carries the accent. */
+  named?: boolean;
+  /** Below its own threshold: drawn, but drawn quietly and not claimed from. */
+  thin?: boolean;
+}
+
 export interface Insight {
   /** Stable id, so the list can be rendered without index keys. */
   key: string;
@@ -30,6 +45,17 @@ export interface Insight {
   detail: string;
   /** How many days it rests on, shown so the reader can discount it. */
   sample: number;
+  /**
+   * The comparison itself, so the claim can be watched rather than taken on trust.
+   *
+   * Every group is drawn, including ones too thin to claim from — seeing a bar fill up
+   * over a fortnight is the point, and hiding it until it qualifies hides the progress.
+   */
+  bars: InsightBar[];
+  /** Suffix on each bar's number. */
+  unit: string;
+  /** Scale the bars against. Percentages cap at 100; counts scale to the largest. */
+  max: number | null;
 }
 
 /** Minimums, in days or blocks. Below these an insight says nothing at all. */
@@ -48,6 +74,15 @@ const MIN_SCORE_GAP = 10;
  */
 const NOT_HOLDING = 60;
 
+/** The same five reasons as labels rather than sentence fragments. */
+const REASON_LABELS: Record<InterruptionReason, string> = {
+  messages: 'Messages',
+  someone: 'Someone came in',
+  searching: 'Looking for something',
+  flat: 'Running flat',
+  other: 'Something else',
+};
+
 const REASON_WORDS: Record<InterruptionReason, string> = {
   messages: 'messages',
   someone: 'someone coming in',
@@ -55,6 +90,9 @@ const REASON_WORDS: Record<InterruptionReason, string> = {
   flat: 'running flat',
   other: 'something else',
 };
+
+/** The order a day happens in, so the bars do not reshuffle themselves week to week. */
+const ORDER: PartOfDay[] = ['Morning', 'Afternoon', 'Evening', 'Night'];
 
 const median = (values: number[]): number => {
   if (values.length === 0) return 0;
@@ -98,22 +136,57 @@ function byPartOfDay(days: DayRecord[]): Insight | null {
   const best = rated[0];
   const worst = rated[rated.length - 1];
   if (!best || !worst || best.part === worst.part) return null;
-  if (best.percent - worst.percent < MIN_CONTAINMENT_GAP) return null;
 
   /*
-   * The verdict has to fit the number. A 20-point gap between 100% and 80% is worth
-   * knowing, but "your night blocks do not hold" is false of 80% — the strong sentence
-   * is reserved for a part of the day that is actually failing.
+   * Every part of the day that has any blocks at all, in the order a day happens — not
+   * ordered by score. This is the thing being tracked, so it has to sit still between
+   * visits, and a part still gathering blocks is drawn thin rather than hidden.
    */
-  const failing = worst.percent < NOT_HOLDING;
+  const gap = best.percent - worst.percent;
+  const named = gap < MIN_CONTAINMENT_GAP ? new Set<PartOfDay>() : new Set([best.part, worst.part]);
+
+  const bars: InsightBar[] = ORDER.filter((part) => tally.has(part)).map((part) => {
+    const seen = tally.get(part) ?? { contained: 0, total: 0 };
+    const thin = seen.total < MIN_BLOCKS_PER_PART;
+    return {
+      label: part,
+      value: Math.round((seen.contained / seen.total) * 100),
+      sub: `${seen.contained} of ${seen.total} blocks`,
+      ...(named.has(part) ? { named: true } : {}),
+      ...(thin ? { thin: true } : {}),
+    };
+  });
+
+  const strong = best.part.toLowerCase();
+  const weak = worst.part.toLowerCase();
+
+  /*
+   * The sentence fits the numbers, in three steps down.
+   *
+   * A 20-point gap between 100% and 80% is worth knowing, but "your night blocks do not
+   * hold" is false of 80%, so the blunt version waits for a part of the day that is
+   * actually failing. And under the gap threshold the honest claim is that nothing
+   * separates — which is a finding too, and better said than left as silence now that
+   * the bars underneath make it something to watch rather than a bare assertion.
+   */
+  const headline =
+    gap < MIN_CONTAINMENT_GAP
+      ? 'No part of the day stands out yet.'
+      : worst.percent < NOT_HOLDING
+        ? `Your ${strong} blocks hold; your ${weak} ones do not.`
+        : `Your ${strong} blocks hold better than your ${weak} ones.`;
 
   return {
     key: 'partOfDay',
-    headline: failing
-      ? `Your ${best.part.toLowerCase()} blocks hold; your ${worst.part.toLowerCase()} ones do not.`
-      : `Your ${best.part.toLowerCase()} blocks hold better than your ${worst.part.toLowerCase()} ones.`,
-    detail: `${best.percent}% contained in the ${best.part.toLowerCase()}, ${worst.percent}% in the ${worst.part.toLowerCase()}.`,
+    headline,
+    detail:
+      gap < MIN_CONTAINMENT_GAP
+        ? `The widest gap is ${gap} points, between the ${strong} and the ${weak}.`
+        : `${best.percent}% contained in the ${strong}, ${worst.percent}% in the ${weak}.`,
     sample: best.total + worst.total,
+    bars,
+    unit: '%',
+    max: 100,
   };
 }
 
@@ -147,6 +220,12 @@ function sleepAgainstScore(logs: LogRecord[], scores: Map<string, number>): Insi
     headline: `Short nights cost you ${longScore - shortScore} points.`,
     detail: `Under ${hours} hours your median day is ${shortScore}%. At or over it, ${longScore}%.`,
     sample: paired.length,
+    bars: [
+      { label: `Under ${hours}h`, value: shortScore, sub: `${short.length} nights`, named: true },
+      { label: `${hours}h or more`, value: longScore, sub: `${long.length} nights`, named: true },
+    ],
+    unit: '%',
+    max: 100,
   };
 }
 
@@ -173,6 +252,12 @@ function energyAgainstScore(logs: LogRecord[], scores: Map<string, number>): Ins
     headline: 'The days you start sharp are the days that land.',
     detail: `Energy 4 or 5: median ${highScore}%. Energy 1 or 2: median ${lowScore}%.`,
     sample: paired.length,
+    bars: [
+      { label: 'Energy 1–2', value: lowScore, sub: `${low.length} days`, named: true },
+      { label: 'Energy 4–5', value: highScore, sub: `${high.length} days`, named: true },
+    ],
+    unit: '%',
+    max: 100,
   };
 }
 
@@ -207,6 +292,14 @@ function whatInterrupts(days: DayRecord[]): Insight | null {
     ),
     detail: `${topReason[1]} of ${all.length} interruptions, ${share}%.${where}`,
     sample: all.length,
+    bars: count(all.map((entry) => entry.reason)).map(([reason, times]) => ({
+      label: REASON_LABELS[reason],
+      value: times,
+      sub: `${Math.round((times / all.length) * 100)}% of them`,
+      ...(reason === topReason[0] ? { named: true } : {}),
+    })),
+    unit: '',
+    max: null,
   };
 }
 

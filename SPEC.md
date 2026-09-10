@@ -563,12 +563,23 @@ Read together they say things no single screen can, and two rules govern all of 
 - **Never speak without enough behind it.** Each claim declares its own minimum and stays
   silent below it. A correlation from four days is noise wearing a number. Every claim
   carries its sample so a thin one can be discounted.
-- **Never speak without a gap worth acting on.** "61% in the morning and 58% in the
-  afternoon" is true and useless. Below the threshold it says nothing rather than filling
-  the space.
+- **Never claim more than the gap supports.** The sentence is chosen to fit its numbers,
+  in three steps: a part of the day below 60% contained "does not hold"; one above it only
+  "holds better than" whatever beat it — 80% is holding, whatever it sits next to; and
+  under a 15-point gap the claim is that nothing stands out, which is a finding too.
 
 Nothing is modelled or predicted — it is arithmetic over stored rows. Sleep splits at the
 user's own median rather than a fixed seven hours, so the comparison is against his normal.
+
+**Every claim shows the comparison it came from.** A sentence alone has to be believed and
+disappears the moment the gap narrows; a row of bars under it can be watched, and next week
+it is a little different — which is the whole point of a panel about where you are lacking.
+The bars carry three tones and no judgement colour: the accent falls only on the groups the
+sentence names, the rest recede, and a group still under its own minimum is drawn faintest
+rather than hidden, because watching it fill up is the point. No red end — a long bar is
+good in a containment comparison and bad in an interruption one, so a judgement colour would
+mean opposite things on adjacent rows. Parts of the day sit in the order a day happens, not
+in rank order, so the chart stays still between visits.
 
 **Interruptions** are recorded, never acted on: no boundary moves and no score changes.
 A push buys the block more room; this only notes that it was left, which is the thing
