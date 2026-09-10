@@ -274,3 +274,38 @@ describe('daysUntilInsights', () => {
     expect(daysUntilInsights(period({ logs }), '2026-09-20')).toBe(0);
   });
 });
+
+describe('insights — the verdict fits the number', () => {
+  /** Ten blocks in a part of the day, `held` of them contained. */
+  const part = (hhmm: string, held: number) =>
+    dates(10).map((date) =>
+      day(date, [block(hhmm, date, hhmm, held-- > 0 ? 'contained' : 'overran')]),
+    );
+
+  const merge = (a: DayRecord[], b: DayRecord[]): DayRecord[] =>
+    a.map((entry, index) => ({
+      ...entry,
+      blocks: [...entry.blocks, ...(b[index]?.blocks ?? [])],
+    }));
+
+  it('does not call 80% a failure just because something beat it', () => {
+    // The reported case: 100% in the evening against 80% at night. Both hold.
+    const days = merge(part('19:00', 10), part('23:00', 8));
+    const found = insights(period({ days }), prefs, '2026-09-10');
+    const claim = found.find((insight) => insight.key === 'partOfDay');
+
+    expect(claim?.headline).toBe(
+      'Your evening blocks hold better than your night ones.',
+    );
+    expect(claim?.headline).not.toMatch(/do not/);
+    expect(claim?.detail).toMatch(/100% contained in the evening, 80% in the night/);
+  });
+
+  it('keeps the blunt sentence for a part of the day that really is failing', () => {
+    const days = merge(part('08:00', 10), part('19:00', 4));
+    const found = insights(period({ days }), prefs, '2026-09-10');
+    expect(found.find((insight) => insight.key === 'partOfDay')?.headline).toBe(
+      'Your morning blocks hold; your evening ones do not.',
+    );
+  });
+});

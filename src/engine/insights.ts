@@ -41,6 +41,13 @@ const MIN_INTERRUPTIONS = 5;
 const MIN_CONTAINMENT_GAP = 15;
 const MIN_SCORE_GAP = 10;
 
+/**
+ * Below this, a part of the day is genuinely not holding and the sentence may say so.
+ * Above it, the claim is only that one part is better than another — 80% contained is
+ * holding, whatever it sits next to, and calling it a failure would be untrue.
+ */
+const NOT_HOLDING = 60;
+
 const REASON_WORDS: Record<InterruptionReason, string> = {
   messages: 'messages',
   someone: 'someone coming in',
@@ -93,9 +100,18 @@ function byPartOfDay(days: DayRecord[]): Insight | null {
   if (!best || !worst || best.part === worst.part) return null;
   if (best.percent - worst.percent < MIN_CONTAINMENT_GAP) return null;
 
+  /*
+   * The verdict has to fit the number. A 20-point gap between 100% and 80% is worth
+   * knowing, but "your night blocks do not hold" is false of 80% — the strong sentence
+   * is reserved for a part of the day that is actually failing.
+   */
+  const failing = worst.percent < NOT_HOLDING;
+
   return {
     key: 'partOfDay',
-    headline: `Your ${best.part.toLowerCase()} blocks hold; your ${worst.part.toLowerCase()} ones do not.`,
+    headline: failing
+      ? `Your ${best.part.toLowerCase()} blocks hold; your ${worst.part.toLowerCase()} ones do not.`
+      : `Your ${best.part.toLowerCase()} blocks hold better than your ${worst.part.toLowerCase()} ones.`,
     detail: `${best.percent}% contained in the ${best.part.toLowerCase()}, ${worst.percent}% in the ${worst.part.toLowerCase()}.`,
     sample: best.total + worst.total,
   };
