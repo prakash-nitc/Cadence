@@ -114,7 +114,9 @@ export default function App() {
                 <p className="text-sm text-muted">Loading.</p>
               ) : (
                 <div key={tab} className="animate-rise-in">
-                  {tab === 'Now' ? <Now now={now} prefs={prefs} /> : null}
+                  {tab === 'Now' ? (
+                    <Now now={now} prefs={prefs} onGo={setTab} />
+                  ) : null}
                   {tab === 'Day' ? <Day now={now} prefs={prefs} /> : null}
                   {tab === 'Plan' ? <Plan now={now} prefs={prefs} /> : null}
                   {tab === 'Progress' ? <Progress prefs={prefs} targets={targets} /> : null}

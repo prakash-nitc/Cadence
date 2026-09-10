@@ -73,11 +73,18 @@ export default {
           from: { transform: 'scaleX(0)' },
           to: { transform: 'scaleX(1)' },
         },
+        /* One block closing. Fires once per block, never per checkbox. */
+        settle: {
+          '0%': { transform: 'scale(1)' },
+          '35%': { transform: 'scale(1.012)' },
+          '100%': { transform: 'scale(1)' },
+        },
       },
       animation: {
         'rise-in': 'rise-in 260ms ease-out both',
         'pop-check': 'pop-check 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
         'draw-bar': 'draw-bar 420ms ease-out both',
+        settle: 'settle 320ms cubic-bezier(0.34, 1.4, 0.64, 1) both',
       },
     },
   },

@@ -554,6 +554,32 @@ Deliberately small. Behaviour only — never the timetable, which is config.
 
 ---
 
+
+### 4.5 What the records say
+
+Cadence stores sleep, energy, containment, a score and a three-line review for every day.
+Read together they say things no single screen can, and two rules govern all of it:
+
+- **Never speak without enough behind it.** Each claim declares its own minimum and stays
+  silent below it. A correlation from four days is noise wearing a number. Every claim
+  carries its sample so a thin one can be discounted.
+- **Never speak without a gap worth acting on.** "61% in the morning and 58% in the
+  afternoon" is true and useless. Below the threshold it says nothing rather than filling
+  the space.
+
+Nothing is modelled or predicted — it is arithmetic over stored rows. Sleep splits at the
+user's own median rather than a fixed seven hours, so the comparison is against his normal.
+
+**Interruptions** are recorded, never acted on: no boundary moves and no score changes.
+A push buys the block more room; this only notes that it was left, which is the thing
+worth counting and previously had nowhere to go. Reasons are a short fixed list, because a
+free-text field here could never be counted.
+
+**The review log** lists the nightly lines back with their dates. Deliberately no
+clustering: grouping them by meaning requires reading them, and a wrong grouping is worse
+than none. The list makes a repeated failure mode visible without the app claiming to have
+spotted it.
+
 ## 5. Data model
 
 ```ts

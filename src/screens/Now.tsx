@@ -9,9 +9,12 @@ import {
   PaceCard,
   RuleCard,
 } from '../components/now/NowParts';
+import { DayDone } from '../components/now/DayDone';
+import { Interrupted } from '../components/now/Interrupted';
 import { MorningCheck } from '../components/now/MorningCheck';
 import { TodayNote } from '../components/now/TodayNote';
 import { WeekStrip } from '../components/now/WeekStrip';
+import type { Tab } from '../components/Nav';
 import { Icon } from '../components/ui/Icon';
 import { Button, Card, Empty, Panel } from '../components/ui/primitives';
 import { StartDay } from '../components/StartDay';
@@ -26,7 +29,7 @@ import {
   unconfirmed,
 } from '../engine/boundaries';
 import { bandDays, type DayBand } from '../engine/pacing';
-import { burnDown, projectDay, scoreDay } from '../engine/scoring';
+import { burnDown, completionOf, isDropped, projectDay, scoreDay } from '../engine/scoring';
 import { backupState, freeTimeLine, pullForwardWarning, ruleForDate } from '../lib/copy';
 import { blockPassed, blockPriority, gateLabel, runwayMinutes, unslotted } from '../lib/dayScoring';
 import type { Prefs } from '../lib/prefs';
@@ -37,7 +40,16 @@ import { useProgress } from '../store/progressStore';
 const PUSH_OPTIONS = [15, 30, 60];
 
 /** Now — SPEC §3.1. Read at arm's length in under two seconds. */
-export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
+export function Now({
+  now,
+  prefs,
+  onGo,
+}: {
+  now: number;
+  prefs: Prefs;
+  /** Move to another screen. Only used to hand a finished day over to the review. */
+  onGo: (tab: Tab) => void;
+}) {
   const {
     date,
     day,
@@ -49,6 +61,7 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
     refreshLog,
     saveVitals,
     saveNote,
+    recordInterruption,
     startDay,
     saveTemplate,
     closeBlock,
@@ -273,6 +286,11 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
                     +{minutes}
                   </Button>
                 ))}
+                <Interrupted
+                  count={(day.interruptions ?? []).length}
+                  onRecord={(reason) => void recordInterruption(reason, now)}
+                />
+
                 <Button
                   size="sm"
                   variant="ghost"
@@ -287,18 +305,25 @@ export function Now({ now, prefs }: { now: number; prefs: Prefs }) {
           </>
         ) : null}
 
-        {!inProgress && waiting.length === 0 ? (
+        {!inProgress && waiting.length === 0 && isDayComplete(day.blocks) ? (
+          <DayDone
+            result={scoreDay(commitments, prefs, planned)}
+            earnedMinutes={Math.round(
+              commitments
+                .filter((commitment) => !isDropped(commitment))
+                .reduce((sum, c) => sum + c.plannedMinutes * completionOf(c), 0),
+            )}
+            contained={tally.contained}
+            blocks={tally.total}
+            note={day.brainDump ?? ''}
+            logged={todayLog !== null}
+            onPlan={() => onGo("Plan")}
+          />
+        ) : null}
+
+        {!inProgress && waiting.length === 0 && !isDayComplete(day.blocks) ? (
           <Card className="p-6">
-            {isDayComplete(day.blocks) ? (
-              <>
-                <h2 className="font-display text-2xl font-semibold tracking-display text-text">
-                  Day worked
-                </h2>
-                <p className="mt-1 text-sm text-soft">
-                  Every block is marked. Log it in the Plan tab.
-                </p>
-              </>
-            ) : next ? (
+            {next ? (
               <>
                 <p className="eyebrow">Between blocks</p>
                 <h2 className="mt-2 font-display text-2xl font-semibold tracking-display text-text">

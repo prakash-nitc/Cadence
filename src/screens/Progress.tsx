@@ -11,6 +11,8 @@ import {
 } from '../components/charts/Charts';
 import { ConsistencyGrid } from '../components/ConsistencyGrid';
 import { DayDetail } from '../components/progress/DayDetail';
+import { Insights } from '../components/progress/Insights';
+import { ReviewLog } from '../components/progress/ReviewLog';
 import { StreakCard } from '../components/progress/StreakCard';
 import { MilestoneRow } from '../components/MilestoneRow';
 import { MonthTargetBar } from '../components/MonthTargetBar';
@@ -27,8 +29,10 @@ import {
   TONE_TEXT,
   type Tone,
 } from '../components/ui/primitives';
+import { daysUntilInsights, insights } from '../engine/insights';
 import {
   bandDays,
+  compareTargets,
   dailyEffort,
   milestoneStatuses,
   streak,
@@ -184,6 +188,7 @@ function ProgressHero({
   detail,
   delta,
   deltaLabel,
+  stacked = false,
   children,
 }: {
   eyebrow: string;
@@ -193,11 +198,19 @@ function ProgressHero({
   detail: string;
   delta?: number | null;
   deltaLabel?: string;
+  /** Ring above the words rather than beside them, for a narrow column. */
+  stacked?: boolean;
   children?: React.ReactNode;
 }) {
   return (
-    <Card className="grid grid-cols-1 gap-6 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
-      <div className="flex justify-center md:justify-start">
+    <Card
+      className={`grid gap-6 ${
+        stacked
+          ? 'grid-cols-1 justify-items-center text-center'
+          : 'grid-cols-1 md:grid-cols-[auto_minmax(0,1fr)] md:items-center'
+      }`}
+    >
+      <div className={stacked ? 'flex justify-center' : 'flex justify-center md:justify-start'}>
         <Ring value={score === null ? null : score / 100} tone={tone} label={eyebrow} />
       </div>
 
@@ -262,6 +275,8 @@ export function Progress({ prefs, targets }: { prefs: Prefs; targets: WeeklyTarg
 
   const weekFrom = startOfWeek(date);
   const weekTo = dateKey(addDays(new Date(`${weekFrom}T12:00:00`), 6));
+  const lastWeekFrom = dateKey(addDays(new Date(`${weekFrom}T12:00:00`), -7));
+  const lastWeekTo = dateKey(addDays(new Date(`${weekFrom}T12:00:00`), -1));
   const calendarDaysLeft = Math.max(
     0,
     Math.round((Date.parse(`${weekTo}T12:00:00`) - Date.parse(`${date}T12:00:00`)) / 86_400_000) + 1,
@@ -308,6 +323,7 @@ export function Progress({ prefs, targets }: { prefs: Prefs; targets: WeeklyTarg
           from={weekFrom}
           to={weekTo}
           asOf={date}
+          lastWeek={slice(period, lastWeekFrom, lastWeekTo)}
           targets={targets}
         />
       ) : null}
@@ -389,6 +405,7 @@ function WeekView({
   from,
   to,
   asOf,
+  lastWeek,
   targets,
 }: {
   period: Period;
@@ -400,11 +417,15 @@ function WeekView({
   to: string;
   /** Today. Days after it are not scored — they have not happened. */
   asOf: string;
+  /** The seven days before this week, for the per-target comparison. */
+  lastWeek: Period;
   targets: WeeklyTarget[];
 }) {
   const bands = bandDays(period, prefs, asOf);
   const shape = weekShape(bands, prefs);
   const paces = weeklyPacing(period, targets, daysLeft, capacity);
+  /* Last week's numbers, so the targets can say what moved rather than only where they are. */
+  const deltas = compareTargets(paces, weeklyPacing(lastWeek, targets, 0, capacity));
   const verdict = weekVerdict(shape, prefs);
   const average = meanScore(bands);
 
@@ -429,26 +450,33 @@ function WeekView({
 
   return (
     <div className="space-y-5">
-      <ProgressHero
-        eyebrow="this week"
-        score={average}
-        tone={verdict.tone}
-        headline={verdict.headline}
-        detail={verdict.detail}
-      >
-        <p className="mt-3 font-mono text-xs text-muted">
-          {label} · {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
-        </p>
-      </ProgressHero>
+      {/*
+        The week in one band: where it stands, how the days went, and the line across
+        them. These were three stacked sections and the whole answer never fit a screen.
+      */}
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+        <ProgressHero
+          eyebrow="this week"
+          score={average}
+          tone={verdict.tone}
+          headline={verdict.headline}
+          detail={verdict.detail}
+          stacked
+        >
+          <p className="mt-3 font-mono text-xs text-muted">
+            {label} · {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+          </p>
+        </ProgressHero>
 
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <Panel title="Day by day" icon="calendar">
-          <WeekShape shape={shape} label={label} cells={cellsFor(bands, from, to)} weekdays />
-        </Panel>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Panel title="Day by day" icon="calendar">
+            <WeekShape shape={shape} label={label} cells={cellsFor(bands, from, to)} weekdays />
+          </Panel>
 
-        <Panel title="Score across the week" icon="chart">
-          <LineChart points={scoreSeries(bands, from, to)} />
-        </Panel>
+          <Panel title="Score across the week" icon="chart">
+            <LineChart points={scoreSeries(bands, from, to)} height={120} />
+          </Panel>
+        </div>
       </section>
 
       <section>
@@ -476,6 +504,51 @@ function WeekView({
               {behindMost.unit === 'hours' ? ' hrs' : ` ${behindMost.unit}`}.
             </span>
           </p>
+        ) : null}
+
+        {/*
+          What moved since last week. Only targets both weeks recorded: one added on
+          Wednesday did not fall from anything.
+        */}
+        {deltas.length > 0 ? (
+          <div className="mt-3 overflow-hidden rounded-lg border border-edge bg-panel">
+            <p className="border-b border-edge bg-sunk px-4 py-2 text-xs text-muted">
+              Against last week
+            </p>
+            <ul>
+              {deltas.map((delta) => (
+                <li
+                  key={delta.id}
+                  className="flex items-baseline gap-3 border-b border-edge px-4 py-2.5 last:border-b-0"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm text-text">
+                    {delta.label}
+                  </span>
+                  <span className="shrink-0 font-mono text-xs text-muted">
+                    {delta.before} → {delta.after}
+                  </span>
+                  <span
+                    className={`flex w-20 shrink-0 items-center justify-end gap-1 font-mono text-xs ${
+                      delta.change > 0
+                        ? 'text-deep'
+                        : delta.change < 0
+                          ? 'text-fail'
+                          : 'text-muted'
+                    }`}
+                  >
+                    {delta.change === 0 ? (
+                      '\u2014'
+                    ) : (
+                      <>
+                        <Icon name={delta.change > 0 ? 'arrowUp' : 'arrowDown'} size={12} />
+                        {Math.abs(delta.change)}
+                      </>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
       </section>
 
@@ -770,6 +843,18 @@ function HistoryView({
         </Panel>
 
         <StreakCard streak={run} />
+      </section>
+
+      {/*
+        The two panels that read the record back: what the numbers add up to, and what
+        you wrote about them. Both were stored and neither was ever shown.
+      */}
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-2 xl:items-start">
+        <Insights
+          found={insights(period, prefs, asOf)}
+          daysToGo={daysUntilInsights(period, asOf)}
+        />
+        <ReviewLog logs={period.logs.filter((log) => log.date <= asOf)} />
       </section>
 
       <Panel title="Bands, last 18 weeks" icon="calendar">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CommitmentRecord } from '../db/schema';
 import { allowedCorrections, viewStatus, type BlockView } from '../engine/boundaries';
 import type { ScheduledBlock } from '../engine/layout';
@@ -124,6 +124,26 @@ export function BlockRow({
 
   const icon = STATUS_ICON[status];
 
+  /*
+   * A block that has just been closed settles once — SPEC §8.
+   *
+   * Fires on the transition into a resolved state, not on every render, so scrolling a
+   * finished day does not replay the whole morning. Once per block, never per checkbox.
+   */
+  const [justClosed, setJustClosed] = useState(false);
+  const wasResolved = useRef(status);
+  useEffect(() => {
+    const before = wasResolved.current;
+    wasResolved.current = status;
+    if (before === status) return;
+    if (status !== 'contained' && status !== 'overran' && status !== 'skipped') return;
+    if (before === 'contained' || before === 'overran' || before === 'skipped') return;
+
+    setJustClosed(true);
+    const timer = window.setTimeout(() => setJustClosed(false), 400);
+    return () => window.clearTimeout(timer);
+  }, [status]);
+
   return (
     <div
       className="flex gap-4"
@@ -151,11 +171,9 @@ export function BlockRow({
             status === 'active'
               ? 'border-signal/45 bg-wash/70'
               : status === 'contained'
-                ? 'border-edge bg-panel'
-                : status === 'pending'
-                  ? 'border-edge bg-panel'
-                  : 'border-edge bg-panel'
-          }`}
+                ? 'border-signal/25 bg-wash/40'
+                : 'border-edge bg-panel'
+          } ${justClosed ? 'animate-settle' : ''}`}
         >
           <button
             type="button"
