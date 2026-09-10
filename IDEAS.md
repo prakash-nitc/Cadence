@@ -33,3 +33,14 @@ Offered during the look-and-feel pass and left for a later decision.
   arrangement could be pinned to a weekday so Tuesday always opens as Tuesday.
 - **A "what changed" line on Progress.** Week-over-week deltas per target, not just the
   overall band count.
+
+## Built (2026-09-11)
+
+Insights, interruptions, the review log, per-target deltas, the closing card, the week
+density pass and block settle all shipped. Still parked from that list:
+
+- **Focus mode.** One key dims everything but the running block. Not Pomodoro — no
+  intervals, nothing new timed. Wanted a keyboard layer first.
+- **Non-negotiables always visible.** The gate still only appears once it has failed.
+- **Keyboard shortcuts.** Desktop-only app, still none.
+- **Weekday templates.** Pin a saved arrangement to a weekday.
