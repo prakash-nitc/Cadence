@@ -25,6 +25,7 @@ import { blockAt, isResolved, pullForward, pushRemaining, resolveBlock } from '.
 import { layoutDay } from '../engine/layout';
 import { planDay } from '../engine/capacity';
 import { statusForProgress } from '../engine/scoring';
+import { spreadWorked, withWorked } from '../engine/worked';
 import { describeDegradation } from '../lib/copy';
 import type { Prefs } from '../lib/prefs';
 import { blocksForTemplate } from '../lib/templates';
@@ -136,7 +137,15 @@ interface DayState {
   resetDay: (at: number) => Promise<void>;
   saveTemplate: (name: string, blocks: BlockDef[], at: number) => Promise<string>;
   removeTemplate: (id: string) => Promise<void>;
-  closeBlock: (blockId: string, status: 'contained' | 'overran', at: number) => Promise<void>;
+  /** `worked` is the minutes put in; given for work blocks, and flowed into their commitments. */
+  closeBlock: (
+    blockId: string,
+    status: 'contained' | 'overran',
+    at: number,
+    worked?: number,
+  ) => Promise<void>;
+  /** Correct the time worked on a block already closed. */
+  logWorked: (blockId: string, minutes: number) => Promise<void>;
   skipBlock: (blockId: string, at: number) => Promise<void>;
   correctBlock: (
     blockId: string,
@@ -205,6 +214,17 @@ export const useDay = create<DayState>((set, get) => {
       commitments: get().commitments.map((commitment) =>
         commitment.id === id ? next : commitment,
       ),
+    });
+  };
+
+  /** A block's minutes into its minutes-typed commitments, persisted and mirrored. */
+  const writeWorked = async (date: string, blockId: string, minutes: number): Promise<void> => {
+    const changed = spreadWorked(get().commitments, date, blockId, minutes);
+    if (changed.length === 0) return;
+    await putCommitments(changed);
+    const byId = new Map(changed.map((commitment) => [commitment.id, commitment]));
+    set({
+      commitments: get().commitments.map((commitment) => byId.get(commitment.id) ?? commitment),
     });
   };
 
@@ -390,10 +410,23 @@ export const useDay = create<DayState>((set, get) => {
       });
     },
 
-    closeBlock: async (blockId, status, at) => {
+    closeBlock: async (blockId, status, at, worked) => {
       const { day } = get();
       if (!day) return;
-      await commit(withBlocks(day, resolveBlock(day.blocks, blockId, status, at)));
+      const resolved = resolveBlock(day.blocks, blockId, status, at);
+      if (worked === undefined) {
+        await commit(withBlocks(day, resolved));
+        return;
+      }
+      await commit(withBlocks(day, withWorked(resolved, blockId, worked)));
+      await writeWorked(day.date, blockId, worked);
+    },
+
+    logWorked: async (blockId, minutes) => {
+      const { day } = get();
+      if (!day) return;
+      await commit(withBlocks(day, withWorked(day.blocks, blockId, minutes)));
+      await writeWorked(day.date, blockId, minutes);
     },
 
     skipBlock: async (blockId, at) => {

@@ -5,6 +5,7 @@
  * clock arrives as `asOf`.
  */
 import type { Milestone, TargetSource, WeeklyTarget } from '../config/schedule.config';
+import { timeHeldByCommitment } from './worked';
 import type { Band, CommitmentRecord, DayRecord, LogRecord } from '../db/schema';
 import type { Prefs } from '../lib/prefs';
 import { dateKey } from '../lib/time';
@@ -174,15 +175,32 @@ export function measure(source: TargetSource, period: Period): number {
         )
         .reduce((sum, commitment) => sum + commitment.done, 0);
 
-    case 'minutesTag':
-      return (
-        happened
-          .filter(
-            (commitment) =>
-              commitment.targetType === 'minutes' && commitment.tags.includes(source.tag),
-          )
-          .reduce((sum, commitment) => sum + commitment.done, 0) / 60
+    case 'minutesTag': {
+      const fromCommitments = happened
+        .filter(
+          (commitment) =>
+            commitment.targetType === 'minutes' && commitment.tags.includes(source.tag),
+        )
+        .reduce((sum, commitment) => sum + commitment.done, 0);
+
+      // Time logged on the named blocks themselves, where no commitment already holds it.
+      const named = new Set(source.blocks ?? []);
+      const fromBlocks = period.days.reduce(
+        (sum, day) =>
+          sum +
+          day.blocks
+            .filter(
+              (block) =>
+                named.has(block.blockId) &&
+                (block.workedMinutes ?? 0) > 0 &&
+                !timeHeldByCommitment(period.commitments, day.date, block.blockId),
+            )
+            .reduce((inner, block) => inner + (block.workedMinutes ?? 0), 0),
+        0,
       );
+
+      return (fromCommitments + fromBlocks) / 60;
+    }
 
     case 'earnedMinutesTag':
       // Weight times completion: the time actually put in, whatever the commitment

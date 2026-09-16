@@ -18,7 +18,7 @@ describe('resolveTargets', () => {
     const target = find(targets, 'core_cse');
     expect(target?.label).toBe('Core CSE subjects');
     expect(target?.min).toBe(8);
-    expect(target?.source).toEqual({ kind: 'minutesTag', tag: 'core_cse' });
+    expect(target?.source).toEqual({ kind: 'minutesTag', tag: 'core_cse', blocks: ['core_cse'] });
   });
 
   it('changes the numbers', () => {

@@ -161,7 +161,12 @@ export const GYM_CUTOFF_HOUR = 9;
  */
 export type TargetSource =
   | { kind: 'countTag'; tag: string }            // sum of `done` on count commitments
-  | { kind: 'minutesTag'; tag: string }          // sum of `done` minutes, reported in hours
+  /**
+   * Sum of `done` minutes, reported in hours. `blocks` also counts time logged on those
+   * blocks when no minutes-typed commitment sits on them — so an hour in Core CSE counts
+   * whether or not anything was committed to it, and never twice.
+   */
+  | { kind: 'minutesTag'; tag: string; blocks?: string[] }
   /**
    * Hours actually put in, from each commitment's weight and how much of it got done.
    * Counts whatever the commitment measures, so a "4 problems" block still contributes
@@ -197,11 +202,11 @@ export const WEEKLY_TARGETS: WeeklyTarget[] = [
   { id: 'dsa_hours',    label: 'DSA hours',            min: 15, unit: 'hours', note: 'New problems, re-solves and theory together. Problems per week says nothing about how long they took.',
     source: { kind: 'earnedMinutesTag', tag: 'dsa' } },
   { id: 'spring_hours', label: 'Spring Boot hours',    min: 15, unit: 'hours', warnBelow: 12, warnCopy: 'Early warning, not a blip.', note: 'The number to protect.',
-    source: { kind: 'minutesTag', tag: 'spring' } },
+    source: { kind: 'minutesTag', tag: 'spring', blocks: ['spring_1', 'spring_2', 'project'] } },
   // No source: the app cannot see a git history. Declared so it stays on the radar.
   { id: 'spring_commits', label: 'Spring Boot commits', min: 4, max: 6,  unit: 'commits',  note: 'Not one giant commit on Sunday' },
   { id: 'core_cse',   label: 'Core CSE hours', min: 8, unit: 'hours',
-    source: { kind: 'minutesTag', tag: 'core_cse' } },
+    source: { kind: 'minutesTag', tag: 'core_cse', blocks: ['core_cse'] } },
   { id: 'gym',          label: 'Gym sessions',         min: 5,  max: 6,  unit: 'sessions',
     source: { kind: 'containedBlock', blockId: 'gym' } },
   { id: 'sleep',        label: 'Nights at 7h+',        min: 7,  max: 7,  unit: 'nights',   note: 'Non-negotiable',

@@ -30,6 +30,11 @@ export interface ScheduledBlock {
   /** Window id this block runs across without being split — SPEC §2.2.4. */
   straddles: string | null;
   window: string | null;
+  /**
+   * Minutes actually worked, answered when the block closes — SPEC §3.3. Absent on blocks
+   * closed before this existed and on blocks nobody has answered for; never guessed.
+   */
+  workedMinutes?: number;
 }
 
 const DAY_MS = 86_400_000;
