@@ -15,6 +15,9 @@ import {
   type PrefRecord,
   type TargetOverride,
   type SavedTemplate,
+  type FavouriteRecord,
+  type MorningCardRecord,
+  type OwnEntryRecord,
 } from './schema';
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
@@ -201,6 +204,10 @@ export interface Backup {
   milestoneProgress: MilestoneProgress[];
   monthTargets: MonthTargetRecord[];
   targetOverrides: TargetOverride[];
+  /** Optional so a backup from before the morning card still imports. */
+  ownEntries?: OwnEntryRecord[];
+  favourites?: FavouriteRecord[];
+  morningCards?: MorningCardRecord[];
 }
 
 export const BACKUP_VERSION = 1;
@@ -212,6 +219,7 @@ export const BACKUP_VERSION = 1;
 export async function exportAll(): Promise<Backup> {
   const [
     days, commitments, logs, savedTemplates, prefs, milestoneProgress, monthTargets, targetOverrides,
+    ownEntries, favourites, morningCards,
   ] =
     await Promise.all([
       db.days.toArray(),
@@ -222,6 +230,9 @@ export async function exportAll(): Promise<Backup> {
       db.milestoneProgress.toArray(),
       db.monthTargets.toArray(),
       db.targetOverrides.toArray(),
+      db.ownEntries.toArray(),
+      db.favourites.toArray(),
+      db.morningCards.toArray(),
     ]);
 
   return {
@@ -236,6 +247,9 @@ export async function exportAll(): Promise<Backup> {
     milestoneProgress,
     monthTargets,
     targetOverrides,
+    ownEntries,
+    favourites,
+    morningCards,
   };
 }
 
@@ -269,6 +283,9 @@ export async function importAll(backup: Backup): Promise<void> {
       db.milestoneProgress,
       db.monthTargets,
       db.targetOverrides,
+      db.ownEntries,
+      db.favourites,
+      db.morningCards,
     ],
     async () => {
       await Promise.all([
@@ -280,6 +297,9 @@ export async function importAll(backup: Backup): Promise<void> {
         db.milestoneProgress.clear(),
         db.monthTargets.clear(),
         db.targetOverrides.clear(),
+        db.ownEntries.clear(),
+        db.favourites.clear(),
+        db.morningCards.clear(),
       ]);
 
       await Promise.all([
@@ -291,6 +311,9 @@ export async function importAll(backup: Backup): Promise<void> {
         db.milestoneProgress.bulkPut(backup.milestoneProgress ?? []),
         db.monthTargets.bulkPut(backup.monthTargets ?? []),
         db.targetOverrides.bulkPut(backup.targetOverrides ?? []),
+        db.ownEntries.bulkPut(backup.ownEntries ?? []),
+        db.favourites.bulkPut(backup.favourites ?? []),
+        db.morningCards.bulkPut(backup.morningCards ?? []),
       ]);
     },
   );
@@ -318,4 +341,39 @@ export async function putTargetOverrides(overrides: TargetOverride[]): Promise<v
 
 export async function deleteTargetOverride(id: string): Promise<void> {
   await db.targetOverrides.delete(id);
+}
+
+// ─── The morning card ─────────────────────────────────────────────────────────
+
+export async function listOwnEntries(): Promise<OwnEntryRecord[]> {
+  return db.ownEntries.orderBy('createdAt').toArray();
+}
+
+export async function putOwnEntry(entry: OwnEntryRecord): Promise<void> {
+  await db.ownEntries.put(entry);
+}
+
+/** Removing an entry also unstars it, so no favourite points at nothing. */
+export async function deleteOwnEntry(id: string): Promise<void> {
+  await db.transaction('rw', [db.ownEntries, db.favourites], async () => {
+    await db.ownEntries.delete(id);
+    await db.favourites.delete(id);
+  });
+}
+
+export async function listFavourites(): Promise<FavouriteRecord[]> {
+  return db.favourites.toArray();
+}
+
+export async function setFavourite(id: string, on: boolean, at: number): Promise<void> {
+  if (on) await db.favourites.put({ id, at });
+  else await db.favourites.delete(id);
+}
+
+export async function listMorningCards(): Promise<MorningCardRecord[]> {
+  return db.morningCards.toArray();
+}
+
+export async function putMorningCard(card: MorningCardRecord): Promise<void> {
+  await db.morningCards.put(card);
 }

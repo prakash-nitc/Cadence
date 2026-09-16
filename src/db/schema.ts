@@ -7,6 +7,8 @@
  */
 import Dexie, { type Table } from 'dexie';
 import type { BlockDef, TargetSource } from '../config/schedule.config';
+import type { MorningEntry } from '../content/morning';
+import type { ShownCard } from '../engine/morning';
 import type { ScheduledBlock } from '../engine/layout';
 
 export type Band = 'green' | 'yellow' | 'red';
@@ -195,6 +197,18 @@ export interface TargetOverride {
   order: number;
 }
 
+/** A quote or affirmation the user wrote in themselves — SPEC §3.6. */
+export type OwnEntryRecord = MorningEntry & { createdAt: number };
+
+/** A starred morning-card entry, library or own. */
+export interface FavouriteRecord {
+  id: string;
+  at: number;
+}
+
+/** What the morning card showed on a day, so it stays fixed and never repeats early. */
+export type MorningCardRecord = ShownCard;
+
 export class CadenceDB extends Dexie {
   days!: Table<DayRecord, string>;
   commitments!: Table<CommitmentRecord, string>;
@@ -204,6 +218,9 @@ export class CadenceDB extends Dexie {
   milestoneProgress!: Table<MilestoneProgress, string>;
   monthTargets!: Table<MonthTargetRecord, string>;
   targetOverrides!: Table<TargetOverride, string>;
+  ownEntries!: Table<OwnEntryRecord, string>;
+  favourites!: Table<FavouriteRecord, string>;
+  morningCards!: Table<MorningCardRecord, string>;
 
   constructor() {
     super('cadence');
@@ -228,6 +245,13 @@ export class CadenceDB extends Dexie {
 
     this.version(5).stores({
       targetOverrides: 'id',
+    });
+
+    // The morning card: your own entries, favourites, and what each day showed.
+    this.version(6).stores({
+      ownEntries: 'id, createdAt',
+      favourites: 'id',
+      morningCards: 'date',
     });
   }
 }
