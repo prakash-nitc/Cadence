@@ -3,10 +3,12 @@ import { exportAll, importAll, isBackup } from '../db/repo';
 import { backupState } from '../lib/copy';
 import { NumberField } from '../components/NumberField';
 import { Icon } from '../components/ui/Icon';
+import { MorningSettings } from '../components/MorningSettings';
 import { TargetEditor } from '../components/TargetEditor';
 import { NOTIFICATION_SAMPLES, notifier } from '../lib/notify';
 import type { NotificationKey, Prefs } from '../lib/prefs';
 import { useDay } from '../store/dayStore';
+import { useMorning } from '../store/morningStore';
 import { usePrefs } from '../store/prefsStore';
 
 /**
@@ -142,6 +144,8 @@ export function Settings({ prefs }: { prefs: Prefs }) {
       }
       await importAll(parsed);
       await reloadDay(Date.now());
+      // The morning card's entries and history came from the backup too.
+      await useMorning.getState().load();
       setMessage(`Imported ${parsed.days.length} days. Everything else was replaced.`);
     } catch {
       setMessage('That file could not be read.');
@@ -375,6 +379,10 @@ export function Settings({ prefs }: { prefs: Prefs }) {
             }
           />
         ))}
+      </Section>
+
+      <Section title="Morning card">
+        <MorningSettings now={Date.now()} />
       </Section>
 
       <Section title="Saved day templates">

@@ -371,6 +371,44 @@ All individually toggleable in Settings.
 
 ---
 
+### 3.6 Morning card
+
+A quote, an affirmation and the first thing today, at the top of Now — the first thing seen
+on sitting down, before Start day as well as after. Asked for by the user to start each day
+with something that pushes, and built to become a habit rather than decoration.
+
+- **One card a day, fixed all day.** Picked the first time Now opens on a day and written to
+  `morningCards`, so a reload, a tab switch or a plan edited at noon never changes it. The day
+  is the app's active day, not midnight.
+- **Nothing repeats until the whole pool has gone round.** The pool is shuffled once per year
+  (a fixed order all year, a different one next year); an entry shown within the last
+  pool-length days is skipped.
+- **It suits the day,** from the records: a red yesterday → getting back up; Monday →
+  starting; Sunday → review; three green days running → consistency; a Big commitment today
+  → focus. Among entries not recently shown, one of that theme is preferred.
+- **First thing** names the day's first unfinished Big commitment in day order, or the first
+  unfinished one of any size. A quote alone fades by mid-morning; this points it at work.
+- **Folds to one line** once the first work block has started, and opens on request.
+- **Favourites:** any quote or affirmation can be starred; favourites return about one
+  morning in three, never two days running. Managed in Settings.
+- **Your own entries:** quotes (optionally with who said it) and affirmations added in
+  Settings join the rotation. Stored locally, word for word.
+- **Evening echo:** Plan's log shows this morning's affirmation back, with no verdict.
+- **No streak** for reading it — that would reward opening the app, not doing the work.
+
+**Library** (`src/content/morning/`, one small file per source): the Bhagavad Gita,
+athletes, cricket, football, sports films and anime, a few general lines on discipline, and
+affirmations written for this user's work. Honest credit is part of the design:
+- Gita lines are original English renderings with the verse cited (`rendering`); modern
+  translations are not reproduced.
+- Film and anime dialogue appears only as a few short, widely quoted lines. Everything else
+  from those works is an original line credited "in the spirit of …" (`spirit`) and never
+  presented as a character's words.
+- A quote without a clear record is shown as "attributed to …" (`attributed`).
+
+This card is the one place the app's voice encourages — see CLAUDE.md rule 7. It never sits
+on a score, band, pace figure or missed commitment.
+
 ## 4. Features — Tier 2
 
 ### 4.1 Commitments and day scoring

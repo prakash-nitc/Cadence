@@ -54,6 +54,11 @@ Never read `DEFAULT_PREFS` at runtime outside the first-run seeder.
    encouragement, no scolding. Errors state what happened. Empty states say what to do.
    Failure states stay constructive without softening the fact: "Needs attention — 3 days
    below target" says the same thing as "3 RED DAYS" and is the version to write.
+   **One deliberate exception: the morning card (SPEC §3.6).** Its quotes and affirmations
+   are encouraging because the user asked for exactly that. They live only in that card,
+   always credited, and never on a score, a band, a pace figure or a missed commitment.
+   The app's own voice everywhere else is unchanged — do not let the card's tone spread,
+   and do not "fix" the card to match the rest.
 8. **Monospace is for system metrics.** Times, durations, counts, percentages and rates.
    Human content — task names, descriptions, navigation — is sans. That distinction is
    load-bearing; do not blur it.

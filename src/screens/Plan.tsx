@@ -16,6 +16,7 @@ import { checkFeasibility, committableMinutes } from '../engine/feasibility';
 import { dayShape, shapeVerdict } from '../engine/shape';
 import { verdictLine } from '../lib/copy';
 import { suggestionsFor } from '../lib/roadmap';
+import { entryById, useMorning } from '../store/morningStore';
 import type { Prefs } from '../lib/prefs';
 import { blocksForTemplate, suggestedTemplate } from '../lib/templates';
 import { addDays, dateKey, formatDuration } from '../lib/time';
@@ -104,6 +105,12 @@ function Heading({
 }
 
 export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
+  const morning = useMorning();
+  const loadMorning = morning.load;
+  const morningLoaded = morning.loaded;
+  useEffect(() => {
+    if (!morningLoaded) void loadMorning();
+  }, [morningLoaded, loadMorning]);
   const { date, day, previous, savedTemplates, setDone, dropCommitment } = useDay();
   const {
     planDate,
@@ -349,6 +356,11 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
     mediumMinutes: prefs.mediumMinutes,
   };
 
+  const morningCard = morning.cards.find((card) => card.date === logFor) ?? null;
+  const morningLine = morningCard
+    ? (entryById(morning.own, morningCard.affirmationId)?.text ?? null)
+    : null;
+
   /* The shape of what is actually ticked, not of everything on offer. */
   const shape = shapeVerdict(
     dayShape(items.filter((item) => item.selected), thresholds),
@@ -372,6 +384,19 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div>
           <SectionTitle>Log today</SectionTitle>
+          {morningLine ? (
+            /* This morning's affirmation, read back at night. No verdict attached: seeing
+               your own morning words again is the loop, and the log below is the record. */
+            <p
+              className="mb-3 flex items-start gap-2 rounded-md bg-sunk px-3 py-2 text-sm text-soft"
+              data-morning-echo
+            >
+              <Icon name="sparkle" size={13} className="mt-1 shrink-0 text-signal" />
+              <span>
+                This morning: <span className="text-text">{morningLine}</span>
+              </span>
+            </p>
+          ) : null}
           {logCommitments.length > 0 ? (
             <Card>
               <p className="mb-2 text-xs text-muted">

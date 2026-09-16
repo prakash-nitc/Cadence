@@ -13,6 +13,7 @@ import {
 } from '../components/now/NowParts';
 import { DayDone } from '../components/now/DayDone';
 import { Interrupted } from '../components/now/Interrupted';
+import { MorningCard } from '../components/now/MorningCard';
 import { MorningCheck } from '../components/now/MorningCheck';
 import { TodayNote } from '../components/now/TodayNote';
 import { WeekStrip } from '../components/now/WeekStrip';
@@ -38,6 +39,9 @@ import type { Prefs } from '../lib/prefs';
 import { formatDuration, toHHMM } from '../lib/time';
 import { useDay } from '../store/dayStore';
 import { useProgress } from '../store/progressStore';
+import { entryById, useMorning } from '../store/morningStore';
+import { firstThing, type ShownCard } from '../engine/morning';
+import { sizeFor } from '../engine/shape';
 
 const PUSH_OPTIONS = [15, 30, 60];
 
@@ -73,6 +77,7 @@ export function Now({
     setDone,
     dropCommitment,
     editCommitment,
+    previous,
   } = useDay();
   const [confirmingEarly, setConfirmingEarly] = useState(false);
   const [triaging, setTriaging] = useState(false);
@@ -123,6 +128,66 @@ export function Now({
     return [...stored.filter((band) => band.date !== date), today];
   }, [weekLoaded, weekDays, weekCommitments, weekLogs, prefs, date, day, commitments]);
 
+  /*
+   * The morning card — SPEC §3.6. Picked once per day, after the week has loaded so the
+   * streak it reads is real, and then read back from the record on every later visit.
+   */
+  const morning = useMorning();
+  const [card, setCard] = useState<ShownCard | null>(null);
+  const thresholds = { bigMinutes: prefs.bigMinutes, mediumMinutes: prefs.mediumMinutes };
+
+  useEffect(() => {
+    if (!date || !weekLoaded) return;
+    if (card?.date === date) return;
+
+    const before = weekBands
+      .filter((band) => band.date < date)
+      .sort((a, b) => b.date.localeCompare(a.date));
+    let greenRun = 0;
+    for (const band of before) {
+      if (band.band !== 'green') break;
+      greenRun += 1;
+    }
+
+    const yesterday = previous
+      ? scoreDay(previous.commitments, prefs, previous.day.plannedAt !== null).band
+      : null;
+
+    void morning
+      .cardFor({
+        date,
+        yesterdayBand: yesterday,
+        greenRun,
+        hasBig: commitments.some(
+          (commitment) => !isDropped(commitment) && sizeFor(commitment, thresholds) === 'big',
+        ),
+      })
+      .then(setCard);
+    // Deliberately keyed on the day: the card is fixed once picked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, weekLoaded]);
+
+  const morningCard =
+    date && card?.date === date ? (
+      <MorningCard
+        // Re-seeds the fold once the first block starts, and on a new day.
+        key={`${date}:${
+          day?.anchorAt != null &&
+          day.blocks.some((block) => block.kind === 'work' && block.startsAt <= now)
+        }`}
+        date={date}
+        quote={entryById(morning.own, card.quoteId)}
+        affirmation={entryById(morning.own, card.affirmationId)}
+        first={firstThing(commitments, day?.blocks ?? [], thresholds)}
+        favourites={morning.favourites}
+        folded={
+          day?.anchorAt != null &&
+          day.blocks.some((block) => block.kind === 'work' && block.startsAt <= now)
+        }
+        onFavourite={(id) => void morning.toggleFavourite(id, now)}
+      />
+    ) : null;
+
   if (!date) return null;
 
   if (!day?.anchorAt) {
@@ -133,6 +198,7 @@ export function Now({
      */
     return (
       <div className="space-y-5">
+        {morningCard}
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] xl:items-start">
           <TodayNote note={day?.brainDump ?? ''} onSave={(text) => void saveNote(text)} />
           <MorningCheck
@@ -220,6 +286,7 @@ export function Now({
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
       {/* Main column: what you are doing, and what you can do about it. */}
       <div className="space-y-5">
+        {morningCard}
         {waiting[0] ? (
           <ContainmentPrompt
             block={waiting[0]}
