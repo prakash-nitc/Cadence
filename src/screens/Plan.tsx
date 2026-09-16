@@ -108,6 +108,7 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
   const {
     planDate,
     carryOver,
+    routineLeftShort,
     history,
     problemsDone,
     todayLog,
@@ -268,7 +269,11 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
         blockId: suggestion.blockId,
         label: suggestion.label,
         targetType: suggestion.targetType,
-        target: suggestion.target,
+        // Minutes work the block they sit in, so the target is the block as arranged.
+        target:
+          suggestion.targetType === 'minutes'
+            ? (minutesOf.get(suggestion.blockId) ?? suggestion.target)
+            : suggestion.target,
         plannedMinutes: minutesOf.get(suggestion.blockId) ?? 0,
         tags: suggestion.tags,
         selected: false,
@@ -671,19 +676,32 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
 
         <ShapeBar verdict={shape} />
 
+        {routineLeftShort > 0 ? (
+          <p className="flex items-start gap-2 rounded-md bg-sunk px-3 py-2 text-xs text-soft" data-routine-note>
+            <Icon name="bookmark" size={13} className="mt-px shrink-0 text-muted" />
+            <span>
+              Daily work left short on earlier days is not carried over —{' '}
+              <span className="font-mono">{routineLeftShort}</span>{' '}
+              {routineLeftShort === 1 ? 'session' : 'sessions'}. Tomorrow has its own, and the
+              time missed counts against this week&apos;s targets on Progress. Only things you
+              added yourself carry.
+            </span>
+          </p>
+        ) : null}
+
         {items.length === 0 ? (
           <p className="text-sm text-muted">
             Nothing suggested for these blocks. You can add commitments tomorrow on the Day
             screen.
           </p>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-edge bg-panel">
+          <div className="overflow-hidden rounded-lg border border-edge bg-panel" data-plan-list>
             {/* The two number columns are otherwise unlabelled boxes. */}
             <div className="flex items-center gap-3 border-b border-edge bg-sunk px-3 py-2">
               <span className="h-4 w-4 shrink-0" aria-hidden />
               <span className="min-w-0 flex-1 text-xs text-muted">Commitment</span>
-              <span className="w-16 shrink-0 text-right text-xs text-muted">Target</span>
-              <span className="w-16 shrink-0 text-right text-xs text-muted">Weight</span>
+              <span className="w-16 shrink-0 text-right text-xs text-muted">How many</span>
+              <span className="w-16 shrink-0 text-right text-xs text-muted">Minutes</span>
             </div>
             {items.map((item) => (
               <PlanItemRow
@@ -694,7 +712,15 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
                 note={verdict.notes.find((entry) => entry.commitmentId === item.key) ?? null}
                 onToggle={() => patch(item.key, { selected: !item.selected })}
                 onTarget={(target) => patch(item.key, { target })}
-                onMinutes={(plannedMinutes) => patch(item.key, { plannedMinutes })}
+                onMinutes={(plannedMinutes) =>
+                  patch(
+                    item.key,
+                    // A minutes commitment's time is its target; there is only one number.
+                    item.targetType === 'minutes'
+                      ? { plannedMinutes, target: plannedMinutes }
+                      : { plannedMinutes },
+                  )
+                }
                 onSize={(size) => patch(item.key, { size })}
                 thresholds={thresholds}
                 onDoFirst={() => {

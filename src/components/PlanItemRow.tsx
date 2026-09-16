@@ -114,24 +114,30 @@ export function PlanItemRow({
           ))}
         </span>
 
-        {item.targetType === 'binary' ? <span className="w-16 shrink-0" aria-hidden /> : null}
-
-        {item.targetType !== 'binary' ? (
+        {/*
+          Every row has a time. Only a count has a separate "how many": for minutes the time
+          is the target, and showing it twice is what made the two look like the same thing.
+        */}
+        {item.targetType === 'count' ? (
           <NumberField
             value={item.target}
             onChange={onTarget}
             min={1}
-            label={`${item.label} target`}
+            label={`${item.label} how many`}
             className="w-16 shrink-0 border border-edge bg-ink px-1.5 py-1 text-right font-mono text-xs text-text focus:border-signal focus:outline-none"
           />
-        ) : null}
+        ) : (
+          <span className="w-16 shrink-0" aria-hidden />
+        )}
 
         <NumberField
-          value={item.plannedMinutes}
+          value={item.targetType === 'minutes' ? item.target : item.plannedMinutes}
           onChange={onMinutes}
-          min={0}
-          label={`${item.label} weight`}
-          className="w-16 shrink-0 border border-edge bg-ink px-1.5 py-1 text-right font-mono text-xs text-muted focus:border-signal focus:outline-none"
+          min={item.targetType === 'minutes' ? 1 : 0}
+          label={`${item.label} minutes`}
+          className={`w-16 shrink-0 border border-edge bg-ink px-1.5 py-1 text-right font-mono text-xs focus:border-signal focus:outline-none ${
+            item.targetType === 'minutes' ? 'text-text' : 'text-soft'
+          }`}
         />
 
         <button

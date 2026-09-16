@@ -26,6 +26,22 @@ const FIELD =
 
 const MINUTE_STEP = 15;
 
+/**
+ * What each kind measures, said where it is edited — SPEC §4.1.
+ *
+ * Count and minutes were read as the same thing because both showed a minutes field. They
+ * are not: a count is how many things get finished, minutes is how long you work. The score
+ * weighs everything by time, so a count also says how long it should take.
+ */
+export const TYPE_HELP: Record<CommitmentRecord['targetType'], string> = {
+  count:
+    'Count is how many things get finished — 4 problems. The minutes are how long they should take, which is what the score weighs them by.',
+  minutes:
+    'Minutes is time put in — 2 hours of SQL. Done is the minutes worked, and they count toward your hours targets.',
+  binary:
+    'Done or not — one thing that is either finished or not. The minutes are how long it should take, which is what the score weighs it by.',
+};
+
 const STATUS_TONE: Record<CommitmentRecord['status'], string> = {
   open: 'text-text',
   partial: 'text-text',
@@ -151,8 +167,12 @@ export function CommitmentRow({
           )}
           <span className="mt-0.5 block font-mono text-xs text-muted">
             {progress}
-            <span className="mx-1.5 text-edge">·</span>
-            {commitment.plannedMinutes} min
+            {commitment.targetType === 'minutes' ? null : (
+              <>
+                <span className="mx-1.5 text-edge">·</span>
+                {commitment.plannedMinutes} min
+              </>
+            )}
             {dropped ? (
               <span className="ml-2 font-sans text-fail">{DROP_LABEL[commitment.status]}</span>
             ) : null}
@@ -215,38 +235,47 @@ export function CommitmentRow({
           </label>
 
           <div className="mt-2 grid grid-cols-2 gap-2">
-            {commitment.targetType !== 'binary' ? (
+            {commitment.targetType === 'minutes' ? (
               <label className="block">
-                <span className="block text-xs text-muted">
-                  Target{commitment.targetType === 'minutes' ? ' (minutes)' : ''}
-                </span>
+                <span className="block text-xs text-muted">Minutes</span>
                 <NumberField
                   value={draft.target}
-                  onChange={(target) => setDraft({ ...draft, target })}
+                  onChange={(target) => setDraft({ ...draft, target, plannedMinutes: target })}
                   min={1}
-                  label="Commitment target"
+                  label="Commitment minutes"
                   className={`${FIELD} font-mono`}
                 />
               </label>
             ) : (
-              <span />
+              <>
+                {commitment.targetType === 'count' ? (
+                  <label className="block">
+                    <span className="block text-xs text-muted">How many</span>
+                    <NumberField
+                      value={draft.target}
+                      onChange={(target) => setDraft({ ...draft, target })}
+                      min={1}
+                      label="Commitment how many"
+                      className={`${FIELD} font-mono`}
+                    />
+                  </label>
+                ) : null}
+                <label className="block">
+                  <span className="block text-xs text-muted">Time it takes (minutes)</span>
+                  <NumberField
+                    value={draft.plannedMinutes}
+                    onChange={(plannedMinutes) => setDraft({ ...draft, plannedMinutes })}
+                    min={0}
+                    label="Commitment minutes"
+                    className={`${FIELD} font-mono`}
+                  />
+                </label>
+              </>
             )}
-
-            <label className="block">
-              <span className="block text-xs text-muted">Weight (minutes)</span>
-              <NumberField
-                value={draft.plannedMinutes}
-                onChange={(plannedMinutes) => setDraft({ ...draft, plannedMinutes })}
-                min={0}
-                label="Commitment weight"
-                className={`${FIELD} font-mono`}
-              />
-            </label>
           </div>
 
           <p className="mt-2 text-xs text-muted">
-            Weight is what the score counts this as. It usually matches the time you mean
-            to give it.
+            {TYPE_HELP[commitment.targetType]}
           </p>
 
           <div className="mt-3 border-t border-edge pt-3">

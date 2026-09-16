@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { CommitmentRecord } from '../db/schema';
 import { defaultTagsForBlock, defaultTargetTypeForBlock } from '../lib/tags';
 import type { NewCommitment } from '../store/dayStore';
+import { TYPE_HELP } from './CommitmentRow';
 import { TagPicker } from './TagPicker';
 
 /**
@@ -21,8 +22,8 @@ interface AddCommitmentProps {
 
 const TARGET_TYPES: { id: CommitmentRecord['targetType']; label: string }[] = [
   { id: 'count', label: 'Count' },
-  { id: 'binary', label: 'Done / not' },
   { id: 'minutes', label: 'Minutes' },
+  { id: 'binary', label: 'Done or not' },
 ];
 
 export function AddCommitment({
@@ -39,6 +40,7 @@ export function AddCommitment({
   );
   const [target, setTarget] = useState('1');
   const [minutes, setMinutes] = useState(String(defaultMinutes));
+  const isMinutes = targetType === 'minutes';
   const [tags, setTags] = useState<string[]>(() => defaultTagsForBlock(blockId));
 
   const submit = (): void => {
@@ -49,7 +51,13 @@ export function AddCommitment({
       blockId,
       label: trimmed,
       targetType,
-      target: targetType === 'binary' ? 1 : Math.max(1, Number(target) || 1),
+      // For minutes the time is the target; there is no second number to keep in step.
+      target:
+        targetType === 'binary'
+          ? 1
+          : isMinutes
+            ? Math.max(1, Number(minutes) || 1)
+            : Math.max(1, Number(target) || 1),
       plannedMinutes: Math.max(0, Number(minutes) || 0),
       tags,
     });
@@ -84,10 +92,14 @@ export function AddCommitment({
         ))}
       </div>
 
+      <p className="mt-2 text-xs text-muted" data-type-help>
+        {TYPE_HELP[targetType]}
+      </p>
+
       <div className="mt-2 grid grid-cols-2 gap-2">
-        {targetType !== 'binary' ? (
+        {targetType === 'count' ? (
           <label className="block">
-            <span className="block text-xs text-muted">Target</span>
+            <span className="block text-xs text-muted">How many</span>
             <input
               type="number"
               min="1"
@@ -101,7 +113,9 @@ export function AddCommitment({
         )}
 
         <label className="block">
-          <span className="block text-xs text-muted">Weight (minutes)</span>
+          <span className="block text-xs text-muted">
+            {isMinutes ? 'Minutes' : 'Time it takes (minutes)'}
+          </span>
           <input
             type="number"
             min="0"

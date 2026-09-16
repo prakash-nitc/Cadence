@@ -308,7 +308,8 @@ stops doing it and nothing else in the app works.
 **Part 2 — Plan tomorrow.** Pre-composed, not blank:
 
 1. Pick tomorrow's template (default from weekday, or a saved custom one).
-2. Carry-overs appear first, pre-selected, with move-count badges.
+2. Carry-overs appear first, pre-selected, with move-count badges. Only one-off work carries
+   (§4.1); routine work left short is summarised in one line, not repeated.
 3. Roadmap-derived suggestions fill the rest — current sequential subject, current Spring
    Boot phase, current DSA topic, all read from config.
 4. User edits targets, adds, removes.
@@ -447,10 +448,30 @@ whole point:
 The guard against everything becoming "displaced" is that debt is visible weekly and does
 not clear (§4.3).
 
-**Carry-over and avoidance detection.** Undone commitments go to a pool and appear first
-in tomorrow's plan with a move-count badge. At **three moves**, the app offers exactly two
-options: *"Moved 3 times. Do it first tomorrow, or delete it."* No third move. This
-surfaces avoidance in three days instead of three weeks.
+**Carry-over and avoidance detection.** Undone *one-off* commitments go to a pool and
+appear first in tomorrow's plan with a move-count badge. At **three moves**, the app offers
+exactly two options: *"Moved 3 times. Do it first tomorrow, or delete it."* No third move.
+This surfaces avoidance in three days instead of three weeks.
+
+**Routine work does not carry.** A commitment saved from a roadmap suggestion is routine
+(`routine: true`); one added by hand is not. Routine work is suggested fresh every night, so
+carrying it too put a week of short Spring Boot sessions on the plan as seven extra lines,
+all pre-ticked — thirty-odd rows with the one real task buried in them. Its shortfall is not
+lost: it counts against the week's hours and problem targets, which is where a shortfall in
+recurring work belongs. The plan says how many routine sessions were left short, in one line,
+and that only things added by hand carry. Commitments from before the flag existed are
+judged by shape — on a preset's block, of its type, with exactly its tags.
+
+**Count, minutes, and weight.** The score weighs everything by planned minutes (§4.1 above).
+- *Minutes* is time put in — 2 hours of SQL. The target **is** the time, so the weight is
+  the target and there is one number to set, not two.
+- *Count* is how many things get finished — 4 problems — plus how long they should take,
+  which is its weight.
+- *Done or not* is a single thing, plus how long it should take.
+
+Each form says this where the type is chosen. The plan's columns read **How many** (counts
+only) and **Minutes** (every row). A minutes suggestion's target is its block's arranged
+length.
 
 **Triage.** When burn-down goes negative, `Triage day` lists commitments in reverse
 priority and lets the user cut until the day is feasible again, re-scoring live. The app
