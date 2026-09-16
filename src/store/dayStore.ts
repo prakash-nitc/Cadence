@@ -26,6 +26,7 @@ import { layoutDay } from '../engine/layout';
 import { planDay } from '../engine/capacity';
 import { statusForProgress } from '../engine/scoring';
 import { spreadWorked, withWorked } from '../engine/worked';
+import { weightFor } from '../engine/carry';
 import { describeDegradation } from '../lib/copy';
 import type { Prefs } from '../lib/prefs';
 import { blocksForTemplate } from '../lib/templates';
@@ -557,12 +558,14 @@ export const useDay = create<DayState>((set, get) => {
         targetType: input.targetType,
         target: input.target,
         done: 0,
-        plannedMinutes: input.plannedMinutes,
+        plannedMinutes: weightFor(input.targetType, input.target, input.plannedMinutes),
         tags: input.tags,
         status: 'open',
         displacedBy: null,
         movedCount: 0,
         originDate: date,
+        // Added by hand: a one-off, which is exactly what carries if it is not finished.
+        routine: false,
       };
 
       await putCommitments([record]);
@@ -588,7 +591,11 @@ export const useDay = create<DayState>((set, get) => {
           ...commitment,
           label: edit.label.trim() || commitment.label,
           target: Math.max(1, edit.target),
-          plannedMinutes: Math.max(0, edit.plannedMinutes),
+          plannedMinutes: weightFor(
+            commitment.targetType,
+            Math.max(1, edit.target),
+            edit.plannedMinutes,
+          ),
           tags: edit.tags,
         };
         // Changing the target changes what "done" means, so the status follows it.

@@ -110,6 +110,12 @@ export interface CommitmentRecord {
    * past day exactly as it was scored.
    */
   retiredAt?: number | null;
+  /**
+   * The roadmap's daily work rather than a one-off — SPEC §4.1. Routine work does not
+   * carry into tomorrow's plan; its shortfall counts against the week's targets instead.
+   * Absent on commitments created before this existed, which are judged by their shape.
+   */
+  routine?: boolean;
 }
 
 export interface LogRecord {

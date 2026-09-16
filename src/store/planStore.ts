@@ -10,7 +10,8 @@ import {
   replaceCommitments,
   retireCommitment,
 } from '../db/repo';
-import type { BlockDef } from '../config/schedule.config';
+import { COMMITMENT_PRESETS, type BlockDef } from '../config/schedule.config';
+import { carryOverPool, weightFor } from '../engine/carry';
 import type { CommitmentRecord, DayRecord, LogRecord } from '../db/schema';
 import type { Size } from '../engine/shape';
 import type { Prefs } from '../lib/prefs';
@@ -81,6 +82,8 @@ interface PlanState {
   logCommitments: CommitmentRecord[];
   /** Undone work from days already gone, one line per lineage. */
   carryOver: CommitmentRecord[];
+  /** Routine commitments left short on earlier days, which are deliberately not carried. */
+  routineLeftShort: number;
   history: CommitmentRecord[];
   problemsDone: number;
   todayLog: LogRecord | null;
@@ -119,6 +122,7 @@ export const usePlan = create<PlanState>((set, get) => ({
   logCommitments: [],
   picks: { against: '', log: null, plan: null },
   carryOver: [],
+  routineLeftShort: 0,
   history: [],
   problemsDone: 0,
   todayLog: null,
@@ -146,7 +150,10 @@ export const usePlan = create<PlanState>((set, get) => ({
       logCommitments,
       planDate,
       planDay,
-      carryOver: carryOverPool(past, planDate),
+      ...(() => {
+        const pool = carryOverPool(past, planDate, COMMITMENT_PRESETS);
+        return { carryOver: pool.carry, routineLeftShort: pool.routineLeftShort };
+      })(),
       history: past,
       problemsDone,
       todayLog,
@@ -219,12 +226,14 @@ export const usePlan = create<PlanState>((set, get) => ({
       // scored yesterday; carrying it forward with progress already on it would score
       // the same work twice.
       done: 0,
-      plannedMinutes: item.plannedMinutes,
+      plannedMinutes: weightFor(item.targetType, item.target, item.plannedMinutes),
       tags: item.tags,
       status: 'open',
       displacedBy: null,
       movedCount: item.carriedFrom ? item.carriedFrom.movedCount + 1 : 0,
       originDate: item.carriedFrom ? item.carriedFrom.originDate : planDate,
+      // Suggestions are the roadmap's daily work; carried work is one-off by definition.
+      routine: item.source === 'suggestion',
     }));
 
     await replaceCommitments(planDate, commitments);
@@ -255,37 +264,3 @@ export const usePlan = create<PlanState>((set, get) => ({
     set({ planDay: day, planDate });
   },
 }));
-
-/**
- * The carry-over pool — SPEC §4.1.
- *
- * Undone commitments from days already gone. One line per lineage: if the same work has
- * been carried three times, only the most recent copy is offered, and its `movedCount`
- * is what the badge reads. A night of skipped planning does not lose the pool — anything
- * still open from earlier days is still in it.
- */
-function carryOverPool(past: CommitmentRecord[], tomorrow: string): CommitmentRecord[] {
-  const undone = past.filter(
-    (commitment) =>
-      commitment.dayDate < tomorrow &&
-      // Retired work is not undone work. Deleting it from a plan has to mean it stops
-      // coming back, or "delete" is just a slower way of unticking.
-      !commitment.retiredAt &&
-      (commitment.status === 'open' || commitment.status === 'partial'),
-  );
-
-  // A lineage is the work, not the day it started: two commitments first planned on the
-  // same date are different lineages, so the label has to be part of the key.
-  const lineageOf = (commitment: CommitmentRecord): string =>
-    `${commitment.originDate}|${commitment.label}`;
-
-  const latestPerLineage = new Map<string, CommitmentRecord>();
-  for (const commitment of undone) {
-    const existing = latestPerLineage.get(lineageOf(commitment));
-    if (!existing || commitment.dayDate > existing.dayDate) {
-      latestPerLineage.set(lineageOf(commitment), commitment);
-    }
-  }
-
-  return [...latestPerLineage.values()].sort((a, b) => b.movedCount - a.movedCount);
-}
