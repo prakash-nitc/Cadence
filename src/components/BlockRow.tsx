@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { WorkedPicker } from './WorkedPicker';
 import type { CommitmentRecord } from '../db/schema';
 import { allowedCorrections, viewStatus, type BlockView } from '../engine/boundaries';
 import type { ScheduledBlock } from '../engine/layout';
@@ -67,6 +68,8 @@ interface BlockRowProps {
   block: ScheduledBlock;
   now: number;
   onCorrect: (status: 'contained' | 'overran' | 'skipped') => void;
+  /** Correct the minutes worked on a closed work block. */
+  onLogWorked?: (minutes: number) => void;
   /** Commitments attached to this block — the reason the block exists. */
   commitments?: CommitmentRecord[];
   onAddCommitment?: (input: NewCommitment) => void;
@@ -85,6 +88,7 @@ export function BlockRow({
   block,
   now,
   onCorrect,
+  onLogWorked,
   commitments = [],
   onAddCommitment,
   onDone,
@@ -95,6 +99,7 @@ export function BlockRow({
 }: BlockRowProps) {
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [editingWorked, setEditingWorked] = useState(false);
   const status = viewStatus(block, now);
 
   if (block.kind === 'gap') {
@@ -196,6 +201,14 @@ export function BlockRow({
                 <span className="text-edge">·</span>
                 <span>{formatDuration(block.minutes)}</span>
                 <span className="font-sans capitalize">{block.kind}</span>
+                {block.workedMinutes !== undefined ? (
+                  <>
+                    <span className="text-edge">·</span>
+                    <span className="text-deep" data-worked-label>
+                      worked {formatDuration(block.workedMinutes)}
+                    </span>
+                  </>
+                ) : null}
               </span>
               {block.missedWindow ? (
                 <span className="mt-1 block text-xs text-warn">Outside the mess window.</span>
@@ -211,6 +224,37 @@ export function BlockRow({
               </span>
             ) : null}
           </button>
+
+          {open &&
+          onLogWorked &&
+          block.kind === 'work' &&
+          (block.status === 'contained' || block.status === 'overran') ? (
+            editingWorked ? (
+              <div className="mt-3 border-t border-edge pt-3">
+                <WorkedPicker
+                  block={block}
+                  initial={block.workedMinutes ?? block.minutes}
+                  confirmLabel="Save"
+                  onLog={(minutes) => {
+                    onLogWorked(minutes);
+                    setEditingWorked(false);
+                  }}
+                  onCancel={() => setEditingWorked(false)}
+                />
+              </div>
+            ) : (
+              <div className="mt-3 flex items-center gap-2 border-t border-edge pt-3">
+                <span className="text-xs text-muted">
+                  {block.workedMinutes === undefined
+                    ? 'No time logged for this block.'
+                    : `Worked ${formatDuration(block.workedMinutes)} of ${formatDuration(block.minutes)}.`}
+                </span>
+                <Button size="sm" icon="clock" onClick={() => setEditingWorked(true)}>
+                  {block.workedMinutes === undefined ? 'Log time worked' : 'Change'}
+                </Button>
+              </div>
+            )
+          ) : null}
 
           {open && canCorrect ? (
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-edge pt-3">

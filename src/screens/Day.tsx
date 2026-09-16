@@ -39,6 +39,7 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
     commitments,
     savedTemplates,
     correctBlock,
+    logWorked,
     addCommitment,
     setDone,
     dropCommitment,
@@ -290,6 +291,7 @@ export function Day({ now, prefs }: { now: number; prefs: Prefs }) {
                     block={block}
                 now={now}
                 onCorrect={(status) => void correctBlock(block.blockId, status, now)}
+                onLogWorked={(minutes) => void logWorked(block.blockId, minutes)}
                 commitments={forBlock(block.blockId)}
                 {...(block.kind === 'gap'
                   ? {}

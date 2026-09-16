@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { RULES } from '../config/schedule.config';
 import { CommitmentRow } from '../components/CommitmentRow';
 import { ContainmentPrompt } from '../components/ContainmentPrompt';
+import { WorkedPicker } from '../components/WorkedPicker';
+import { defaultWorked } from '../engine/worked';
 import {
   CurrentBlockHero,
   DailyMetrics,
@@ -74,6 +76,8 @@ export function Now({
   } = useDay();
   const [confirmingEarly, setConfirmingEarly] = useState(false);
   const [triaging, setTriaging] = useState(false);
+  /** The block whose time is being asked for, so moving to the next block drops the question. */
+  const [closingId, setClosingId] = useState<string | null>(null);
 
   const {
     loaded: weekLoaded,
@@ -220,7 +224,9 @@ export function Now({
           <ContainmentPrompt
             block={waiting[0]}
             now={now}
-            onAnswer={(status) => void closeBlock(waiting[0]!.blockId, status, now)}
+            onAnswer={(status, worked) =>
+              void closeBlock(waiting[0]!.blockId, status, now, worked)
+            }
           />
         ) : null}
 
@@ -254,24 +260,40 @@ export function Now({
               because reaching for them should feel like the smaller decision it is.
             */}
             <Card>
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  variant="primary"
-                  size="lg"
-                  icon="check"
-                  onClick={() => void closeBlock(inProgress.blockId, 'contained', now)}
-                >
-                  Done — contained
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  icon="skip"
-                  onClick={() => void skipBlock(inProgress.blockId, now)}
-                >
-                  Skip block
-                </Button>
-              </div>
+              {closingId === inProgress.blockId ? (
+                <WorkedPicker
+                  block={inProgress}
+                  initial={defaultWorked(inProgress, now)}
+                  onLog={(minutes) => {
+                    setClosingId(null);
+                    void closeBlock(inProgress.blockId, 'contained', now, minutes);
+                  }}
+                  onCancel={() => setClosingId(null)}
+                />
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    icon="check"
+                    onClick={() =>
+                      inProgress.kind === 'work'
+                        ? setClosingId(inProgress.blockId)
+                        : void closeBlock(inProgress.blockId, 'contained', now)
+                    }
+                  >
+                    Done — contained
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    icon="skip"
+                    onClick={() => void skipBlock(inProgress.blockId, now)}
+                  >
+                    Skip block
+                  </Button>
+                </div>
+              )}
 
               <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-edge pt-4">
                 <span className="text-xs text-muted">Push remaining</span>

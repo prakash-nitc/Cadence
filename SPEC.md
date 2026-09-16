@@ -268,6 +268,27 @@ Tracked separately from the day score. Containment measures whether you respect
 boundaries; the score measures whether you finished the work. A day can be 100% complete
 and badly uncontained, and that's worth knowing.
 
+**Time worked.** A work block asks a second question when it closes — *How long did you
+work?* — whether it closes through `Done — contained` while running or through the prompt
+above after it ended. Meals, breaks and routines are not asked.
+
+- It opens on a sensible answer: the time since the block started if it is still running
+  (stopping two hours into a three-hour block is the partial case), the whole block once it
+  has ended. Quarter steps and ±15 minutes correct it; confirming is one tap.
+- The minutes are stored on the block (`workedMinutes`) and written into the block's
+  minutes-typed commitments — all of it to one, shared by target between several. Count and
+  binary commitments are untouched: two hours says nothing about how many problems.
+- The answer is authoritative, down as well as up, and correctable from the block on the
+  Day screen.
+- Hours targets read it. A `minutesTag` source may name `blocks`; time logged on those
+  blocks counts when no minutes-typed commitment sits on them, and never twice. Core CSE
+  names `core_cse`; Spring Boot names `spring_1`, `spring_2` and `project`.
+
+Without this, closing a block recorded containment and nothing else, and hours only moved
+when a commitment's minutes were stepped up by hand — so a block worked for two hours and
+closed as contained counted as zero hours. Blocks closed before this existed carry no
+figure and are not guessed at.
+
 ### 3.4 Plan and log (evening, one flow)
 
 Two parts, one sitting. **Target: under three minutes total.** If it takes longer the user
