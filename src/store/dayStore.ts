@@ -24,7 +24,7 @@ import type {
 import { blockAt, isResolved, pullForward, pushRemaining, resolveBlock } from '../engine/boundaries';
 import { layoutDay } from '../engine/layout';
 import { planDay } from '../engine/capacity';
-import { statusForProgress } from '../engine/scoring';
+import { statusForProgress, withDone, withDrop } from '../engine/scoring';
 import { spreadWorked, withWorked } from '../engine/worked';
 import { weightFor } from '../engine/carry';
 import { describeDegradation } from '../lib/copy';
@@ -166,6 +166,11 @@ interface DayState {
 
   addCommitment: (input: NewCommitment, at: number) => Promise<void>;
   setDone: (id: string, done: number) => Promise<void>;
+  /**
+   * A commitment already written elsewhere — Plan's log — reflected here if this store holds
+   * it, so Now and Day do not show a stale copy. Writes nothing.
+   */
+  mirrorCommitment: (record: CommitmentRecord) => void;
   /**
    * Re-plan a commitment: its name, its target, or what it is worth.
    *
@@ -578,10 +583,15 @@ export const useDay = create<DayState>((set, get) => {
     },
 
     setDone: async (id, done) => {
-      await writeCommitment(id, (commitment) => {
-        const next = { ...commitment, done: Math.max(0, done) };
-        // Progress never resurrects a dropped commitment — a drop is deliberate.
-        return { ...next, status: statusForProgress(next) };
+      await writeCommitment(id, (commitment) => withDone(commitment, done));
+    },
+
+    mirrorCommitment: (record) => {
+      if (!get().commitments.some((commitment) => commitment.id === record.id)) return;
+      set({
+        commitments: get().commitments.map((commitment) =>
+          commitment.id === record.id ? record : commitment,
+        ),
       });
     },
 
@@ -606,11 +616,7 @@ export const useDay = create<DayState>((set, get) => {
     dropCommitment: async (id, reason, displacedBy) => {
       // Dropping requires a reason and the distinction is the whole point — SPEC §4.1.
       // Displaced leaves scoring entirely; skipped and avoided score zero.
-      await writeCommitment(id, (commitment) => ({
-        ...commitment,
-        status: reason,
-        displacedBy: reason === 'displaced' ? displacedBy : null,
-      }));
+      await writeCommitment(id, (commitment) => withDrop(commitment, reason, displacedBy));
     },
 
     removeCommitment: async (id) => {

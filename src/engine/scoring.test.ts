@@ -8,8 +8,11 @@ import {
   scoreDay,
   statusForProgress,
   triageOrder,
+  withDone,
+  withDrop,
   type Scorable,
 } from './scoring';
+import type { CommitmentRecord } from '../db/schema';
 
 const prefs: Prefs = DEFAULT_PREFS;
 const withPrefs = (over: Partial<Prefs>): Prefs => ({ ...prefs, ...over });
@@ -506,3 +509,55 @@ describe('projectDay — capped by the day that is left', () => {
     expect(projectDay(commitments, prefs, true, nothingPassed, 150).score).toBeLessThan(100);
   });
 });
+
+describe('withDone and withDrop — the one way a commitment changes, wherever it is tapped', () => {
+  const record = (over: Partial<CommitmentRecord> = {}): CommitmentRecord => ({
+    id: 'c1',
+    dayDate: '2026-09-16',
+    blockId: 'dsa_deep',
+    label: 'Revise DSA',
+    targetType: 'count',
+    target: 5,
+    done: 0,
+    plannedMinutes: 120,
+    tags: [],
+    status: 'open',
+    displacedBy: null,
+    movedCount: 0,
+    originDate: '2026-09-16',
+    ...over,
+  });
+
+  it('moves progress and the status with it', () => {
+    expect(withDone(record(), 1)).toMatchObject({ done: 1, status: 'partial' });
+    expect(withDone(record(), 5)).toMatchObject({ done: 5, status: 'complete' });
+    expect(withDone(record({ done: 2, status: 'partial' }), 0)).toMatchObject({ done: 0, status: 'open' });
+  });
+
+  it('never goes below zero', () => {
+    expect(withDone(record(), -3).done).toBe(0);
+  });
+
+  it('does not bring a dropped commitment back', () => {
+    expect(withDone(record({ status: 'skipped' }), 5).status).toBe('skipped');
+  });
+
+  it('records the reason, and who displaced it only when displaced', () => {
+    expect(withDrop(record(), 'displaced', 'Interview')).toMatchObject({
+      status: 'displaced',
+      displacedBy: 'Interview',
+    });
+    expect(withDrop(record({ displacedBy: 'Old' }), 'skipped', 'ignored')).toMatchObject({
+      status: 'skipped',
+      displacedBy: null,
+    });
+  });
+
+  it('leaves the original untouched', () => {
+    const original = record();
+    withDone(original, 3);
+    withDrop(original, 'avoided', null);
+    expect(original).toMatchObject({ done: 0, status: 'open' });
+  });
+});
+

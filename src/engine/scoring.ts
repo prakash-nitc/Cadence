@@ -273,6 +273,29 @@ export function triageOrder<T extends Scorable>(
     });
 }
 
+/**
+ * Progress on a commitment — the one way `done` changes, wherever it is tapped.
+ *
+ * Shared by the live day and by Plan's log, which can be logging a different day. Progress
+ * never resurrects a dropped commitment: a drop is deliberate.
+ */
+export function withDone<T extends CommitmentRecord>(commitment: T, done: number): T {
+  const next = { ...commitment, done: Math.max(0, done) };
+  return { ...next, status: statusForProgress(next) };
+}
+
+/**
+ * Dropping a commitment — SPEC §4.1. The reason is the whole point: displaced leaves
+ * scoring entirely, skipped and avoided score zero.
+ */
+export function withDrop<T extends CommitmentRecord>(
+  commitment: T,
+  reason: 'skipped' | 'avoided' | 'displaced',
+  displacedBy: string | null,
+): T {
+  return { ...commitment, status: reason, displacedBy: reason === 'displaced' ? displacedBy : null };
+}
+
 /** Status implied by progress. Explicit drops are never overwritten by this. */
 export function statusForProgress(commitment: Scorable): CommitmentRecord['status'] {
   if (isDropped(commitment)) return commitment.status;

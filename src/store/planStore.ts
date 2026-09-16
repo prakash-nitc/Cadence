@@ -5,6 +5,7 @@ import {
   countedDoneForTag,
   getDay,
   getLog,
+  putCommitments,
   putDay,
   putLog,
   replaceCommitments,
@@ -12,6 +13,8 @@ import {
 } from '../db/repo';
 import { COMMITMENT_PRESETS, type BlockDef } from '../config/schedule.config';
 import { carryOverPool, weightFor } from '../engine/carry';
+import { withDone, withDrop } from '../engine/scoring';
+import { useDay } from './dayStore';
 import type { CommitmentRecord, DayRecord, LogRecord } from '../db/schema';
 import type { Size } from '../engine/shape';
 import type { Prefs } from '../lib/prefs';
@@ -100,6 +103,17 @@ interface PlanState {
    * Unticking means "not tomorrow" and the work returns; this means "not at all". Only
    * carried work needs it — a suggestion that is never ticked was never a record.
    */
+  /**
+   * Progress and drops for the day being logged — which is not always the live day. Late at
+   * night Plan logs yesterday, and these used to go through the live day's store, which does
+   * not hold yesterday's commitments, so nothing was saved and nothing on screen changed.
+   */
+  setLogDone: (id: string, done: number) => Promise<void>;
+  dropLogged: (
+    id: string,
+    reason: 'skipped' | 'avoided' | 'displaced',
+    displacedBy: string | null,
+  ) => Promise<void>;
   retireCarried: (id: string, at: number) => Promise<void>;
   savePlan: (
     templateId: string,
@@ -173,6 +187,14 @@ export const usePlan = create<PlanState>((set, get) => ({
     const base =
       current.against === against ? current : { against, log: null, plan: null };
     set({ picks: { ...base, against, [which]: date } });
+  },
+
+  setLogDone: async (id, done) => {
+    await writeLogged(id, (commitment) => withDone(commitment, done));
+  },
+
+  dropLogged: async (id, reason, displacedBy) => {
+    await writeLogged(id, (commitment) => withDrop(commitment, reason, displacedBy));
   },
 
   retireCarried: async (id, at) => {
@@ -264,3 +286,34 @@ export const usePlan = create<PlanState>((set, get) => ({
     set({ planDay: day, planDate });
   },
 }));
+
+/**
+ * Change one of the logged day's commitments: persist it, show it, and keep everything
+ * derived from it current — the history the carry-over pool reads, and the live day's copy
+ * on Now and Day when the logged day is today.
+ */
+async function writeLogged(
+  id: string,
+  change: (commitment: CommitmentRecord) => CommitmentRecord,
+): Promise<void> {
+  const state = usePlan.getState();
+  const current = state.logCommitments.find((commitment) => commitment.id === id);
+  if (!current) return;
+
+  const next = change(current);
+  await putCommitments([next]);
+
+  const replace = (list: CommitmentRecord[]): CommitmentRecord[] =>
+    list.map((commitment) => (commitment.id === id ? next : commitment));
+  const history = replace(state.history);
+  const pool = state.planDate
+    ? carryOverPool(history, state.planDate, COMMITMENT_PRESETS)
+    : null;
+
+  usePlan.setState({
+    logCommitments: replace(usePlan.getState().logCommitments),
+    history,
+    ...(pool ? { carryOver: pool.carry, routineLeftShort: pool.routineLeftShort } : {}),
+  });
+  useDay.getState().mirrorCommitment(next);
+}

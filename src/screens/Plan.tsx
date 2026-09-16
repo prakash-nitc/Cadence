@@ -111,7 +111,7 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
   useEffect(() => {
     if (!morningLoaded) void loadMorning();
   }, [morningLoaded, loadMorning]);
-  const { date, day, previous, savedTemplates, setDone, dropCommitment } = useDay();
+  const { date, day, previous, savedTemplates } = useDay();
   const {
     planDate,
     carryOver,
@@ -130,6 +130,8 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
     saveBrainDump,
     retireCarried,
     savePlan,
+    setLogDone,
+    dropLogged,
   } = usePlan();
 
   /*
@@ -407,9 +409,9 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
                   <CommitmentRow
                     key={commitment.id}
                     commitment={commitment}
-                    onDone={(done) => void setDone(commitment.id, done)}
+                    onDone={(done) => void setLogDone(commitment.id, done)}
                     onDrop={(reason, displacedBy) =>
-                      void dropCommitment(commitment.id, reason, displacedBy)
+                      void dropLogged(commitment.id, reason, displacedBy)
                     }
                   />
                 ))}
