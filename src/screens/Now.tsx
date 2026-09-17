@@ -13,6 +13,7 @@ import {
 } from '../components/now/NowParts';
 import { DayDone } from '../components/now/DayDone';
 import { Interrupted } from '../components/now/Interrupted';
+import { BlockTimer } from '../components/now/BlockTimer';
 import { MorningCard } from '../components/now/MorningCard';
 import { MorningCheck } from '../components/now/MorningCheck';
 import { TodayNote } from '../components/now/TodayNote';
@@ -78,6 +79,8 @@ export function Now({
     dropCommitment,
     editCommitment,
     previous,
+    startTimer,
+    pauseTimer,
   } = useDay();
   const [confirmingEarly, setConfirmingEarly] = useState(false);
   const [triaging, setTriaging] = useState(false);
@@ -327,6 +330,15 @@ export function Now({
               because reaching for them should feel like the smaller decision it is.
             */}
             <Card>
+              {inProgress.kind === 'work' ? (
+                <BlockTimer
+                  block={inProgress}
+                  now={now}
+                  onStart={() => void startTimer(inProgress.blockId, Date.now())}
+                  onPause={() => void pauseTimer(inProgress.blockId, Date.now())}
+                />
+              ) : null}
+
               {closingId === inProgress.blockId ? (
                 <WorkedPicker
                   block={inProgress}

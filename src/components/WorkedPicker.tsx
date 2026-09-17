@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import type { ScheduledBlock } from '../engine/layout';
 import { WORKED_MAX, WORKED_STEP, clampWorked } from '../engine/worked';
+import { hasTimer, timedMinutes } from '../engine/timer';
 import { formatDuration } from '../lib/time';
 import { Button } from './ui/primitives';
 
@@ -35,13 +36,35 @@ export function WorkedPicker({
 }) {
   const [minutes, setMinutes] = useState(() => clampWorked(initial));
   const snap = (value: number) => Math.round(value / WORKED_STEP) * WORKED_STEP;
+  const firstStart = block.timer?.[0]?.start;
+  const lateStart =
+    firstStart === undefined ? 0 : Math.round(Math.max(0, firstStart - block.startsAt) / 60_000);
 
   return (
     <div className="rounded-lg border border-edge bg-sunk p-4" data-worked={block.blockId}>
       <p className="text-sm font-medium text-text">How long did you work on {block.label}?</p>
       <p className="mt-0.5 text-xs text-muted">
-        The block was <span className="font-mono">{formatDuration(block.minutes)}</span>. Time
-        logged here counts toward your hours targets.
+        The block was <span className="font-mono">{formatDuration(block.minutes)}</span>.
+        {hasTimer(block) ? (
+          <>
+            {' '}
+            The timer counted{' '}
+            <span className="font-mono" data-timer-hint>
+              {formatDuration(Math.round(timedMinutes(block, Date.now())))}
+            </span>
+            .
+            {lateStart > 2 ? (
+              // Opened mid-block: the timer cannot know about the time before it started.
+              <>
+                {' '}
+                It started{' '}
+                <span className="font-mono">{formatDuration(lateStart)}</span> into the block;
+                that time is included, so take it off if you were not working yet.
+              </>
+            ) : null}
+          </>
+        ) : null}{' '}
+        Time logged here counts toward your hours targets.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">

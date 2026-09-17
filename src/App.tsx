@@ -70,6 +70,14 @@ export default function App() {
   }, []);
 
   /*
+   * The block timer — SPEC §3.3. Ticks with the app's clock on every screen, so a block
+   * starts timing whether Now or Settings is open. Writes only when something changes.
+   */
+  useEffect(() => {
+    if (dayLoaded) void useDay.getState().timerTick(now);
+  }, [now, dayLoaded]);
+
+  /*
    * Automatic backup — SPEC §0.4. Checked when the app opens and again when the calendar
    * day turns, because the app stays open all day and a check only on launch would miss
    * every day it was never closed.

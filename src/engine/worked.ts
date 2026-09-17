@@ -15,6 +15,7 @@
 import type { CommitmentRecord } from '../db/schema';
 import type { ScheduledBlock } from './layout';
 import { statusForProgress } from './scoring';
+import { hasTimer, timedMinutes, timerLeadIn } from './timer';
 
 /** The picker's step, and what a default is rounded to. */
 export const WORKED_STEP = 15;
@@ -25,11 +26,16 @@ export const WORKED_MAX = 16 * 60;
 /**
  * A sensible first answer, which the user then confirms or corrects.
  *
- * Closed while the block is still running: the time since it started, because stopping
- * an hour into a three-hour block is exactly the partial case. Closed after it ended: the
- * whole block — whether they overran is the containment answer, and by how much is unknown.
+ * Timed: what the timer counted, plus any time before it started. Untimed and closed while
+ * still running: the time since it started, because stopping an hour into a three-hour block
+ * is exactly the partial case. Untimed and closed after it ended: the whole block — whether
+ * they overran is the containment answer, and by how much is unknown.
  */
 export function defaultWorked(block: ScheduledBlock, at: number): number {
+  // Measured beats guessed. A timer that began late — the app opened mid-block — cannot know
+  // about the time before it, so that lead-in is offered too, as the untimed guess would.
+  // Pauses and absence inside the timer's life stay out.
+  if (hasTimer(block)) return Math.round(timedMinutes(block, at) + timerLeadIn(block));
   if (at >= block.endsAt) return block.minutes;
   const elapsed = Math.max(0, (at - block.startsAt) / 60_000);
   const rounded = Math.round(elapsed / WORKED_STEP) * WORKED_STEP;

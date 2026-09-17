@@ -26,6 +26,7 @@ import { layoutDay } from '../engine/layout';
 import { planDay } from '../engine/capacity';
 import { statusForProgress, withDone, withDrop } from '../engine/scoring';
 import { spreadWorked, withWorked } from '../engine/worked';
+import { closeTimer, pauseTimer, startTimer, timerTick } from '../engine/timer';
 import { weightFor } from '../engine/carry';
 import { describeDegradation } from '../lib/copy';
 import type { Prefs } from '../lib/prefs';
@@ -147,6 +148,10 @@ interface DayState {
   ) => Promise<void>;
   /** Correct the time worked on a block already closed. */
   logWorked: (blockId: string, minutes: number) => Promise<void>;
+  /** The block timer's own work for one clock tick — starting, heartbeat, stopping. */
+  timerTick: (at: number) => Promise<void>;
+  startTimer: (blockId: string, at: number) => Promise<void>;
+  pauseTimer: (blockId: string, at: number) => Promise<void>;
   skipBlock: (blockId: string, at: number) => Promise<void>;
   correctBlock: (
     blockId: string,
@@ -419,13 +424,32 @@ export const useDay = create<DayState>((set, get) => {
     closeBlock: async (blockId, status, at, worked) => {
       const { day } = get();
       if (!day) return;
-      const resolved = resolveBlock(day.blocks, blockId, status, at);
+      const resolved = resolveBlock(closeTimer(day.blocks, blockId, at), blockId, status, at);
       if (worked === undefined) {
         await commit(withBlocks(day, resolved));
         return;
       }
       await commit(withBlocks(day, withWorked(resolved, blockId, worked)));
       await writeWorked(day.date, blockId, worked);
+    },
+
+    timerTick: async (at) => {
+      const { day } = get();
+      if (!day?.anchorAt) return;
+      const next = timerTick(day.blocks, at);
+      if (next) await commit(withBlocks(day, next));
+    },
+
+    startTimer: async (blockId, at) => {
+      const { day } = get();
+      if (!day) return;
+      await commit(withBlocks(day, startTimer(day.blocks, blockId, at)));
+    },
+
+    pauseTimer: async (blockId, at) => {
+      const { day } = get();
+      if (!day) return;
+      await commit(withBlocks(day, pauseTimer(day.blocks, blockId, at)));
     },
 
     logWorked: async (blockId, minutes) => {
@@ -439,7 +463,9 @@ export const useDay = create<DayState>((set, get) => {
       const { day } = get();
       if (!day) return;
       // Skipping leaves a hole. Nothing moves — SPEC §2.3.
-      await commit(withBlocks(day, resolveBlock(day.blocks, blockId, 'skipped', at)));
+      await commit(
+        withBlocks(day, resolveBlock(closeTimer(day.blocks, blockId, at), blockId, 'skipped', at)),
+      );
     },
 
     correctBlock: async (blockId, status, at) => {

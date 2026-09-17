@@ -5,6 +5,7 @@
  * durations into wall-clock instants, and it does it from the day's anchor. Pure: no
  * I/O, no `Date.now()`. Compute once at Start day and persist — never on render.
  */
+import type { TimerSession } from './timer';
 import type { BlockDef, BlockKind, FixedWindow, Priority } from '../config/schedule.config';
 import { addMinutes, atTimeOn, minutesBetween } from '../lib/time';
 
@@ -35,6 +36,8 @@ export interface ScheduledBlock {
    * closed before this existed and on blocks nobody has answered for; never guessed.
    */
   workedMinutes?: number;
+  /** Timed sessions on this block — SPEC §3.3. Absent until the timer first runs. */
+  timer?: TimerSession[];
 }
 
 const DAY_MS = 86_400_000;
