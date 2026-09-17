@@ -59,7 +59,8 @@ Never read `DEFAULT_PREFS` at runtime outside the first-run seeder.
    are encouraging because the user asked for exactly that. They live only in that card,
    always credited, and never on a score, a band, a pace figure or a missed commitment.
    The app's own voice everywhere else is unchanged — do not let the card's tone spread,
-   and do not "fix" the card to match the rest.
+   and do not "fix" the card to match the rest. **Beat yesterday** (SPEC §3.1) is named for
+   the goal the user asked for; its content stays factual — figures and minutes to go.
 8. **Monospace is for system metrics.** Times, durations, counts, percentages and rates.
    Human content — task names, descriptions, navigation — is sans. That distinction is
    load-bearing; do not blur it.

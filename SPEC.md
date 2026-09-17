@@ -30,7 +30,12 @@ stay the same, it goes in Settings.
 3. **Local-first.** IndexedDB via Dexie. No network calls except loading fonts. The app
    must work fully with the phone in airplane mode.
 4. **Data is exportable.** One button dumps everything to JSON. The user version-controls
-   his own history. Never make it hostage to a browser profile.
+   his own history. Never make it hostage to a browser profile. **And it backs itself up:**
+   `cadence-backup-YYYY-MM-DD.json` is saved to Downloads the first time the app is open on
+   a day one is due — every day by default; every 3 days, weekly or off in Settings → Data —
+   including when the app has stayed open past midnight. A download, not a folder write:
+   Brave ships with the File System Access API disabled. The app also asks the browser to
+   keep its storage from being cleared under disk pressure.
 5. **Honest UI.** A missed commitment is marked missed, permanently. No encouraging
    euphemisms, no "you'll get it tomorrow" toasts. Rule 10 is *track honestly* — the
    interface enforces it by not offering a convenient way to lie.
@@ -246,6 +251,14 @@ Read at arm's length in under two seconds.
 - **Next block**, one line, muted.
 - **Rule of the day**, one line, rotating from config.
 - **Actions:** `Done — contained` · `Skip block` · `Push remaining` · `Triage day`
+- **Block timer**, above the actions on a work block — see §3.3.
+- **Beat yesterday** — time worked yesterday against today so far, with the gap to pass it
+  and a bar marking yesterday's line. Time worked is each work block's answered minutes, or
+  the timer's running count while a block is open, so it moves as you work. Deliberately not
+  Progress's focused minutes (earned from commitments): that answers how much landed; this
+  answers how long you put in, which is the one you can push on minute by minute. The title
+  names the goal the user asked for; every line under it is a figure, and a day behind reads
+  as minutes to go.
 - **Unanchored state:** the whole screen is a **Start day** button plus template picker.
   If tomorrow was planned last night, show its commitment count: *"7 commitments waiting."*
 
@@ -267,6 +280,16 @@ notification; on next open show a full-width prompt: **Did you stop?** →
 Tracked separately from the day score. Containment measures whether you respect
 boundaries; the score measures whether you finished the work. A day can be 100% complete
 and badly uncontained, and that's worth knowing.
+
+**Block timer.** Time worked is measured rather than remembered. A work block starts timing
+itself when it starts with the app open, or when the app is opened during it. It stops at the
+block's end (a push moves the end, and the timer follows). Pause is the user's and holds: a
+paused block never restarts itself. Absence is noticed: a running session records that the
+app is still open every minute (`seen`), so a closed lid, a sleeping laptop or a closed app
+end the session where it was last seen — at most a minute of real work is lost, never time
+away is gained — and coming back resumes it. Sessions are stored on the block (`timer`), one
+timer at a time. Closing the block offers the timed minutes plus any time before a late
+start, says so, and remains editable.
 
 **Time worked.** A work block asks a second question when it closes — *How long did you
 work?* — whether it closes through `Done — contained` while running or through the prompt

@@ -13,7 +13,9 @@ import {
 } from '../components/now/NowParts';
 import { DayDone } from '../components/now/DayDone';
 import { Interrupted } from '../components/now/Interrupted';
+import { BeatYesterday } from '../components/now/BeatYesterday';
 import { BlockTimer } from '../components/now/BlockTimer';
+import { beatYesterday } from '../engine/beat';
 import { MorningCard } from '../components/now/MorningCard';
 import { MorningCheck } from '../components/now/MorningCheck';
 import { TodayNote } from '../components/now/TodayNote';
@@ -204,11 +206,17 @@ export function Now({
         {morningCard}
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] xl:items-start">
           <TodayNote note={day?.brainDump ?? ''} onSave={(text) => void saveNote(text)} />
-          <MorningCheck
-            log={todayLog}
-            lastSleep={previousSleep}
-            onSave={(sleepHours, energy) => void saveVitals(sleepHours, energy, now)}
-          />
+          {/* One column on the right, so adding a card never reflows the grid into rows. */}
+          <div className="space-y-5">
+            {previous ? (
+              <BeatYesterday beat={beatYesterday(day ?? null, previous.day, now)} />
+            ) : null}
+            <MorningCheck
+              log={todayLog}
+              lastSleep={previousSleep}
+              onSave={(sleepHours, energy) => void saveVitals(sleepHours, energy, now)}
+            />
+          </div>
         </div>
 
         <StartDay
@@ -500,6 +508,8 @@ export function Now({
 
       {/* Summary column: am I on pace, what is next, what is the standing rule. */}
       <aside className="space-y-5">
+        <BeatYesterday beat={beatYesterday(day, previous?.day ?? null, now)} />
+
         <PaceCard result={projected} labelFor={labelFor} />
 
         <MorningCheck
