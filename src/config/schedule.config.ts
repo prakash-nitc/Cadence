@@ -439,6 +439,12 @@ export const DEFAULT_PREFS = {
   backupReminderDays: 14,
 
   /**
+   * Days between automatic backups, saved to the Downloads folder. Zero switches it off.
+   * On by default: the one time a backup matters is the time nobody remembered to take one.
+   */
+  autoBackupDays: 1,
+
+  /**
    * The shape a day of commitments should take — one big, two medium, three small.
    *
    * A ceiling on ambition rather than a quota: being under it is fine, being over it is

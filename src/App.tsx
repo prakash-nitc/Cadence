@@ -8,6 +8,12 @@ import { dayStatusLine } from './lib/copy';
 import { notifier } from './lib/notify';
 import { useNow } from './lib/useNow';
 import { useTheme } from './lib/theme';
+import { backupDue, downloadBackup, protectStorage } from './lib/backup';
+import { exportAll } from './db/repo';
+import { dateKey } from './lib/time';
+
+/** One automatic backup at a time, even when an effect runs twice. */
+let backingUp = false;
 import { Day } from './screens/Day';
 import { Now } from './screens/Now';
 import { Plan } from './screens/Plan';
@@ -58,6 +64,31 @@ export default function App() {
   }, [blocks, prefs]);
 
   const ready = prefsLoaded && dayLoaded && prefs !== null && date !== null;
+
+  useEffect(() => {
+    void protectStorage();
+  }, []);
+
+  /*
+   * Automatic backup — SPEC §0.4. Checked when the app opens and again when the calendar
+   * day turns, because the app stays open all day and a check only on launch would miss
+   * every day it was never closed.
+   */
+  const today = dateKey(now);
+  useEffect(() => {
+    if (!prefs || backingUp) return;
+    if (!backupDue(prefs.lastBackupAt, prefs.autoBackupDays, Date.now())) return;
+    backingUp = true;
+    void (async () => {
+      try {
+        const at = Date.now();
+        downloadBackup(await exportAll(), at);
+        await update('lastBackupAt', at);
+      } finally {
+        backingUp = false;
+      }
+    })();
+  }, [prefs, today, update]);
 
   /*
    * Now gets a status line derived from the day as it actually stands; every other tab

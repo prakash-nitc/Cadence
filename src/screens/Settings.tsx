@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { exportAll, importAll, isBackup } from '../db/repo';
 import { backupState } from '../lib/copy';
+import { backupFileName } from '../lib/backup';
 import { NumberField } from '../components/NumberField';
 import { Icon } from '../components/ui/Icon';
 import { MorningSettings } from '../components/MorningSettings';
@@ -125,9 +126,9 @@ export function Settings({ prefs }: { prefs: Prefs }) {
     );
     const link = document.createElement('a');
     link.href = url;
-    link.download = `cadence-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = backupFileName(Date.now());
     link.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     // Recorded so the reminder can stop. Nothing else reads it.
     void update('lastBackupAt', Date.now());
     setMessage(`Exported ${backup.days.length} days.`);
@@ -466,6 +467,40 @@ export function Settings({ prefs }: { prefs: Prefs }) {
             Everything is in this browser and nowhere else. An export is a plain JSON file
             you can keep anywhere and import back into a fresh browser.
           </p>
+
+          <div className="mt-4 border-t border-edge pt-4" data-auto-backup>
+            <p className="text-sm font-medium text-text">Automatic backup</p>
+            <div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Automatic backup">
+              {(
+                [
+                  { days: 1, label: 'Every day' },
+                  { days: 3, label: 'Every 3 days' },
+                  { days: 7, label: 'Every week' },
+                  { days: 0, label: 'Off' },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.days}
+                  type="button"
+                  role="radio"
+                  aria-checked={prefs.autoBackupDays === option.days}
+                  onClick={() => set('autoBackupDays', option.days)}
+                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                    prefs.autoBackupDays === option.days
+                      ? 'border-signal bg-wash text-deep'
+                      : 'border-edge text-soft hover:border-signal/40'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-muted">
+              {prefs.autoBackupDays > 0
+                ? `Saved to your Downloads folder as ${backupFileName(Date.now())}, the first time the app is open on a day it is due. Keep the folder, or move the files somewhere safe. To restore, use Import below.`
+                : 'Off. Nothing is saved unless you export by hand.'}
+            </p>
+          </div>
 
           <button
             type="button"
