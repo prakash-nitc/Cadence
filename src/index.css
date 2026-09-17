@@ -3,8 +3,55 @@
 @tailwind utilities;
 
 @layer base {
-  html {
+  /*
+   * The two palettes — SPEC §8. RGB triplets, read by tailwind.config.js.
+   *
+   * Dark is not the light theme inverted. Surfaces sit near black, with cards a step
+   * lighter than the page and wells a step darker, so hierarchy survives. Greens move
+   * lighter to keep their contrast; `deep` becomes the brightest green, because on a dark
+   * ground emphasis is lighter, not darker. Green still spends only the tenth of the
+   * surface §34 allows it. The bands keep their three hues, each lifted for dark ground.
+   */
+  :root {
+    --c-shell: 234 239 235;
+    --c-ink: 247 249 247;
+    --c-sunk: 241 245 242;
+    --c-panel: 255 255 255;
+    --c-edge: 228 234 230;
+    --c-text: 23 34 28;
+    --c-soft: 102 113 106;
+    --c-muted: 152 162 156;
+    --c-signal: 16 185 129;
+    --c-deep: 4 120 87;
+    --c-mint: 52 211 153;
+    --c-wash: 236 253 245;
+    --c-pass: 16 185 129;
+    --c-warn: 245 158 11;
+    --c-fail: 239 68 68;
+    --c-info: 59 130 246;
+    --c-shadow: 23 34 28;
     color-scheme: light;
+  }
+
+  :root[data-theme='dark'] {
+    --c-shell: 6 8 7;
+    --c-ink: 11 14 13;
+    --c-sunk: 8 11 10;
+    --c-panel: 19 24 22;
+    --c-edge: 36 44 40;
+    --c-text: 226 233 228;
+    --c-soft: 158 168 162;
+    --c-muted: 110 121 115;
+    --c-signal: 52 211 153;
+    --c-deep: 110 231 183;
+    --c-mint: 44 170 128;
+    --c-wash: 13 38 29;
+    --c-pass: 52 211 153;
+    --c-warn: 251 191 36;
+    --c-fail: 248 113 113;
+    --c-info: 96 165 250;
+    --c-shadow: 0 0 0;
+    color-scheme: dark;
   }
 
   body {

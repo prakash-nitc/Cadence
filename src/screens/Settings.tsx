@@ -381,6 +381,39 @@ export function Settings({ prefs }: { prefs: Prefs }) {
         ))}
       </Section>
 
+      <Section title="Appearance">
+        <div className="rounded-lg border border-edge bg-panel p-4">
+          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Theme">
+            {(
+              [
+                { value: 'light', label: 'Light' },
+                { value: 'dark', label: 'Dark' },
+                { value: 'system', label: 'Match Windows' },
+              ] as const
+            ).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={prefs.theme === option.value}
+                onClick={() => set('theme', option.value)}
+                className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
+                  prefs.theme === option.value
+                    ? 'border-signal bg-wash text-deep'
+                    : 'border-edge text-soft hover:border-signal/40'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2.5 text-xs text-muted">
+            Dark cuts glare for a screen open all day. It saves battery on an OLED screen; on
+            a regular LCD laptop screen the saving is small. The sidebar has a quick toggle.
+          </p>
+        </div>
+      </Section>
+
       <Section title="Morning card">
         <MorningSettings now={Date.now()} />
       </Section>

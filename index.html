@@ -4,6 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#F7F9F7" />
+    <script>
+      // The last theme the app resolved, applied before first paint so a dark launch does
+      // not flash light while preferences load. See rememberThemeHint in src/db/repo.ts.
+      try {
+        if (localStorage.getItem('cadence-theme') === 'dark') {
+          document.documentElement.dataset.theme = 'dark';
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0B0E0D');
+        }
+      } catch (e) {}
+    </script>
     <title>Cadence</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

@@ -43,7 +43,8 @@ export type IconName =
   | 'arrowUp'
   | 'arrowDown'
   | 'star'
-  | 'starFilled';
+  | 'starFilled'
+  | 'sun';
 
 interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
   name: IconName;
@@ -145,6 +146,12 @@ const PATHS: Record<IconName, JSX.Element> = {
   arrowUp: <path d="M12 19.5v-15M5.5 11 12 4.5 18.5 11" />,
   arrowDown: <path d="M12 4.5v15M5.5 13 12 19.5 18.5 13" />,
   star: <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8L12 3.5Z" />,
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4" />
+    </>
+  ),
   starFilled: <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8L12 3.5Z" fill="currentColor" />,
 };
 

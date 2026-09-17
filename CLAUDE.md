@@ -69,7 +69,8 @@ Never read `DEFAULT_PREFS` at runtime outside the first-run seeder.
 
 Anything in SPEC §10. Especially: **DSA revision, spaced repetition, problem banks, and
 pattern tracking — those live in a separate app the user already built.** Also no points,
-badges, cloud sync, LLM coach, dark mode, or a phone layout.
+badges, cloud sync, LLM coach, or a phone layout. (Dark mode was on this list and was added
+at the user's request — SPEC §8. Colours stay tokens-only; see rule 6.)
 
 The consistency run is the one reversal, and it is allowed only on the terms in §10: it
 counts days that cleared red, an unplanned day breaks it, and a placement day passes

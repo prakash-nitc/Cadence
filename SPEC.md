@@ -781,6 +781,19 @@ Java 21 is already installed. Sideload the APK. No Play Store, no signing beyond
 
 ## 8. Design direction
 
+**Dark mode** (added at the user's request; it was on the §10 list). Light, Dark, or Match
+Windows, in Settings → Appearance, with a one-click toggle at the foot of the sidebar that
+sets light or dark explicitly. Every colour token is a CSS variable holding an RGB triplet,
+with a light and a dark set in `index.css`; components keep using token names only, so the
+whole app re-themes from one place. Dark is designed, not inverted: near-black surfaces with
+cards a step lighter and wells a step darker, greens lifted for contrast (`deep` becomes the
+brightest green), the three band hues lifted likewise, and green still held to a tenth of
+the surface. A handful of marks that must stay visible on a dark ground use Tailwind's
+`dark:` variant, which follows the app's own `data-theme`, not the operating system. The
+last resolved theme is mirrored to localStorage and applied by an inline script in
+`index.html` before first paint, so a dark launch never flashes light. Dark saves real power
+only on an OLED screen; on an LCD the backlight burns either way.
+
 A **personal command centre**, read on one laptop, left open all day. Serious about the
 numbers and calm about the reporting. The user should open it and answer, in this order:
 
@@ -925,7 +938,7 @@ DSA revision, spaced repetition, problem banks, pattern tracking — **all of it
 separate app** · cloud sync · accounts · multiple users · a settings screen for the
 timetable · gamification, points, badges · social or accountability partners ·
 calendar *integration* (the month grid is a view of your own scored days, not a feed) ·
-Pomodoro · dark mode · an Android build · a phone layout · an LLM coach · thesis or
+Pomodoro · an Android build · a phone layout · an LLM coach · thesis or
 GPU-job tracking · anything with the word "AI" in it
 
 Some are reasonable for v2. None are worth missing Sunday for.

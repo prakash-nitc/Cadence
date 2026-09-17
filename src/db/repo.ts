@@ -377,3 +377,22 @@ export async function listMorningCards(): Promise<MorningCardRecord[]> {
 export async function putMorningCard(card: MorningCardRecord): Promise<void> {
   await db.morningCards.put(card);
 }
+
+// ─── Theme boot hint ──────────────────────────────────────────────────────────
+
+/**
+ * The resolved theme, mirrored where index.html can read it before anything paints.
+ *
+ * The real preference lives in `prefs`, which loads asynchronously; without this mirror a
+ * dark-mode user would see the light app flash for a moment on every launch. It is a hint,
+ * never the source of truth, and a failure to write it costs only that flash.
+ */
+export const THEME_HINT_KEY = 'cadence-theme';
+
+export function rememberThemeHint(theme: 'light' | 'dark'): void {
+  try {
+    window.localStorage.setItem(THEME_HINT_KEY, theme);
+  } catch {
+    // Storage blocked: the flash on launch is the only cost.
+  }
+}

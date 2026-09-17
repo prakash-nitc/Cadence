@@ -16,12 +16,13 @@ import { formatDuration, toHHMM } from '../lib/time';
 
 /** Segment colour by status. Skipped is hatched, not solid: nothing happened there. */
 const SEGMENT: Record<BlockView, string> = {
-  pending: 'bg-sunk',
+  // A recessed well on white is a black hole on a dark card; dark needs a visible grey.
+  pending: 'bg-sunk dark:bg-muted/25',
   active: 'bg-signal',
   awaiting: 'bg-warn/70',
   contained: 'bg-pass/85',
   overran: 'bg-fail/80',
-  skipped: 'bg-fail/15',
+  skipped: 'bg-fail/15 dark:bg-fail/35',
 };
 
 const STATUS_WORD: Record<BlockView, string> = {

@@ -412,6 +412,14 @@ export const DEFAULT_PREFS = {
   dayStartsAt: '06:30',
 
   /**
+   * Light, dark, or whatever Windows is set to — SPEC §8.
+   *
+   * Dark cuts glare for a screen open from morning to midnight, and on an OLED panel it
+   * saves real power, since black pixels are off. On an LCD the backlight burns either way.
+   */
+  theme: 'light' as 'light' | 'dark' | 'system',
+
+  /**
    * When to nudge that the day is still unanchored — SPEC §3.5.
    *
    * A setting rather than a literal, because it only makes sense relative to when the

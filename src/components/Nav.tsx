@@ -33,9 +33,11 @@ const HINTS: Record<Tab, string> = {
 interface NavProps {
   tab: Tab;
   onChange: (tab: Tab) => void;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
 }
 
-export function Nav({ tab, onChange }: NavProps) {
+export function Nav({ tab, onChange, theme, onToggleTheme }: NavProps) {
   return (
     <nav
       aria-label="Sections"
@@ -91,7 +93,20 @@ export function Nav({ tab, onChange }: NavProps) {
         })}
       </div>
 
-      <p className="mt-auto px-5 py-5 text-xs leading-relaxed text-muted">
+      <div className="mt-auto px-3 pb-2">
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          aria-pressed={theme === 'dark'}
+          data-theme-toggle
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm text-soft transition-colors hover:bg-sunk hover:text-text"
+        >
+          <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={17} className="text-muted" />
+          {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+        </button>
+      </div>
+
+      <p className="px-5 pb-5 pt-1 text-xs leading-relaxed text-muted">
         Plans the night before. Scores what actually happened.
       </p>
     </nav>

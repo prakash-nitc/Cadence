@@ -7,6 +7,7 @@ import { completionOf, isDropped } from './engine/scoring';
 import { dayStatusLine } from './lib/copy';
 import { notifier } from './lib/notify';
 import { useNow } from './lib/useNow';
+import { useTheme } from './lib/theme';
 import { Day } from './screens/Day';
 import { Now } from './screens/Now';
 import { Plan } from './screens/Plan';
@@ -27,7 +28,8 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('Now');
   const now = useNow(1000);
 
-  const { prefs, targets, loaded: prefsLoaded, load: loadPrefs } = usePrefs();
+  const { prefs, targets, loaded: prefsLoaded, load: loadPrefs, update } = usePrefs();
+  const theme = useTheme(prefs?.theme);
   const { loaded: dayLoaded, load: loadDay, date, day, commitments } = useDay();
 
   useEffect(() => {
@@ -94,7 +96,13 @@ export default function App() {
       <div className="relative flex h-full overflow-hidden rounded-xl border border-edge bg-ink shadow-frame">
         <Contours />
 
-        <Nav tab={tab} onChange={setTab} />
+        <Nav
+          tab={tab}
+          onChange={setTab}
+          theme={theme}
+          // The sidebar toggle is explicit: it sets light or dark, never back to "system".
+          onToggleTheme={() => void update('theme', theme === 'dark' ? 'light' : 'dark')}
+        />
 
         <div className="relative flex min-w-0 flex-1 flex-col">
           <Header
