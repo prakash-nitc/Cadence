@@ -45,6 +45,16 @@ export default {
         warn: 'rgb(var(--c-warn) / <alpha-value>)', // yellow band, at risk, pushed
         fail: 'rgb(var(--c-fail) / <alpha-value>)', // red band, overran, skipped, over-committed
         info: 'rgb(var(--c-info) / <alpha-value>)', // neutral-informational, never a judgement
+
+        /*
+         * Categorical — the area split on Progress, and nowhere else. They mean "a
+         * different kind of work", never a state, so none of them is amber or red.
+         */
+        cat1: 'rgb(var(--c-cat1) / <alpha-value>)', // green
+        cat2: 'rgb(var(--c-cat2) / <alpha-value>)', // blue
+        cat3: 'rgb(var(--c-cat3) / <alpha-value>)', // violet
+        cat4: 'rgb(var(--c-cat4) / <alpha-value>)', // cyan
+        cat5: 'rgb(var(--c-cat5) / <alpha-value>)', // pink
       },
       fontFamily: {
         display: ['Inter', 'system-ui', 'sans-serif'],

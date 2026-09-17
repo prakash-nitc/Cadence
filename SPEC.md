@@ -595,8 +595,34 @@ Knowing you are twenty hours short says nothing about which week lost them.
 **A month navigator.** Move between months to set next month's numbers before it starts
 and review past ones after they end. A month reads as not started, running, or finished.
 
-**Month shape** mirrors week shape: green/yellow/red day counts, month-over-month
-comparison, and the tag-level totals.
+**Month shape** mirrors week shape: green/yellow/red day counts and month-over-month
+comparison.
+
+**Focus.** Four answers for the month, each said first with its chart beneath
+(`engine/focus.ts`):
+
+- **Focused time** — a column per day of the month and the total. A zero day is a dash on
+  the baseline; a day still to come draws nothing.
+- **Most focused day of the week** — the average per *started* day for each weekday, peak
+  marked. A day never started is left out, not averaged in as zero.
+- **Most focused period of the day** — total minutes per clock hour, peak marked. A block's
+  minutes are spread evenly across its scheduled span; work with no block is not placed,
+  and the chart says how much.
+- **Where the time went** — a ring by area, every minute counted exactly once.
+
+One measure throughout, the heatmap's: a commitment's earned minutes (planned × completion).
+A work block with logged time and nothing committed to it counts that time instead, never
+both. Displaced work counts nowhere.
+
+Areas are roadmap data (`FOCUS_AREAS` in config): a commitment belongs to the first area any
+of its tags names, so `dsa` + `dsa_new` is DSA once. An untagged commitment takes the area of
+its block's preset; a tag no area names shows under its own name; only work with neither is
+"Untagged". Five slices at most, the rest folded into "Other". This replaced a per-tag bar
+list that counted a commitment once for every tag it carried.
+
+The ring uses five categorical tokens (`cat1`–`cat5`: green, blue, violet, cyan, pink) —
+the only colours in the app that mean "a different kind of thing" rather than a state, so
+none is amber or red. Folded slices are neutral.
 
 **Milestones** from config with days remaining and status
 (`upcoming | at risk | done | missed`). At risk = date within 7 days and the linked work

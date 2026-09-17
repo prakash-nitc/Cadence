@@ -43,8 +43,9 @@ Never read `DEFAULT_PREFS` at runtime outside the first-run seeder.
    ratio. If a scoring change makes a band "feel better," it's wrong.
 5. **No new dependencies without asking.** The stack in SPEC §1 is the stack.
 6. **Design tokens only.** Colours come from the Tailwind theme names in SPEC §8
-   (`ink`, `sunk`, `panel`, `edge`, `text`, `soft`, `muted`, `signal`, `deep`, `mint`,
-   `wash`, `pass`, `warn`, `fail`, `info`). No raw hex in components, no arbitrary values
+   (`shell`, `ink`, `sunk`, `panel`, `edge`, `text`, `soft`, `muted`, `signal`, `deep`,
+   `mint`, `wash`, `pass`, `warn`, `fail`, `info`, and `cat1`–`cat5` for categorical
+   chart slices only — SPEC §4.3 Focus). No raw hex in components, no arbitrary values
    like `bg-[#1a1a1a]`. Build screens from `components/ui/primitives.tsx` rather than
    re-deciding padding and radius per component.
    **Green stays at roughly a tenth of the surface** — SPEC §8's green rule is the easiest

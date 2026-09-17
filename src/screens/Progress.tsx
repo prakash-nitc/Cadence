@@ -11,6 +11,7 @@ import {
 } from '../components/charts/Charts';
 import { ConsistencyGrid } from '../components/ConsistencyGrid';
 import { DayDetail } from '../components/progress/DayDetail';
+import { FocusPanels } from '../components/progress/FocusPanels';
 import { Insights } from '../components/progress/Insights';
 import { ReviewLog } from '../components/progress/ReviewLog';
 import { StreakCard } from '../components/progress/StreakCard';
@@ -37,7 +38,6 @@ import {
   milestoneStatuses,
   streak,
   monthlyPacing,
-  tagTotals,
   tallies,
   weeklyPacing,
   weeksInRange,
@@ -604,7 +604,6 @@ function MonthView({
   const monthBands = bandDays(thisMonth, prefs, today);
   const shape = weekShape(monthBands, prefs);
   const previousShape = weekShape(bandDays(lastMonth, prefs, today), prefs);
-  const totals = tagTotals(thisMonth);
   const delta = shape.green - previousShape.green;
 
   const weeks = weeksInRange(from, to);
@@ -769,18 +768,8 @@ function MonthView({
         </div>
       </section>
 
-      <Panel title="Where the time went" icon="chart">
-        {totals.length === 0 ? (
-          <p className="text-sm text-muted">Nothing logged this month.</p>
-        ) : (
-          <BarChart
-            points={totals.map((entry) => ({
-              label: entry.tag,
-              value: entry.minutes / 60,
-            }))}
-          />
-        )}
-      </Panel>
+      {/* Replaces a per-tag bar list that counted a commitment once for every tag it had. */}
+      <FocusPanels period={thisMonth} from={from} to={to} today={today} />
     </div>
   );
 }

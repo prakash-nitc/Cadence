@@ -498,6 +498,27 @@ export interface CommitmentPreset {
   derive?: 'coreCseSubject' | 'springPhase' | 'dsaTopic';
 }
 
+/**
+ * The areas focused time is split into on Progress — SPEC §4.4.
+ *
+ * Roadmap data: which tags make up which kind of work. A commitment belongs to the first area
+ * any of its tags names, so a DSA set tagged `dsa` and `dsa_new` is counted once, as DSA.
+ * An untagged commitment takes its block's area from the presets. Swap the roadmap and the
+ * areas go with it.
+ */
+export interface FocusArea {
+  label: string;
+  tags: string[];
+}
+
+export const FOCUS_AREAS: FocusArea[] = [
+  { label: 'DSA', tags: ['dsa', 'dsa_new', 'dsa_resolve', 'dsa_theory', 'recall'] },
+  { label: 'Spring Boot', tags: ['spring'] },
+  { label: 'Core CSE', tags: ['core_cse'] },
+  { label: 'Flex', tags: ['flex'] },
+  { label: 'Log and plan', tags: ['log'] },
+];
+
 export const COMMITMENT_PRESETS: CommitmentPreset[] = [
   { blockId: 'recall',     label: 'Recall drill',        targetType: 'binary',  target: 1,  tags: ['recall'] },
   { blockId: 'dsa_deep',   label: 'DSA problems',        targetType: 'count',   target: 4,  tags: ['dsa', 'dsa_new'], derive: 'dsaTopic' },
