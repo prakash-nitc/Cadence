@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { COMMITMENT_PRESETS } from '../config/schedule.config';
 import type { CommitmentRecord } from '../db/schema';
-import { carryOverPool, isRoutine, weightFor } from './carry';
+import { carryOverPool, findLeftover, isRoutine, LEFTOVER_DAYS, sameName, weightFor } from './carry';
 
 const commitment = (over: Partial<CommitmentRecord> = {}): CommitmentRecord => ({
   id: 'c',
@@ -128,3 +128,76 @@ describe('carry — one number for minutes', () => {
     expect(weightFor('count', 4, -5)).toBe(0);
   });
 });
+
+describe('leftovers — offered, never pushed', () => {
+  const task = (over: Partial<CommitmentRecord>): CommitmentRecord =>
+    commitment({
+      id: 't',
+      blockId: 'flex',
+      label: 'SQL practice',
+      targetType: 'binary',
+      target: 1,
+      done: 0,
+      plannedMinutes: 120,
+      tags: [],
+      status: 'open',
+      routine: false,
+      ...over,
+    });
+
+  it('judges a piece of work by its latest copy: finished on Tuesday means finished', () => {
+    // Carried from Monday, done on Tuesday. Monday's copy was never ticked.
+    const pool = carryOverPool(
+      [
+        task({ id: 'mon', dayDate: '2026-09-14', originDate: '2026-09-14', status: 'open' }),
+        task({ id: 'tue', dayDate: '2026-09-15', originDate: '2026-09-14', status: 'complete', movedCount: 1 }),
+      ],
+      '2026-09-16',
+      COMMITMENT_PRESETS,
+    );
+    expect(pool.carry).toEqual([]);
+  });
+
+  it('treats the same name in different case as the same piece of work', () => {
+    const pool = carryOverPool(
+      [
+        task({ id: 'mon', dayDate: '2026-09-14', originDate: '2026-09-14', label: 'SQL practice' }),
+        task({ id: 'tue', dayDate: '2026-09-15', originDate: '2026-09-14', label: 'sql  Practice ', movedCount: 1 }),
+      ],
+      '2026-09-16',
+      COMMITMENT_PRESETS,
+    );
+    expect(pool.carry.map((entry) => entry.id)).toEqual(['tue']);
+  });
+
+  it(`lets a leftover go once it has waited ${LEFTOVER_DAYS} days unpicked`, () => {
+    const pool = carryOverPool(
+      [
+        task({ id: 'fresh', label: 'Fresh', dayDate: '2026-09-15', originDate: '2026-09-15' }),
+        task({ id: 'week', label: 'Week old', dayDate: '2026-09-09', originDate: '2026-09-09' }),
+        task({ id: 'stale', label: 'Stale', dayDate: '2026-09-08', originDate: '2026-09-08' }),
+      ],
+      '2026-09-16',
+      COMMITMENT_PRESETS,
+    );
+    expect(pool.carry.map((entry) => entry.id)).toEqual(['fresh', 'week']);
+    expect(pool.letGo).toBe(1);
+  });
+
+  it('never counts a dropped leftover as let go', () => {
+    const pool = carryOverPool(
+      [task({ id: 'old', dayDate: '2026-09-01', originDate: '2026-09-01', retiredAt: 1 })],
+      '2026-09-16',
+      COMMITMENT_PRESETS,
+    );
+    expect(pool).toMatchObject({ carry: [], letGo: 0 });
+  });
+
+  it('finds the leftover a new commitment continues, by name alone', () => {
+    const pool = [task({ id: 'a', label: 'HashMap + String' }), task({ id: 'b', label: 'SQL' })];
+    expect(findLeftover(pool, '  hashmap + string')?.id).toBe('a');
+    expect(findLeftover(pool, 'SQL-II')).toBeNull();
+    expect(sameName('  SQL   Practice ')).toBe('sql practice');
+  });
+});
+
