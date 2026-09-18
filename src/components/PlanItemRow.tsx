@@ -39,7 +39,6 @@ interface PlanItemRowProps {
   onTarget: (target: number) => void;
   onMinutes: (minutes: number) => void;
   onSize: (size: Size) => void;
-  onDoFirst: () => void;
   onDelete: () => void;
 }
 
@@ -53,7 +52,6 @@ export function PlanItemRow({
   onTarget,
   onMinutes,
   onSize,
-  onDoFirst,
   onDelete,
 }: PlanItemRowProps) {
   const [confirming, setConfirming] = useState(false);
@@ -181,30 +179,6 @@ export function PlanItemRow({
             <Button size="sm" onClick={() => setConfirming(false)}>
               Keep it
             </Button>
-          </div>
-        </div>
-      ) : null}
-
-      {stuck ? (
-        <div className="mt-2 border border-fail bg-fail/5 px-2 py-2">
-          <p className="text-xs text-fail">
-            Moved {item.movedCount} times. Do it first tomorrow, or delete it.
-          </p>
-          <div className="mt-2 flex gap-2">
-            <button
-              type="button"
-              onClick={onDoFirst}
-              className="border border-fail px-2 py-1 text-xs text-fail hover:bg-fail/10"
-            >
-              Do it first
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirming(true)}
-              className="border border-edge px-2 py-1 text-xs text-muted hover:border-muted hover:text-text"
-            >
-              Delete it
-            </button>
           </div>
         </div>
       ) : null}

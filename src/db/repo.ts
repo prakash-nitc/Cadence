@@ -116,6 +116,13 @@ export async function retireCommitment(id: string, at: number): Promise<void> {
   await db.commitments.put({ ...existing, retiredAt: at });
 }
 
+/** Undo a retirement: the leftover is offered again. */
+export async function restoreCommitment(id: string): Promise<void> {
+  const existing = await db.commitments.get(id);
+  if (!existing) return;
+  await db.commitments.put({ ...existing, retiredAt: null });
+}
+
 // ─── Logs ─────────────────────────────────────────────────────────────────────
 
 export async function getLog(date: string): Promise<LogRecord | null> {

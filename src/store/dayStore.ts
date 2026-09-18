@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { FIXED_WINDOWS } from '../config/schedule.config';
+import { COMMITMENT_PRESETS, FIXED_WINDOWS } from '../config/schedule.config';
 import {
+  commitmentsBetween,
   commitmentsFor,
   deleteCommitment,
   deleteSavedTemplate,
@@ -27,7 +28,7 @@ import { planDay } from '../engine/capacity';
 import { statusForProgress, withDone, withDrop } from '../engine/scoring';
 import { spreadWorked, withWorked } from '../engine/worked';
 import { closeTimer, pauseTimer, startTimer, timerTick } from '../engine/timer';
-import { weightFor } from '../engine/carry';
+import { carryOverPool, findLeftover, LEFTOVER_DAYS, weightFor } from '../engine/carry';
 import { describeDegradation } from '../lib/copy';
 import type { Prefs } from '../lib/prefs';
 import { blocksForTemplate } from '../lib/templates';
@@ -581,6 +582,20 @@ export const useDay = create<DayState>((set, get) => {
       const { date, day, commitments } = get();
       if (!date) return;
 
+      /*
+       * Same name as something left from earlier: this is that work, carried on — SPEC
+       * §4.1. It takes the leftover's lineage, so the leftover leaves the box instead of
+       * sitting beside its own duplicate. Exact names only, ignoring case and spacing.
+       */
+      const recent = await commitmentsBetween(
+        dateKey(addDays(new Date(`${date}T12:00:00`), -LEFTOVER_DAYS)),
+        dateKey(addDays(new Date(`${date}T12:00:00`), -1)),
+      );
+      const continues = findLeftover(
+        carryOverPool(recent, date, COMMITMENT_PRESETS).carry,
+        input.label,
+      );
+
       const record: CommitmentRecord = {
         id: crypto.randomUUID(),
         dayDate: date,
@@ -593,8 +608,8 @@ export const useDay = create<DayState>((set, get) => {
         tags: input.tags,
         status: 'open',
         displacedBy: null,
-        movedCount: 0,
-        originDate: date,
+        movedCount: continues ? continues.movedCount + 1 : 0,
+        originDate: continues ? continues.originDate : date,
         // Added by hand: a one-off, which is exactly what carries if it is not finished.
         routine: false,
       };

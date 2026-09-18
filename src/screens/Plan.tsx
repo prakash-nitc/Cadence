@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BlockBuilder } from '../components/BlockBuilder';
 import { CommitmentRow } from '../components/CommitmentRow';
 import { Icon, type IconName } from '../components/ui/Icon';
@@ -16,6 +16,8 @@ import { checkFeasibility, committableMinutes } from '../engine/feasibility';
 import { dayShape, shapeVerdict } from '../engine/shape';
 import { verdictLine } from '../lib/copy';
 import { suggestionsFor } from '../lib/roadmap';
+import { Leftovers } from '../components/plan/Leftovers';
+import { LEFTOVER_DAYS } from '../engine/carry';
 import { entryById, useMorning } from '../store/morningStore';
 import type { Prefs } from '../lib/prefs';
 import { blocksForTemplate, suggestedTemplate } from '../lib/templates';
@@ -116,6 +118,8 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
     planDate,
     carryOver,
     routineLeftShort,
+    leftoversLetGo,
+    restoreCarried,
     history,
     problemsDone,
     todayLog,
@@ -244,7 +248,8 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
     if (!planDate) return [];
     const minutesOf = new Map(templateBlocks.map((block) => [block.id, block.minutes]));
 
-    // Carry-overs first, pre-selected, with their move counts — SPEC §3.4.
+    // Leftovers are offered in their own box and never pre-ticked — SPEC §4.1. Ticked, they
+    // were silently added to every plan on top of whatever was added fresh.
     const carried: PlanItem[] = carryOver.map((commitment) => ({
       key: `carry:${commitment.id}`,
       source: 'carry',
@@ -255,12 +260,11 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
       target: commitment.target,
       plannedMinutes: commitment.plannedMinutes,
       tags: commitment.tags,
-      selected: true,
+      selected: false,
       movedCount: commitment.movedCount,
       detail: null,
     }));
 
-    const carriedBlocks = new Set(carried.map((item) => item.blockId));
     const priorityOf = new Map(templateBlocks.map((block) => [block.id, block.priority]));
     const orderOf = new Map(templateBlocks.map((block, index) => [block.id, index]));
 
@@ -269,8 +273,8 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
       planDate,
       problemsDone,
     )
-      // A carry-over already owns its block; do not suggest the same slot twice.
-      .filter((suggestion) => !carriedBlocks.has(suggestion.blockId))
+      // A leftover waiting in its box does not take its block's suggestion away: until it is
+      // added it is not in tomorrow, and a block left empty by something unchosen is a hole.
       .map((suggestion) => ({
         key: `suggest:${suggestion.blockId}`,
         source: 'suggestion' as const,
@@ -299,7 +303,7 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
     // block in because a priority 1 block was too big inverts the whole protection
     // order. Whatever is left over stays on screen, unticked, one tap away.
     const slack = Math.round(committableMinutes(templateBlocks) * prefs.planningSlack);
-    let running = carried.reduce((sum, item) => sum + item.plannedMinutes, 0);
+    let running = 0;
 
     const byProtection = [...suggested].sort((a, b) => {
       const byPriority =
@@ -318,7 +322,32 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
   }, [planDate, carryOver, templateBlocks, problemsDone, prefs.planningSlack]);
 
   const [items, setItems] = useState<PlanItem[]>([]);
-  useEffect(() => setItems(composed), [composed]);
+
+  /*
+   * The list is recomposed whenever anything under it changes — a leftover dropped, a log
+   * row ticked. That must not throw away what has been chosen on this page: only a new day
+   * or a new arrangement starts the list over; anything else keeps every row already here
+   * as it was edited, and adds or removes only the rows that came or went.
+   */
+  const resetKey = `${planDate}|${templateBlocks.map((block) => `${block.id}:${block.minutes}`).join(',')}`;
+  const lastReset = useRef<string | null>(null);
+  useEffect(() => {
+    setItems((current) => {
+      if (lastReset.current !== resetKey || current.length === 0) {
+        lastReset.current = resetKey;
+        return composed;
+      }
+      const previous = new Map(current.map((item) => [item.key, item]));
+      return composed.map((item) => previous.get(item.key) ?? item);
+    });
+  }, [composed, resetKey]);
+
+  /*
+   * The list shows tomorrow: suggestions, and leftovers you chose. A leftover unticked here
+   * goes back to the box rather than disappearing.
+   */
+  const planned = items.filter((item) => item.source !== 'carry' || item.selected);
+  const [dropped, setDropped] = useState<PlanItem | null>(null);
 
   const patch = (key: string, change: Partial<PlanItem>): void =>
     setItems((current) =>
@@ -716,7 +745,24 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
           </p>
         ) : null}
 
-        {items.length === 0 ? (
+        <Leftovers
+          items={items.filter((item) => item.source === 'carry' && !item.selected)}
+          letGo={leftoversLetGo}
+          days={LEFTOVER_DAYS}
+          dropped={dropped}
+          onAdd={(key) => patch(key, { selected: true })}
+          onDrop={(item) => {
+            if (item.carriedFrom) void retireCarried(item.carriedFrom.id, now);
+            setItems((current) => current.filter((entry) => entry.key !== item.key));
+            setDropped(item);
+          }}
+          onUndo={() => {
+            if (dropped?.carriedFrom) void restoreCarried(dropped.carriedFrom);
+            setDropped(null);
+          }}
+        />
+
+        {planned.length === 0 ? (
           <p className="text-sm text-muted">
             Nothing suggested for these blocks. You can add commitments tomorrow on the Day
             screen.
@@ -730,7 +776,7 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
               <span className="w-16 shrink-0 text-right text-xs text-muted">How many</span>
               <span className="w-16 shrink-0 text-right text-xs text-muted">Minutes</span>
             </div>
-            {items.map((item) => (
+            {planned.map((item) => (
               <PlanItemRow
                 key={item.key}
                 item={item}
@@ -750,15 +796,6 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
                 }
                 onSize={(size) => patch(item.key, { size })}
                 thresholds={thresholds}
-                onDoFirst={() => {
-                  const firstWork = templateBlocks.find((block) => block.kind === 'work');
-                  patch(item.key, {
-                    selected: true,
-                    ...(firstWork
-                      ? { blockId: firstWork.id, plannedMinutes: firstWork.minutes }
-                      : {}),
-                  });
-                }}
                 onDelete={() => {
                   // Carried work is a real record: retiring it is what stops tomorrow
                   // offering it again. A suggestion only ever existed in this list.

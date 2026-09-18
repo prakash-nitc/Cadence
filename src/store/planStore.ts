@@ -9,6 +9,7 @@ import {
   putDay,
   putLog,
   replaceCommitments,
+  restoreCommitment,
   retireCommitment,
 } from '../db/repo';
 import { COMMITMENT_PRESETS, type BlockDef } from '../config/schedule.config';
@@ -87,6 +88,8 @@ interface PlanState {
   carryOver: CommitmentRecord[];
   /** Routine commitments left short on earlier days, which are deliberately not carried. */
   routineLeftShort: number;
+  /** Leftovers that waited out the week unpicked and let themselves go. */
+  leftoversLetGo: number;
   history: CommitmentRecord[];
   problemsDone: number;
   todayLog: LogRecord | null;
@@ -115,6 +118,8 @@ interface PlanState {
     displacedBy: string | null,
   ) => Promise<void>;
   retireCarried: (id: string, at: number) => Promise<void>;
+  /** Undo a drop: the leftover is offered again, where it was. */
+  restoreCarried: (commitment: CommitmentRecord) => Promise<void>;
   savePlan: (
     templateId: string,
     items: PlanItem[],
@@ -137,6 +142,7 @@ export const usePlan = create<PlanState>((set, get) => ({
   picks: { against: '', log: null, plan: null },
   carryOver: [],
   routineLeftShort: 0,
+  leftoversLetGo: 0,
   history: [],
   problemsDone: 0,
   todayLog: null,
@@ -166,7 +172,11 @@ export const usePlan = create<PlanState>((set, get) => ({
       planDay,
       ...(() => {
         const pool = carryOverPool(past, planDate, COMMITMENT_PRESETS);
-        return { carryOver: pool.carry, routineLeftShort: pool.routineLeftShort };
+        return {
+          carryOver: pool.carry,
+          routineLeftShort: pool.routineLeftShort,
+          leftoversLetGo: pool.letGo,
+        };
       })(),
       history: past,
       problemsDone,
@@ -200,6 +210,12 @@ export const usePlan = create<PlanState>((set, get) => ({
   retireCarried: async (id, at) => {
     await retireCommitment(id, at);
     set({ carryOver: get().carryOver.filter((commitment) => commitment.id !== id) });
+  },
+
+  restoreCarried: async (commitment) => {
+    await restoreCommitment(commitment.id);
+    if (get().carryOver.some((entry) => entry.id === commitment.id)) return;
+    set({ carryOver: [...get().carryOver, { ...commitment, retiredAt: null }] });
   },
 
   saveBrainDump: async (text) => {
@@ -313,7 +329,9 @@ async function writeLogged(
   usePlan.setState({
     logCommitments: replace(usePlan.getState().logCommitments),
     history,
-    ...(pool ? { carryOver: pool.carry, routineLeftShort: pool.routineLeftShort } : {}),
+    ...(pool
+      ? { carryOver: pool.carry, routineLeftShort: pool.routineLeftShort, leftoversLetGo: pool.letGo }
+      : {}),
   });
   useDay.getState().mirrorCommitment(next);
 }

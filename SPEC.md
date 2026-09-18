@@ -331,8 +331,9 @@ stops doing it and nothing else in the app works.
 **Part 2 — Plan tomorrow.** Pre-composed, not blank:
 
 1. Pick tomorrow's template (default from weekday, or a saved custom one).
-2. Carry-overs appear first, pre-selected, with move-count badges. Only one-off work carries
-   (§4.1); routine work left short is summarised in one line, not repeated.
+2. Leftovers — unfinished one-off work — wait in a **Left from earlier** box, never
+   pre-ticked; each is added to tomorrow or dropped in one tap (§4.1). Routine work left
+   short is summarised in one line, not repeated.
 3. Roadmap-derived suggestions fill the rest — current sequential subject, current Spring
    Boot phase, current DSA topic, all read from config.
 4. User edits targets, adds, removes.
@@ -509,10 +510,27 @@ whole point:
 The guard against everything becoming "displaced" is that debt is visible weekly and does
 not clear (§4.3).
 
-**Carry-over and avoidance detection.** Undone *one-off* commitments go to a pool and
-appear first in tomorrow's plan with a move-count badge. At **three moves**, the app offers
-exactly two options: *"Moved 3 times. Do it first tomorrow, or delete it."* No third move.
-This surfaces avoidance in three days instead of three weeks.
+**Leftovers.** Undone *one-off* commitments are offered, never pushed. They wait in a
+**Left from earlier** box above tomorrow's list — one line each, with when it was first
+planned and how many times it has moved — and nothing in the box is in tomorrow until it is
+added. Each line has two actions: **Add to tomorrow** (it joins the list, ticked, continuing
+its line with its move count raised) and **Drop** (retired at once, with an undo).
+
+- **The latest copy decides.** Work carried from Monday and finished on Tuesday is finished;
+  Monday's unticked copy is not offered again.
+- **A week unpicked and it lets itself go** (`LEFTOVER_DAYS` = 7), said in one line; it stays
+  in history.
+- **The same name continues the same work.** Adding a commitment whose name matches a
+  leftover — ignoring case and spacing, exact otherwise — takes the leftover's line instead
+  of standing beside it as a duplicate.
+- **Choices on the page survive.** Dropping, undoing or ticking the log recomposes the list
+  without resetting what has been added, sized or edited; only a new day or a new
+  arrangement starts it over.
+
+This replaced pre-ticked carry-overs with a three-move "do it first or delete it" prompt.
+Pre-ticking silently added every leftover to every plan on top of whatever was added fresh,
+which built ten-item, ten-hour days out of duplicates; the move count is kept as information
+rather than an ultimatum.
 
 **Routine work does not carry.** A commitment saved from a roadmap suggestion is routine
 (`routine: true`); one added by hand is not. Routine work is suggested fresh every night, so
