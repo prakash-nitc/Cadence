@@ -6,6 +6,8 @@
  * you work, which is the point — a number that only changes when a block closes cannot be
  * chased.
  *
+ * Unanswered blocks count nothing — see `workedOn`.
+ *
  * Deliberately time worked rather than Progress's focused minutes (earned from commitments).
  * Earned minutes answer "how much landed"; this answers "how long did I put in", and it is
  * the one of the two you can push on minute by minute.
@@ -13,15 +15,26 @@
  * Pure. The clock is passed in.
  */
 import type { DayRecord } from '../db/schema';
+import { isResolved } from './boundaries';
 import { hasTimer, timedMinutes } from './timer';
 
-/** Minutes worked across a day's work blocks, as of `now`. */
+/**
+ * Minutes worked across a day's work blocks, as of `now`.
+ *
+ * Only blocks that were answered for count, plus the one running right now. The timer starts
+ * itself whenever a work block is running and the app is open, so a block nobody worked and
+ * nobody ticked would otherwise hand over its whole length — a day spent away from the desk
+ * reading as a full day's work. Work is never assumed: the answer at the block's close is
+ * what makes its time real. The running block is the exception, counted live so the figure
+ * moves while you work; it firms up, or disappears, when you answer for it.
+ */
 export function workedOn(day: DayRecord | null, now: number): number {
   if (!day) return 0;
   return day.blocks.reduce((sum, block) => {
     if (block.kind !== 'work') return sum;
     if (block.workedMinutes !== undefined) return sum + block.workedMinutes;
-    if (hasTimer(block)) return sum + timedMinutes(block, now);
+    const running = now >= block.startsAt && now < block.endsAt && !isResolved(block);
+    if (running && hasTimer(block)) return sum + timedMinutes(block, now);
     return sum;
   }, 0);
 }

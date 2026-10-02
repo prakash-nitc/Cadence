@@ -420,6 +420,12 @@ export const DEFAULT_PREFS = {
   theme: 'light' as 'light' | 'dark' | 'system',
 
   /**
+   * The morning card — SPEC §3.6. Folding it is remembered: folding something that unfolds
+   * itself again tomorrow is not a fold. Off removes it from Now entirely.
+   */
+  morningCard: 'open' as 'open' | 'folded' | 'off',
+
+  /**
    * When to nudge that the day is still unanchored — SPEC §3.5.
    *
    * A setting rather than a literal, because it only makes sense relative to when the

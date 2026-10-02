@@ -58,6 +58,25 @@ describe('beat — time worked', () => {
     expect(workedOn(yesterday, at(T, '09:00'))).toBe(250);
   });
 
+  it('counts nothing for a block nobody answered for, however long the timer ran', () => {
+    // The timer starts itself; a block never worked and never ticked must not claim its time.
+    const today = day(T, [
+      block(T, 'dsa', '10:00', '13:00', {
+        timer: [{ start: at(T, '10:00'), end: at(T, '13:00'), seen: at(T, '13:00'), endedBy: 'end' }],
+      }),
+    ]);
+    expect(workedOn(today, at(T, '15:00'))).toBe(0);
+  });
+
+  it('counts nothing for an unanswered block from yesterday', () => {
+    const past = day(Y, [
+      block(Y, 'dsa', '10:00', '13:00', {
+        timer: [{ start: at(Y, '10:00'), end: at(Y, '13:00'), seen: at(Y, '13:00'), endedBy: 'end' }],
+      }),
+    ]);
+    expect(workedOn(past, at(T, '09:00'))).toBe(0);
+  });
+
   it('counts a running timer live', () => {
     const today = day(T, [
       block(T, 'dsa', '10:00', '13:00', { timer: [{ start: at(T, '10:00'), end: null, seen: at(T, '10:40') }] }),

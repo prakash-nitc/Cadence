@@ -47,7 +47,15 @@ function EntryRow({
   );
 }
 
-export function MorningSettings({ now }: { now: number }) {
+export function MorningSettings({
+  now,
+  card,
+  onCard,
+}: {
+  now: number;
+  card: 'open' | 'folded' | 'off';
+  onCard: (value: 'open' | 'folded' | 'off') => void;
+}) {
   const { loaded, load, own, favourites, addOwn, removeOwn, toggleFavourite } = useMorning();
   const [kind, setKind] = useState<MorningEntry['kind']>('quote');
   const [text, setText] = useState('');
@@ -70,6 +78,38 @@ export function MorningSettings({ now }: { now: number }) {
 
   return (
     <div className="space-y-5">
+      <div className="rounded-lg border border-edge bg-panel p-4" data-morning-setting>
+        <p className="text-sm font-medium text-text">On Now</p>
+        <div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Morning card">
+          {(
+            [
+              { value: 'open', label: 'Open' },
+              { value: 'folded', label: 'Folded to one line' },
+              { value: 'off', label: 'Off' },
+            ] as const
+          ).map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={card === option.value}
+              onClick={() => onCard(option.value)}
+              className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                card === option.value
+                  ? 'border-signal bg-wash text-deep'
+                  : 'border-edge text-soft hover:border-signal/40'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          Folding the card on Now sets this too. Off removes it from Now; your own entries and
+          favourites are kept.
+        </p>
+      </div>
+
       <div className="rounded-lg border border-edge bg-panel p-4">
         <p className="text-sm font-medium text-text">Add your own</p>
         <p className="mt-0.5 text-xs text-muted">

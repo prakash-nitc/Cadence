@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FULL_DAY, MILESTONES, type WeeklyTarget } from '../config/schedule.config';
+import { FULL_DAY, MILESTONES, WEEKLY_TARGETS, type WeeklyTarget } from '../config/schedule.config';
 import {
   BarChart,
   Heatmap,
@@ -46,6 +46,9 @@ import {
 } from '../engine/pacing';
 import type { Prefs } from '../lib/prefs';
 import { addDays, dateKey } from '../lib/time';
+import { blankOverride } from '../lib/targets';
+import type { TargetOverride } from '../db/schema';
+import { usePrefs } from '../store/prefsStore';
 import { useDay } from '../store/dayStore';
 import { GRID_DAYS, useProgress } from '../store/progressStore';
 
@@ -421,6 +424,23 @@ function WeekView({
   lastWeek: Period;
   targets: WeeklyTarget[];
 }) {
+  /*
+   * Pausing a target — SPEC §4.3. The same flag Settings uses, put where the target is
+   * actually looked at: a week where ML matters and Spring Boot does not should not read as
+   * a week behind on Spring Boot. Nothing scored changes; it leaves the views until resumed.
+   */
+  const overrides = usePrefs((state) => state.overrides);
+  const saveTargets = usePrefs((state) => state.saveTargets);
+  const paused = overrides.filter((entry) => entry.hidden);
+  const labelOf = (entry: TargetOverride): string =>
+    entry.label ?? WEEKLY_TARGETS.find((target) => target.id === entry.id)?.label ?? entry.id;
+  const pause = (id: string): void => {
+    const existing = overrides.find((entry) => entry.id === id);
+    const order = WEEKLY_TARGETS.findIndex((target) => target.id === id);
+    void saveTargets([{ ...(existing ?? blankOverride(id, order)), hidden: true }]);
+  };
+  const resume = (entry: TargetOverride): void => void saveTargets([{ ...entry, hidden: false }]);
+
   const bands = bandDays(period, prefs, asOf);
   const shape = weekShape(bands, prefs);
   const paces = weeklyPacing(period, targets, daysLeft, capacity);
@@ -491,9 +511,25 @@ function WeekView({
         </SectionTitle>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {paces.map((pace) => (
-            <TargetBar key={pace.id} pace={pace} totalDays={7} />
+            <TargetBar key={pace.id} pace={pace} totalDays={7} onPause={() => pause(pace.id)} />
           ))}
         </div>
+
+        {paused.length > 0 ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2" data-paused-targets>
+            <span className="text-xs text-muted">Paused:</span>
+            {paused.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => resume(entry)}
+                className="rounded-full border border-edge bg-panel px-3 py-1 text-xs text-soft transition-colors hover:border-signal/40 hover:text-text"
+              >
+                {labelOf(entry)} — resume
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         {behindMost ? (
           <p className="mt-3 flex items-center gap-2 rounded-lg border border-edge bg-sunk px-4 py-3 text-sm text-soft">

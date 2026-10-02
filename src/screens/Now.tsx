@@ -42,6 +42,7 @@ import type { Prefs } from '../lib/prefs';
 import { formatDuration, toHHMM } from '../lib/time';
 import { useDay } from '../store/dayStore';
 import { useProgress } from '../store/progressStore';
+import { usePrefs } from '../store/prefsStore';
 import { entryById, useMorning } from '../store/morningStore';
 import { firstThing, type ShownCard } from '../engine/morning';
 import { sizeFor } from '../engine/shape';
@@ -138,6 +139,7 @@ export function Now({
    * streak it reads is real, and then read back from the record on every later visit.
    */
   const morning = useMorning();
+  const setPref = usePrefs((state) => state.update);
   const [card, setCard] = useState<ShownCard | null>(null);
   const thresholds = { bigMinutes: prefs.bigMinutes, mediumMinutes: prefs.mediumMinutes };
 
@@ -173,22 +175,15 @@ export function Now({
   }, [date, weekLoaded]);
 
   const morningCard =
-    date && card?.date === date ? (
+    date && card?.date === date && prefs.morningCard !== 'off' ? (
       <MorningCard
-        // Re-seeds the fold once the first block starts, and on a new day.
-        key={`${date}:${
-          day?.anchorAt != null &&
-          day.blocks.some((block) => block.kind === 'work' && block.startsAt <= now)
-        }`}
         date={date}
         quote={entryById(morning.own, card.quoteId)}
         affirmation={entryById(morning.own, card.affirmationId)}
         first={firstThing(commitments, day?.blocks ?? [], thresholds)}
         favourites={morning.favourites}
-        folded={
-          day?.anchorAt != null &&
-          day.blocks.some((block) => block.kind === 'work' && block.startsAt <= now)
-        }
+        folded={prefs.morningCard === 'folded'}
+        onFold={(folded) => void setPref('morningCard', folded ? 'folded' : 'open')}
         onFavourite={(id) => void morning.toggleFavourite(id, now)}
       />
     ) : null;

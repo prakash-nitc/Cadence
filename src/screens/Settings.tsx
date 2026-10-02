@@ -416,7 +416,11 @@ export function Settings({ prefs }: { prefs: Prefs }) {
       </Section>
 
       <Section title="Morning card">
-        <MorningSettings now={Date.now()} />
+        <MorningSettings
+          now={Date.now()}
+          card={prefs.morningCard}
+          onCard={(value) => set('morningCard', value)}
+        />
       </Section>
 
       <Section title="Saved day templates">

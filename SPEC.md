@@ -252,7 +252,11 @@ Read at arm's length in under two seconds.
 - **Rule of the day**, one line, rotating from config.
 - **Actions:** `Done — contained` · `Skip block` · `Push remaining` · `Triage day`
 - **Block timer**, above the actions on a work block — see §3.3.
-- **Beat yesterday** — time worked yesterday against today so far, with the gap to pass it
+- **Beat yesterday** — only blocks answered for count, plus the one running now, counted
+  live. The timer starts itself whenever a work block runs with the app open, so an
+  unanswered block would otherwise hand over its whole length and a day away from the desk
+  would read as a full day's work. Work is never assumed (§2.1); the answer at the close is
+  what makes the time real. Time worked yesterday against today so far, with the gap to pass it
   and a bar marking yesterday's line. Time worked is each work block's answered minutes, or
   the timer's running count while a block is open, so it moves as you work. Deliberately not
   Progress's focused minutes (earned from commitments): that answers how much landed; this
@@ -412,7 +416,9 @@ with something that pushes, and built to become a habit rather than decoration.
   → focus. Among entries not recently shown, one of that theme is preferred.
 - **First thing** names the day's first unfinished Big commitment in day order, or the first
   unfinished one of any size. A quote alone fades by mid-morning; this points it at work.
-- **Folds to one line** once the first work block has started, and opens on request.
+- **Folds to one line**, and the fold is remembered (`morningCard` = open | folded | off).
+  Folding something that unfolds itself tomorrow is not a fold. Settings takes it off Now
+  altogether; own entries and favourites are kept either way.
 - **Favourites:** any quote or affirmation can be starred; favourites return about one
   morning in three, never two days running. Managed in Settings.
 - **Your own entries:** quotes (optionally with who said it) and affirmations added in
@@ -629,6 +635,14 @@ defaults with it.
 Same pace marker as the week: where an even month would have you by now. When the month
 can no longer reach a target, that is stated rather than implied by a rate nobody could
 hit.
+
+**Pausing a target.** A week where one thing matters and another does not should not read
+as a week behind on the other. Each target on Progress → Week carries a quiet **Pause**;
+paused targets leave every view and are listed under the grid as *"Paused: X — resume"*.
+It is the same flag Settings hides with, surfaced where the target is actually looked at,
+and it changes no number: nothing already scored moves, and resuming brings it back as it
+was. Deliberately manual in both directions — a target that un-paused itself on Monday
+would be back the week it was set aside for.
 
 **Week-by-week breakdown.** Each target shows what every week of the month contributed.
 Knowing you are twenty hours short says nothing about which week lost them.

@@ -22,9 +22,15 @@ interface TargetBarProps {
   pace: TargetPace;
   /** Days in the period, so the pace marker knows how far through it is. */
   totalDays: number;
+  /**
+   * Set a target aside — SPEC §4.3. Absent where pausing makes no sense, such as a month
+   * already closed. A paused target leaves every view until it is resumed; it is not a
+   * number changed, so nothing already scored moves.
+   */
+  onPause?: () => void;
 }
 
-export function TargetBar({ pace, totalDays }: TargetBarProps) {
+export function TargetBar({ pace, totalDays, onPause }: TargetBarProps) {
   if (!pace.tracked) {
     return (
       <div className="flex items-baseline justify-between gap-3 rounded-lg border border-dashed border-edge px-4 py-3">
@@ -104,6 +110,17 @@ export function TargetBar({ pace, totalDays }: TargetBarProps) {
           Displaced {pace.displaced.count === 1 ? 'once' : `${pace.displaced.count} times`}
           {pace.displaced.reasons.length > 0 ? ` — ${pace.displaced.reasons.join(', ')}` : ''}.
         </p>
+      ) : null}
+
+      {onPause ? (
+        <button
+          type="button"
+          onClick={onPause}
+          aria-label={`Pause ${pace.label}`}
+          className="mt-2 text-xs text-muted transition-colors hover:text-text"
+        >
+          Pause
+        </button>
       ) : null}
     </div>
   );

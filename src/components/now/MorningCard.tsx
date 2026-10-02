@@ -6,10 +6,10 @@
  * their own card, credited, and never on a score, a band or a missed commitment. The third
  * is what stops the first two fading by ten o'clock: it points them at something.
  *
- * Opens full in the morning and folds to a single line once the first block has started,
- * so it is there when the day begins and out of the way while the day is worked.
+ * Fold it and it stays folded — one line, every day, until Show. Settings can take it off
+ * Now altogether. A card that unfolded itself again each morning was the complaint: it is
+ * the user's screen, and a fold has to mean something.
  */
-import { useState } from 'react';
 import type { MorningEntry } from '../../content/morning';
 import { creditLine, type FirstThing } from '../../engine/morning';
 import { formatDuration } from '../../lib/time';
@@ -23,7 +23,8 @@ export function MorningCard({
   affirmation,
   first,
   favourites,
-  folded: foldedAtFirst,
+  folded,
+  onFold,
   onFavourite,
 }: {
   date: string;
@@ -31,11 +32,11 @@ export function MorningCard({
   affirmation: MorningEntry | null;
   first: FirstThing | null;
   favourites: ReadonlySet<string>;
-  /** Folded by default once the day's first block has started. */
+  /** Remembered in Settings, so folding it once folds it for good. */
   folded: boolean;
+  onFold: (folded: boolean) => void;
   onFavourite: (id: string) => void;
 }) {
-  const [folded, setFolded] = useState(foldedAtFirst);
   if (!quote && !affirmation) return null;
 
   const heading = new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', {
@@ -72,7 +73,7 @@ export function MorningCard({
         <p className="min-w-0 flex-1 truncate text-sm text-soft">{line?.text}</p>
         <button
           type="button"
-          onClick={() => setFolded(false)}
+          onClick={() => onFold(false)}
           className="shrink-0 text-xs text-muted hover:text-text"
         >
           Show
@@ -90,7 +91,7 @@ export function MorningCard({
         </p>
         <button
           type="button"
-          onClick={() => setFolded(true)}
+          onClick={() => onFold(true)}
           className="text-xs text-muted hover:text-text"
         >
           Fold
