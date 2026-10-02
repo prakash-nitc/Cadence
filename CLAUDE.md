@@ -88,10 +88,23 @@ carry on.
 Small and frequent, conventional-commit style (`feat:`, `fix:`, `refactor:`, `test:`).
 One commit per meaningful unit — not one per session.
 
+## Browser suites
+
+`drive/` holds suites that drive the real app in a real browser. They are how the bugs here
+actually get found: types and unit tests have passed many times while the page was wrong.
+
+- They live in the repo. They used to live in a temp folder and Windows cleared it, taking
+  thirty-odd suites with it. Write new ones here.
+- Playwright stays out of the app's `package.json` — `drive/` has its own.
+- `npm run dev` (port 5178), then `cd drive && node smoke.mjs`. See `drive/README.md` for the
+  rules on writing one: assert on what a person would read, add `data-*` hooks for structure,
+  always check a reload, and assert no page errors.
+
 ## Verification before calling a session done
 
 - `npm run build` passes clean
 - `npx tsc --noEmit` passes with zero errors — `any` is not a fix
 - `npm run test` passes
+- The `drive/` suites that touch what changed pass, plus `drive/smoke.mjs`
 - The done-condition in SPEC §9 is actually met, checked by using the app, not by reading
   the code

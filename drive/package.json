@@ -1,0 +1,7 @@
+{
+  "name": "cadence-driver",
+  "private": true,
+  "type": "module",
+  "description": "Browser suites that drive the real app. Deliberately outside the app package.",
+  "dependencies": { "playwright": "^1.62.1" }
+}

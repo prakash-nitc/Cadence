@@ -24,3 +24,7 @@ npm-debug.log*
 
 # vite-plugin-pwa dev output
 dev-dist/
+
+# Browser suites keep their own dependencies and screenshots
+drive/node_modules/
+drive/shots/
