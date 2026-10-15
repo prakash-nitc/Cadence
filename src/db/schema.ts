@@ -141,11 +141,28 @@ export interface LogRecord {
   createdAt: number;
 }
 
+/** One commitment a saved template brings into the plan — SPEC §3.4. */
+export interface TemplateCommitment {
+  blockId: string | null;
+  label: string;
+  targetType: TargetType;
+  target: number;
+  plannedMinutes: number;
+  tags: string[];
+  /** Big, medium or small, as chosen when the template was saved. */
+  size?: 'big' | 'medium' | 'small';
+}
+
 export interface SavedTemplate {
   id: string;
   name: string;
   blocks: BlockDef[];
   createdAt: number;
+  /**
+   * The commitments that go with this day — SPEC §3.4. A template used to be a timetable
+   * only, so every plan was typed in by hand. Absent on templates saved before this.
+   */
+  commitments?: TemplateCommitment[];
 }
 
 export interface PrefRecord {

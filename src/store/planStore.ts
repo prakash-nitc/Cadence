@@ -31,7 +31,12 @@ export interface PlanItem {
    */
   size?: Size | null;
   key: string;
-  source: 'carry' | 'suggestion';
+  /**
+   * Where the row came from. `template` rows are a saved plan or a copy of a day — recurring
+   * work, so they do not carry if unfinished (the template brings them back). `added` rows
+   * were typed on Plan — one-offs, which do.
+   */
+  source: 'carry' | 'suggestion' | 'template' | 'added';
   /** The commitment being carried, if any. */
   carriedFrom: CommitmentRecord | null;
   blockId: string | null;
@@ -270,8 +275,9 @@ export const usePlan = create<PlanState>((set, get) => ({
       displacedBy: null,
       movedCount: item.carriedFrom ? item.carriedFrom.movedCount + 1 : 0,
       originDate: item.carriedFrom ? item.carriedFrom.originDate : planDate,
-      // Suggestions are the roadmap's daily work; carried work is one-off by definition.
-      routine: item.source === 'suggestion',
+      // Suggestions and template rows are recurring work and never carry; carried work and
+      // anything typed on Plan is one-off, and does.
+      routine: item.source === 'suggestion' || item.source === 'template',
     }));
 
     await replaceCommitments(planDate, commitments);
