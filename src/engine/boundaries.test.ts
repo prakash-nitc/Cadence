@@ -10,6 +10,7 @@ import {
   nextBlock,
   pullForward,
   pushRemaining,
+  startNextNow,
   resolveBlock,
   unconfirmed,
   viewStatus,
@@ -139,6 +140,60 @@ describe('pullForward', () => {
     const blocks = laid();
     expect(pullForward(blocks, at('10:00'), 0)).toEqual(blocks);
     expect(pullForward(blocks, at('10:00'), -30)).toEqual(blocks);
+  });
+});
+
+describe('starting the next block early', () => {
+  /** DSA finished early, at 10:00 — 65 minutes before break_1 was due. */
+  const finished = () => resolveBlock(laid(), 'dsa_deep', 'contained', at('10:00'));
+
+  it('starts it now and keeps every other boundary', () => {
+    const started = startNextNow(finished(), at('10:00'));
+    expect(span(started, 'break_1')).toBe('10:00–11:20');
+    expect(find(started, 'break_1').minutes).toBe(80);
+    // The block after it has not moved.
+    const after = laid().find((block) => block.startsAt >= find(laid(), 'break_1').endsAt && block.kind !== 'gap');
+    expect(after && span(started, after.blockId)).toBe(after && span(laid(), after.blockId));
+  });
+
+  it('makes the started block the one running now', () => {
+    // The bug: the closed block still held 08:05–11:05, so "now" pointed at it.
+    const started = startNextNow(finished(), at('10:00'));
+    expect(blockAt(started, at('10:05'))?.blockId).toBe('break_1');
+  });
+
+  it('ends the finished block when it actually ended', () => {
+    const started = startNextNow(finished(), at('10:00'));
+    expect(span(started, 'dsa_deep')).toBe('08:05–10:00');
+  });
+
+  it('does the same for moving everything, which was broken the same way', () => {
+    const pulled = pullForward(finished(), at('10:00'), 65);
+    expect(blockAt(pulled, at('10:05'))?.blockId).toBe('break_1');
+    expect(span(pulled, 'dsa_deep')).toBe('08:05–10:00');
+  });
+
+  it('leaves a running block alone', () => {
+    // Nothing has been finished, so there is nothing to release.
+    const untouched = startNextNow(laid(), at('09:00'));
+    expect(span(untouched, 'dsa_deep')).toBe('08:05–11:05');
+  });
+
+  it('does nothing when there is no next block', () => {
+    const late = laid();
+    expect(startNextNow(late, at('23:59'))).toEqual(late);
+  });
+});
+
+describe('blockAt — two blocks claiming the same minute', () => {
+  it('prefers the one still open', () => {
+    const blocks = laid().map((block) =>
+      block.blockId === 'dsa_deep' ? { ...block, status: 'contained' as const } : block,
+    );
+    const overlapping = blocks.map((block) =>
+      block.blockId === 'break_1' ? { ...block, startsAt: at('10:00') } : block,
+    );
+    expect(blockAt(overlapping, at('10:30'))?.blockId).toBe('break_1');
   });
 });
 

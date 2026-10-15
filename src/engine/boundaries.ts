@@ -41,7 +41,11 @@ export function viewStatus(block: ScheduledBlock, now: number): BlockView {
 
 /** The block whose window contains `now`, resolved or not. Gaps included. */
 export function blockAt(blocks: ScheduledBlock[], now: number): ScheduledBlock | null {
-  return blocks.find((block) => now >= block.startsAt && now < block.endsAt) ?? null;
+  // Where two blocks claim the same minute, the one still open is the one happening. A
+  // block already answered for cannot be "now"; returning it made Now report that nothing
+  // was running while the next block was.
+  const here = blocks.filter((block) => now >= block.startsAt && now < block.endsAt);
+  return here.find((block) => !isResolved(block)) ?? here[0] ?? null;
 }
 
 /** The next block that has not started. Used for the one-line "next" on Now. */
@@ -114,11 +118,55 @@ export function pushRemaining(
 }
 
 /**
- * `Start next block early` — SPEC §2.3.
+ * A finished block gives back the time after it, once that time is being used.
  *
- * Moves every remaining boundary earlier by `minutes`. The default answer to this is no:
- * the UI warns before calling it, because pulling the day forward is how a schedule
- * quietly stops meaning anything.
+ * Left alone, a block closed early keeps its scheduled end — finishing early does not shift
+ * the next block up (§2.3), and the free time is shown honestly. Starting the next block
+ * early is the user taking that time, and from then the closed block cannot still hold it:
+ * two blocks claiming the same minutes is how Now ended up pointing at a block already
+ * closed and showing nothing running. So it ends when it actually ended — or now, for a
+ * skipped block whose hole is being filled.
+ */
+function releaseFinished(blocks: ScheduledBlock[], now: number): ScheduledBlock[] {
+  return blocks.map((block) => {
+    if (!isResolved(block) || block.startsAt >= now || block.endsAt <= now) return block;
+    const endsAt = Math.max(block.startsAt, Math.min(block.actualEndedAt ?? now, now));
+    return { ...block, endsAt, minutes: Math.round((endsAt - block.startsAt) / 60_000) };
+  });
+}
+
+/**
+ * `Start it now` — SPEC §2.3. The next block starts now and keeps its end, so it takes the
+ * free time; nothing else moves.
+ *
+ * The usual answer to finishing early: a DSA block done an hour early becomes an hour more
+ * of Spring Boot, and Core CSE still starts when it was always going to. A gap the next
+ * block was waiting behind is no longer waiting, so it goes.
+ */
+export function startNextNow(blocks: ScheduledBlock[], now: number): ScheduledBlock[] {
+  const next = nextBlock(blocks, now);
+  if (!next) return blocks;
+
+  return releaseFinished(blocks, now)
+    .filter(
+      (block) => !(block.kind === 'gap' && block.startsAt >= now && block.endsAt <= next.startsAt),
+    )
+    .map((block) => {
+      if (block.kind === 'gap' && block.startsAt < now && block.endsAt > now) {
+        return { ...block, endsAt: now, minutes: Math.round((now - block.startsAt) / 60_000) };
+      }
+      if (block.blockId === next.blockId) {
+        return { ...block, startsAt: now, minutes: Math.round((block.endsAt - now) / 60_000) };
+      }
+      return block;
+    });
+}
+
+/**
+ * `Move everything earlier` — SPEC §2.3.
+ *
+ * Moves every remaining boundary earlier by `minutes`. The UI says so before calling it,
+ * because pulling the whole day forward is how a schedule quietly stops meaning anything.
  */
 export function pullForward(
   blocks: ScheduledBlock[],
@@ -126,7 +174,7 @@ export function pullForward(
   minutes: number,
 ): ScheduledBlock[] {
   if (minutes <= 0) return blocks;
-  return blocks.map((block) =>
+  return releaseFinished(blocks, now).map((block) =>
     block.startsAt >= now && !isResolved(block) ? shift(block, -minutes) : block,
   );
 }
