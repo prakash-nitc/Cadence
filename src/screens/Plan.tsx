@@ -16,6 +16,9 @@ import { checkFeasibility, committableMinutes } from '../engine/feasibility';
 import { dayShape, shapeVerdict } from '../engine/shape';
 import { verdictLine } from '../lib/copy';
 import { suggestionsFor } from '../lib/roadmap';
+import { mergeIntoPlan, superseded, toTemplateCommitment } from '../lib/planRows';
+import { AddToPlan, SaveTemplate } from '../components/plan/PlanTools';
+import { usePrefs } from '../store/prefsStore';
 import { Leftovers } from '../components/plan/Leftovers';
 import { LEFTOVER_DAYS } from '../engine/carry';
 import { entryById, useMorning } from '../store/morningStore';
@@ -113,7 +116,8 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
   useEffect(() => {
     if (!morningLoaded) void loadMorning();
   }, [morningLoaded, loadMorning]);
-  const { date, day, previous, savedTemplates } = useDay();
+  const { date, day, previous, savedTemplates, saveTemplate, updateTemplate } = useDay();
+  const setPref = usePrefs((state) => state.update);
   const {
     planDate,
     carryOver,
@@ -207,8 +211,19 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
     () => (planDate ? suggestedTemplate(new Date(`${planDate}T09:00:00`)) : 'full'),
     [planDate],
   );
-  const [templateId, setTemplateId] = useState<string>(defaultTemplate);
-  useEffect(() => setTemplateId(defaultTemplate), [defaultTemplate]);
+  /*
+   * Opens on the saved template the last plan was made from, when it still exists — so a
+   * day planned from a template is planned the same way tomorrow without picking. Otherwise
+   * the weekday's suggestion.
+   */
+  const remembered =
+    prefs.planTemplate && savedTemplates.some((template) => template.id === prefs.planTemplate)
+      ? prefs.planTemplate
+      : null;
+  const [templateId, setTemplateId] = useState<string>(remembered ?? defaultTemplate);
+  // A new night re-opens on the remembered template, or the weekday's. This used to reset to
+  // the weekday's alone, which threw the remembered template away every time Plan opened.
+  useEffect(() => setTemplateId(remembered ?? defaultTemplate), [defaultTemplate, remembered]);
 
   // The wake time the plan assumes. Not the anchor — that is still whenever Start day is
   // actually tapped tomorrow — but without it the plan cannot show real clock times, and
@@ -312,14 +327,31 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
       return (orderOf.get(a.blockId ?? '') ?? 0) - (orderOf.get(b.blockId ?? '') ?? 0);
     });
 
-    for (const item of byProtection) {
-      if (running + item.plannedMinutes > slack) break;
-      item.selected = true;
-      running += item.plannedMinutes;
+    /*
+     * A saved template with commitments is the plan: its rows arrive ticked and the roadmap's
+     * suggestions stay on offer, unticked. Without one, suggestions fill to the slack line.
+     */
+    const fromTemplate =
+      savedTemplates.find((template) => template.id === templateId)?.commitments ?? [];
+
+    if (fromTemplate.length === 0) {
+      for (const item of byProtection) {
+        if (running + item.plannedMinutes > slack) break;
+        item.selected = true;
+        running += item.plannedMinutes;
+      }
     }
 
-    return [...carried, ...suggested];
-  }, [planDate, carryOver, templateBlocks, problemsDone, prefs.planningSlack]);
+    return mergeIntoPlan([...carried, ...suggested], fromTemplate, 'template');
+  }, [
+    planDate,
+    carryOver,
+    templateBlocks,
+    problemsDone,
+    prefs.planningSlack,
+    savedTemplates,
+    templateId,
+  ]);
 
   const [items, setItems] = useState<PlanItem[]>([]);
 
@@ -329,16 +361,27 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
    * or a new arrangement starts the list over; anything else keeps every row already here
    * as it was edited, and adds or removes only the rows that came or went.
    */
-  const resetKey = `${planDate}|${templateBlocks.map((block) => `${block.id}:${block.minutes}`).join(',')}`;
+  const resetKey = `${planDate}|${templateId}|${templateBlocks.map((block) => `${block.id}:${block.minutes}`).join(',')}`;
   const lastReset = useRef<string | null>(null);
   useEffect(() => {
+    // Decided here, not inside the updater: an updater must be pure, and React may run it
+    // twice. Setting the marker inside it made the second run see "no reset needed" and
+    // keep rows the reset was meant to clear — a saved template's rows doubled up.
+    const reset = lastReset.current !== resetKey;
+    lastReset.current = resetKey;
     setItems((current) => {
-      if (lastReset.current !== resetKey || current.length === 0) {
-        lastReset.current = resetKey;
+      if (reset || current.length === 0) {
         return composed;
       }
       const previous = new Map(current.map((item) => [item.key, item]));
-      return composed.map((item) => previous.get(item.key) ?? item);
+      const composedKeys = new Set(composed.map((item) => item.key));
+      // Rows added on this page — typed, or copied from a day — are not part of what was
+      // composed. They stay until the day or the arrangement changes.
+      const kept = current.filter(
+        (item) =>
+          !composedKeys.has(item.key) && (item.source === 'added' || item.source === 'template'),
+      );
+      return [...composed.map((item) => previous.get(item.key) ?? item), ...kept];
     });
   }, [composed, resetKey]);
 
@@ -347,6 +390,8 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
    * goes back to the box rather than disappearing.
    */
   const planned = items.filter((item) => item.source !== 'carry' || item.selected);
+  /** Leftovers a template or copied row now covers: out of the box, retired on save. */
+  const coveredLeftovers = superseded(items);
   const [dropped, setDropped] = useState<PlanItem | null>(null);
 
   const patch = (key: string, change: Partial<PlanItem>): void =>
@@ -722,8 +767,37 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
 
         <SectionTitle
           action={
-            <span className="font-mono text-xs text-muted">
-              {items.filter((item) => item.selected).length} ticked
+            <span className="flex items-center gap-3">
+              {logCommitments.length > 0 && logFor ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon="calendar"
+                  onClick={() =>
+                    setItems((current) =>
+                      mergeIntoPlan(
+                        current,
+                        logCommitments
+                          .filter((commitment) => commitment.status !== 'displaced')
+                          .map((commitment) => ({
+                            blockId: commitment.blockId,
+                            label: commitment.label,
+                            targetType: commitment.targetType,
+                            target: commitment.target,
+                            plannedMinutes: commitment.plannedMinutes,
+                            tags: commitment.tags,
+                          })),
+                        'template',
+                      ),
+                    )
+                  }
+                >
+                  Copy {new Date(`${logFor}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long' })}&apos;s plan
+                </Button>
+              ) : null}
+              <span className="font-mono text-xs text-muted">
+                {items.filter((item) => item.selected).length} ticked
+              </span>
             </span>
           }
         >
@@ -746,7 +820,12 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
         ) : null}
 
         <Leftovers
-          items={items.filter((item) => item.source === 'carry' && !item.selected)}
+          items={items.filter(
+            (item) =>
+              item.source === 'carry' &&
+              !item.selected &&
+              !coveredLeftovers.some((covered) => covered.key === item.key),
+          )}
           letGo={leftoversLetGo}
           days={LEFTOVER_DAYS}
           dropped={dropped}
@@ -764,8 +843,8 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
 
         {planned.length === 0 ? (
           <p className="text-sm text-muted">
-            Nothing suggested for these blocks. You can add commitments tomorrow on the Day
-            screen.
+            Nothing planned for tomorrow yet. Add a commitment below, copy a day&apos;s plan, or
+            pick a template under Start from.
           </p>
         ) : (
           <div className="overflow-hidden rounded-lg border border-edge bg-panel" data-plan-list>
@@ -807,6 +886,31 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
           </div>
         )}
 
+        <div className="space-y-3" data-plan-tools>
+          <AddToPlan
+            key={resetKey}
+            blocks={templateBlocks}
+            onAdd={(row) => setItems((current) => mergeIntoPlan(current, [row], 'added'))}
+          />
+          <SaveTemplate
+            current={
+              savedTemplates.find((template) => template.id === templateId)
+                ? {
+                    id: templateId,
+                    name: savedTemplates.find((template) => template.id === templateId)?.name ?? '',
+                  }
+                : null
+            }
+            ticked={chosen.length}
+            onSaveNew={(name) =>
+              void saveTemplate(name, templateBlocks, now, chosen.map(toTemplateCommitment)).then(
+                (id) => setTemplateId(id),
+              )
+            }
+            onUpdate={(id) => void updateTemplate(id, templateBlocks, chosen.map(toTemplateCommitment))}
+          />
+        </div>
+
         <div
           className={`rounded-lg border p-4 ${
             verdict.status === 'within' ? 'border-edge bg-panel' : 'border-warn/50 bg-warn/5'
@@ -837,7 +941,16 @@ export function Plan({ now, prefs }: { now: number; prefs: Prefs }) {
           type="button"
           disabled={chosen.length === 0}
           onClick={() => {
+            // Covered by recurring rows, these would only ever come back as duplicates.
+            for (const leftover of coveredLeftovers) {
+              if (leftover.carriedFrom) void retireCarried(leftover.carriedFrom.id, now);
+            }
             void savePlan(templateId, items, now, { blocks: templateBlocks, wakeAt });
+            // Next night opens on the same template. A built-in one follows the weekday.
+            void setPref(
+              'planTemplate',
+              savedTemplates.some((template) => template.id === templateId) ? templateId : null,
+            );
             setPlanSaved(true);
           }}
           className="w-full border border-signal bg-signal/10 py-3 font-display text-base tracking-display text-signal hover:bg-signal/20 disabled:border-edge disabled:bg-transparent disabled:text-muted"

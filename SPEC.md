@@ -354,6 +354,27 @@ stops doing it and nothing else in the app works.
 3. Roadmap-derived suggestions fill the rest — current sequential subject, current Spring
    Boot phase, current DSA topic, all read from config.
 4. User edits targets, adds, removes.
+
+**Templates and adding on Plan.** Planning used to mean typing the day in: a template only
+set the blocks, Plan had no way to add a commitment, and the roadmap's suggestions match
+little of a week's real work. Now:
+
+- **Add a commitment** on Plan itself — name, block, kind, how many, minutes.
+- **Copy <day>'s plan** brings the logged day's commitments in, ticked.
+- **Save as a template** keeps tomorrow's arranged blocks *and* its ticked commitments
+  (`SavedTemplate.commitments`). Picked under *Start from*, a template's commitments arrive
+  ticked and the roadmap's suggestions stay on offer, unticked. Its name and contents can be
+  updated in place or saved as new; Settings shows what each holds.
+- **The template a plan was saved from is remembered** (`planTemplate`), and the next night
+  opens on it — planning a template day is opening Plan and saving. A built-in template
+  follows the weekday instead.
+
+Every row goes through one merge (`lib/planRows`): nothing enters twice. Typed by hand, a
+leftover's name continues the leftover (§4.1). From a template or a copied day the row is
+**recurring** work (`routine`) and stands on its own; the leftover it matches is covered —
+out of the box, and retired when the plan is saved — because continuing it would turn
+daily work into a leftover moved again every night. Rows added on the page survive the list
+recomposing; only a new day, template or arrangement starts it over.
 5. Feasibility check runs (§4.2) and shows the verdict before the plan can be saved.
 
 The flow does not submit without at least one commitment for tomorrow. Everything else

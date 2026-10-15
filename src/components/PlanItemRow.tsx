@@ -61,7 +61,11 @@ export function PlanItemRow({
   const stuck = carried && item.movedCount >= maxMoves;
 
   return (
-    <div className={`px-3 py-2.5 ${first ? '' : 'border-t border-edge'}`}>
+    <div
+      className={`px-3 py-2.5 ${first ? '' : 'border-t border-edge'}`}
+      data-plan-row={item.label}
+      data-source={item.source}
+    >
       <div className="flex items-center gap-3">
         <button
           type="button"

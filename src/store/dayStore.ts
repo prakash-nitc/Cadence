@@ -21,6 +21,7 @@ import type {
   InterruptionReason,
   LogRecord,
   SavedTemplate,
+  TemplateCommitment,
 } from '../db/schema';
 import {
   blockAt,
@@ -145,7 +146,14 @@ interface DayState {
    * Restarting a mis-laid morning is legitimate; quietly rewriting history is not.
    */
   resetDay: (at: number) => Promise<void>;
-  saveTemplate: (name: string, blocks: BlockDef[], at: number) => Promise<string>;
+  saveTemplate: (
+    name: string,
+    blocks: BlockDef[],
+    at: number,
+    commitments?: TemplateCommitment[],
+  ) => Promise<string>;
+  /** Replace a saved template's blocks and commitments, keeping its name. */
+  updateTemplate: (id: string, blocks: BlockDef[], commitments: TemplateCommitment[]) => Promise<void>;
   removeTemplate: (id: string) => Promise<void>;
   /** `worked` is the minutes put in; given for work blocks, and flowed into their commitments. */
   closeBlock: (
@@ -582,11 +590,24 @@ export const useDay = create<DayState>((set, get) => {
       });
     },
 
-    saveTemplate: async (name, blocks, at) => {
+    saveTemplate: async (name, blocks, at, commitments) => {
       const id = `saved:${crypto.randomUUID()}`;
-      await putSavedTemplate({ id, name, blocks, createdAt: at });
+      await putSavedTemplate({
+        id,
+        name,
+        blocks,
+        createdAt: at,
+        ...(commitments ? { commitments } : {}),
+      });
       set({ savedTemplates: await listSavedTemplates() });
       return id;
+    },
+
+    updateTemplate: async (id, blocks, commitments) => {
+      const existing = get().savedTemplates.find((template) => template.id === id);
+      if (!existing) return;
+      await putSavedTemplate({ ...existing, blocks, commitments });
+      set({ savedTemplates: await listSavedTemplates() });
     },
 
     removeTemplate: async (id) => {

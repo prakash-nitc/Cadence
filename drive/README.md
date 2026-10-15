@@ -42,6 +42,7 @@ Playwright is **not** in the app's `package.json`: the app ships nothing from he
 | `smoke.mjs` | Every screen renders with a fortnight of history: no NaN, no page errors, in both themes |
 | `fixes.mjs` | Pausing a weekly target, unanswered blocks not claiming timer minutes, the morning card's fold being remembered |
 | `early.mjs` | Finishing a block early — start it now keeping the rest, move everything earlier, or neither — and answering for a block that was missed |
+| `templates.mjs` | Two evenings of planning: add on Plan, copy a day, save a template, open the next night already planned; no duplicates with leftovers |
 | `hunt.mjs` | Awkward corners: a block pushed near its end, an unplanned day, a threshold changed mid-week, import over live data, long labels at 1100px, a block crossing midnight |
 
 The rest were lost with the temp folder and are being rebuilt as each area is next touched.

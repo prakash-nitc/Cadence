@@ -412,6 +412,13 @@ export const DEFAULT_PREFS = {
   dayStartsAt: '06:30',
 
   /**
+   * The saved template the last plan started from — SPEC §3.4. Plan opens on it, so a day
+   * planned from a template is planned the same way tomorrow with no picking at all. Null
+   * follows the weekday's suggestion.
+   */
+  planTemplate: null as string | null,
+
+  /**
    * Light, dark, or whatever Windows is set to — SPEC §8.
    *
    * Dark cuts glare for a screen open from morning to midnight, and on an OLED panel it

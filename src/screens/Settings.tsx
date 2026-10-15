@@ -438,6 +438,9 @@ export function Settings({ prefs }: { prefs: Prefs }) {
                 <span className="min-w-0 flex-1 text-sm text-text">{template.name}</span>
                 <span className="shrink-0 font-mono text-xs text-muted">
                   {template.blocks.length} blocks
+                  {template.commitments?.length
+                    ? ` · ${template.commitments.length} ${template.commitments.length === 1 ? 'commitment' : 'commitments'}`
+                    : ''}
                 </span>
                 <button
                   type="button"
