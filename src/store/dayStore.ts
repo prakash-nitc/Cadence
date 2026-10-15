@@ -22,7 +22,14 @@ import type {
   LogRecord,
   SavedTemplate,
 } from '../db/schema';
-import { blockAt, isResolved, pullForward, pushRemaining, resolveBlock } from '../engine/boundaries';
+import {
+  blockAt,
+  isResolved,
+  pullForward,
+  pushRemaining,
+  resolveBlock,
+  startNextNow,
+} from '../engine/boundaries';
 import { layoutDay } from '../engine/layout';
 import { planDay } from '../engine/capacity';
 import { statusForProgress, withDone, withDrop } from '../engine/scoring';
@@ -167,7 +174,10 @@ interface DayState {
    * only records that the block was left, which is the thing worth counting.
    */
   recordInterruption: (reason: InterruptionReason, at: number) => Promise<void>;
+  /** Move every remaining boundary earlier by `minutes`. */
   startNextEarly: (minutes: number, at: number) => Promise<void>;
+  /** Start the next block now, keeping its end and every other boundary. */
+  startNextNow: (at: number) => Promise<void>;
   setPlacementMode: (on: boolean) => Promise<void>;
 
   addCommitment: (input: NewCommitment, at: number) => Promise<void>;
@@ -504,6 +514,12 @@ export const useDay = create<DayState>((set, get) => {
       const { day } = get();
       if (!day) return;
       await commit(withBlocks(day, pullForward(day.blocks, at, minutes)));
+    },
+
+    startNextNow: async (at) => {
+      const { day } = get();
+      if (!day) return;
+      await commit(withBlocks(day, startNextNow(day.blocks, at)));
     },
 
     setPlacementMode: async (on) => {

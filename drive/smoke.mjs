@@ -59,7 +59,7 @@ commitments.push({ id: 'cv', dayDate: '2026-09-30', blockId: 'flex', label: 'Rew
 await seed(page, { days, commitments, logs });
 
 const screens = [
-  ['Now', [/Beat yesterday/i, /Currently working|Did you stop|Start day/i]],
+  ['Now', [/Beat yesterday/i, /Currently working|How did .+ go\?|Start day/i]],
   ['Day', [/Timeline/i, /Contained/i]],
   ['Plan', [/Log today/i, /What gets finished/i, /Left from earlier/i]],
   ['Progress', [/Targets/i, /days left/i]],

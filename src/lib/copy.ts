@@ -74,9 +74,14 @@ export function freeTimeLine(minutes: number, nextLabel: string): string {
   return `${formatDuration(minutes)} free until ${nextLabel}.`;
 }
 
-/** The warning on `Start next block early`. Default answer is no. */
+/** What `Move everything earlier` does, said before it is done. */
 export function pullForwardWarning(minutes: number): string {
-  return `Moves every remaining boundary earlier by ${formatDuration(minutes)}.`;
+  return `Every block after this moves ${formatDuration(minutes)} earlier.`;
+}
+
+/** What `Start it now` does: the next block takes the free time, nothing else moves. */
+export function startNowLine(nextLabel: string, minutes: number, endsAt: string): string {
+  return `${nextLabel} starts now and runs to ${endsAt} as planned — ${formatDuration(minutes)} longer. Nothing else moves.`;
 }
 
 /** One rule per day, rotating deterministically so the same day always shows the same one. */

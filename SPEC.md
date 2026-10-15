@@ -159,8 +159,16 @@ layoutDay(anchor: Date, template: BlockDef[], windows: FixedWindow[]): Scheduled
 After `Start day`, boundaries do not move on their own.
 
 - **Finishing early does not shift the next block up.** Show the free time honestly:
-  *"22 min free until Spring Boot."* A `Start next block early` button exists but warns:
-  *"Moves every remaining boundary earlier by 22 min."* Default is no.
+  *"22 min free until Spring Boot."* `Start next block early` then offers two choices, each
+  said before it is done, and `Not yet` leaves the time free:
+  - **Start it now** — the next block starts now and keeps its end, so it takes the free
+    time; nothing else moves. The usual answer, and what keeping the boundaries means.
+  - **Move everything earlier** — every block after moves earlier by the free time.
+
+  Either way the finished block now ends when it was finished. Left holding its scheduled
+  end, it overlapped the block started early, and "now" pointed at a block already closed —
+  so both choices used to leave Now showing nothing running, and the first did nothing at
+  all. Where two blocks ever claim the same minute, the one still open is the one running.
 - **Skipping leaves a hole.** Status `skipped`, time is dead, nothing moves. This is
   Rule 4 — *a failed block ends at the block boundary, no cascading.*
 - **Overrunning is recorded, not accommodated.** When `endsAt` passes without the block
@@ -278,8 +286,13 @@ band.
 ### 3.3 Block containment
 
 The metric that tells you whether the schedule is real or decorative. On block end, fire a
-notification; on next open show a full-width prompt: **Did you stop?** →
-`Stopped on time` / `Ran over`. Two taps, no free text.
+notification; on next open show a full-width prompt: **How did <block> go?** →
+`Stopped on time` (did it, stopped at the end) / `Ran over` (did it, kept going past the
+end) / `Didn't do it` (missed or skipped). Each says what it means under it. No free text.
+
+`Didn't do it` skips the block: no time is asked for, none counts, and it counts against
+containment the same as skipping it while it ran. With only the first two answers, a block
+that never happened had to be reported as worked and then given a time.
 
 Tracked separately from the day score. Containment measures whether you respect
 boundaries; the score measures whether you finished the work. A day can be 100% complete

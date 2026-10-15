@@ -36,7 +36,13 @@ import {
 } from '../engine/boundaries';
 import { bandDays, type DayBand } from '../engine/pacing';
 import { burnDown, completionOf, isDropped, projectDay, scoreDay } from '../engine/scoring';
-import { backupState, freeTimeLine, pullForwardWarning, ruleForDate } from '../lib/copy';
+import {
+  backupState,
+  freeTimeLine,
+  pullForwardWarning,
+  ruleForDate,
+  startNowLine,
+} from '../lib/copy';
 import { blockPassed, blockPriority, gateLabel, runwayMinutes, unslotted } from '../lib/dayScoring';
 import type { Prefs } from '../lib/prefs';
 import { formatDuration, toHHMM } from '../lib/time';
@@ -78,6 +84,7 @@ export function Now({
     skipBlock,
     push,
     startNextEarly,
+    startNextNow,
     setDone,
     dropCommitment,
     editCommitment,
@@ -298,7 +305,9 @@ export function Now({
             block={waiting[0]}
             now={now}
             onAnswer={(status, worked) =>
-              void closeBlock(waiting[0]!.blockId, status, now, worked)
+              status === 'skipped'
+                ? void skipBlock(waiting[0]!.blockId, now)
+                : void closeBlock(waiting[0]!.blockId, status, now, worked)
             }
           />
         ) : null}
@@ -438,22 +447,43 @@ export function Now({
                 </p>
 
                 {confirmingEarly ? (
-                  <div className="mt-4 rounded-lg border border-warn/50 bg-warn/5 p-4">
-                    <p className="text-sm text-text">{pullForwardWarning(free)}</p>
-                    <div className="mt-3 flex gap-2">
+                  /*
+                   * Two real ways to use the time, said before either is done. Keeping the
+                   * boundaries used to be the second button, and it did nothing at all: the
+                   * next block never started. Starting it now while keeping the rest is what
+                   * keeping the boundaries was meant to mean.
+                   */
+                  <div className="mt-4 space-y-3" data-start-early>
+                    <div className="rounded-lg border border-edge bg-panel p-4">
+                      <p className="text-sm text-text">
+                        {startNowLine(next.label, free, toHHMM(next.endsAt))}
+                      </p>
                       <Button
+                        variant="primary"
+                        className="mt-3"
+                        onClick={() => {
+                          void startNextNow(now);
+                          setConfirmingEarly(false);
+                        }}
+                      >
+                        Start it now
+                      </Button>
+                    </div>
+                    <div className="rounded-lg border border-warn/40 bg-warn/5 p-4">
+                      <p className="text-sm text-text">{pullForwardWarning(free)}</p>
+                      <Button
+                        className="mt-3 border-warn/50 text-warn hover:bg-warn/10"
                         onClick={() => {
                           void startNextEarly(free, now);
                           setConfirmingEarly(false);
                         }}
-                        className="border-warn/50 text-warn hover:bg-warn/10"
                       >
-                        Move them
-                      </Button>
-                      <Button onClick={() => setConfirmingEarly(false)}>
-                        Keep the boundaries
+                        Move everything earlier
                       </Button>
                     </div>
+                    <Button variant="ghost" onClick={() => setConfirmingEarly(false)}>
+                      Not yet
+                    </Button>
                   </div>
                 ) : (
                   <Button className="mt-4" onClick={() => setConfirmingEarly(true)}>
