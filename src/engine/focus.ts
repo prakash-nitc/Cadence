@@ -1,10 +1,10 @@
 /**
  * Where focused time went — SPEC §4.4.
  *
- * One measure throughout, the same one the activity heatmap uses: the minutes a commitment
- * earned, its planned minutes times how much of it got done. A work block with time logged
- * against it and no commitment on it counts that logged time instead, so a block worked but
- * never committed to is not invisible — and never counted twice.
+ * One measure throughout, the same one the activity heatmap uses: time put in. For a
+ * commitment, the time answered when its block closed — or its planned minutes times how much
+ * got done, where nobody answered (see `minutesPutIn`). A work block with time logged and no
+ * commitment on it counts that time on its own, so it is not invisible — and never twice.
  *
  * From that one figure: a total per day, an average per weekday, a total per clock hour
  * (each block's minutes spread evenly over its scheduled span), and a split by area in
@@ -13,8 +13,8 @@
  * Pure. The period, range, date and roadmap areas are passed in.
  */
 import type { FocusArea } from '../config/schedule.config';
-import type { CommitmentRecord, DayRecord } from '../db/schema';
-import { completionOf } from './scoring';
+import type { DayRecord } from '../db/schema';
+import { minutesPutIn } from './worked';
 import type { Period } from './pacing';
 
 export interface FocusSlice {
@@ -41,8 +41,6 @@ export interface FocusSummary {
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const HOUR_MS = 3_600_000;
 
-const earned = (commitment: CommitmentRecord): number =>
-  commitment.status === 'displaced' ? 0 : commitment.plannedMinutes * completionOf(commitment);
 
 /**
  * The area a commitment belongs to.
@@ -118,13 +116,15 @@ export function focusSummary(
     perArea.set(area, (perArea.get(area) ?? 0) + minutes);
   };
 
+  const putIn = minutesPutIn(period.commitments, period.days);
+
   // Commitments, placed in their block's hours when the block exists on that day.
   const committedBlocks = new Set<string>();
   for (const commitment of period.commitments) {
     const date = commitment.dayDate;
     if (date < from || date > to || date > asOf) continue;
 
-    const minutes = earned(commitment);
+    const minutes = putIn.get(commitment.id) ?? 0;
     if (commitment.status !== 'displaced' && commitment.blockId) {
       committedBlocks.add(`${date}|${commitment.blockId}`);
     }

@@ -6,6 +6,7 @@ import { measure, type Period } from './pacing';
 import {
   clampWorked,
   defaultWorked,
+  minutesPutIn,
   spreadWorked,
   timeHeldByCommitment,
   withWorked,
@@ -193,5 +194,79 @@ describe('worked — counted toward hours targets', () => {
       logs: [],
     };
     expect(measure({ kind: 'minutesTag', tag: 'core_cse' }, period)).toBe(0);
+  });
+});
+
+describe('minutesPutIn — hours are the time answered, not plan × completion', () => {
+  const days = (blocks: ScheduledBlock[]) => [{ date: DATE, blocks }];
+
+  it('gives a count commitment the time answered for its block', () => {
+    // The reported case: four problems planned at 4h, two done, worked 3h 20m.
+    const put = minutesPutIn(
+      [commitment({ id: 'p', targetType: 'count', target: 4, done: 2, plannedMinutes: 240, status: 'partial' })],
+      days([block({ status: 'contained', workedMinutes: 200 })]),
+    );
+    expect(put.get('p')).toBe(200);
+  });
+
+  it('does not inflate a finished commitment worked quickly', () => {
+    const put = minutesPutIn(
+      [commitment({ id: 't', targetType: 'binary', target: 1, done: 1, plannedMinutes: 120, status: 'complete' })],
+      days([block({ status: 'contained', workedMinutes: 60 })]),
+    );
+    expect(put.get('t')).toBe(60);
+  });
+
+  it('shares a block between commitments by their planned minutes', () => {
+    const put = minutesPutIn(
+      [
+        commitment({ id: 'a', targetType: 'count', target: 4, done: 1, plannedMinutes: 120 }),
+        commitment({ id: 'b', targetType: 'binary', target: 1, done: 0, plannedMinutes: 60 }),
+      ],
+      days([block({ status: 'contained', workedMinutes: 90 })]),
+    );
+    expect(put.get('a')).toBe(60);
+    expect(put.get('b')).toBe(30);
+  });
+
+  it('never counts a block twice when a minutes commitment already holds it', () => {
+    const put = minutesPutIn(
+      [
+        commitment({ id: 'm', targetType: 'minutes', target: 120, done: 110, plannedMinutes: 120 }),
+        commitment({ id: 'c', targetType: 'count', target: 3, done: 3, plannedMinutes: 60 }),
+      ],
+      days([block({ status: 'contained', workedMinutes: 110 })]),
+    );
+    expect(put.get('m')).toBe(110);
+    expect(put.get('c')).toBe(0);
+  });
+
+  it('keeps the old estimate where nobody answered for the block', () => {
+    const put = minutesPutIn(
+      [commitment({ id: 'p', targetType: 'count', target: 4, done: 2, plannedMinutes: 240, status: 'partial' })],
+      days([block({ status: 'pending' })]),
+    );
+    expect(put.get('p')).toBe(120);
+  });
+
+  it('keeps the old estimate for work on no block, and drops displaced work', () => {
+    const put = minutesPutIn(
+      [
+        commitment({ id: 'n', blockId: null, targetType: 'count', target: 2, done: 1, plannedMinutes: 60 }),
+        commitment({ id: 'd', status: 'displaced', plannedMinutes: 90 }),
+      ],
+      days([]),
+    );
+    expect(put.get('n')).toBe(30);
+    expect(put.has('d')).toBe(false);
+  });
+
+  it('feeds the hours targets', () => {
+    const period: Period = {
+      days: [day([block({ status: 'contained', workedMinutes: 200 })])],
+      commitments: [commitment({ id: 'p', targetType: 'count', target: 4, done: 2, plannedMinutes: 240, tags: ['dsa'], status: 'partial' })],
+      logs: [],
+    };
+    expect(measure({ kind: 'earnedMinutesTag', tag: 'dsa' }, period)).toBeCloseTo(200 / 60, 5);
   });
 });

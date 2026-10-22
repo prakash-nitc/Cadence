@@ -862,8 +862,9 @@ function HistoryView({
         <Panel title="Activity" icon="bolt">
           <Heatmap cells={cells} />
           <p className="mt-3 text-xs text-muted">
-            Each square is a day, shaded by the work that actually landed. Intensity is
-            hours earned against your own busiest day, so it means something to you.
+            Each square is a day, shaded by the time you put in — what you logged as each
+            block closed. Intensity is against your own busiest day, so it means something
+            to you.
           </p>
         </Panel>
 

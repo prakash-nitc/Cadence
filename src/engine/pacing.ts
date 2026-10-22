@@ -5,7 +5,7 @@
  * clock arrives as `asOf`.
  */
 import type { Milestone, TargetSource, WeeklyTarget } from '../config/schedule.config';
-import { timeHeldByCommitment } from './worked';
+import { minutesPutIn, timeHeldByCommitment } from './worked';
 import type { Band, CommitmentRecord, DayRecord, LogRecord } from '../db/schema';
 import type { Prefs } from '../lib/prefs';
 import { dateKey } from '../lib/time';
@@ -202,17 +202,17 @@ export function measure(source: TargetSource, period: Period): number {
       return (fromCommitments + fromBlocks) / 60;
     }
 
-    case 'earnedMinutesTag':
-      // Weight times completion: the time actually put in, whatever the commitment
-      // counts. A four-problem block finished half way earned half its planned minutes.
+    case 'earnedMinutesTag': {
+      // The time actually put in, whatever the commitment counts: the answer given when its
+      // block closed, or the plan-times-completion estimate where there was none. It used to
+      // be the estimate always, so "how long did you work" changed nothing here.
+      const putIn = minutesPutIn(period.commitments, period.days);
       return (
         happened
           .filter((commitment) => commitment.tags.includes(source.tag))
-          .reduce(
-            (sum, commitment) => sum + commitment.plannedMinutes * completionOf(commitment),
-            0,
-          ) / 60
+          .reduce((sum, commitment) => sum + (putIn.get(commitment.id) ?? 0), 0) / 60
       );
+    }
 
     case 'daysTag':
       return new Set(
@@ -585,19 +585,21 @@ export function monthlyPacing(
 
 export interface DayEffort {
   date: string;
-  /** Weight × completion, in minutes. What the day actually earned. */
+  /** Minutes put in: the time answered for each block, or plan × completion without one. */
   earnedMinutes: number;
   /** Weight of everything committed, in minutes. The denominator. */
   committedMinutes: number;
 }
 
 /**
- * Minutes actually earned per day — feeds the focus chart and the activity heatmap.
+ * Minutes put in per day — feeds the focus chart and the activity heatmap.
  *
- * Measured the same way the score is (weight × completion), so a bar and the day's
- * percentage can never disagree. Days with nothing committed are omitted rather than
- * reported as zero: not logging a day and working none of it are different facts, and
- * the charts render the absence differently.
+ * Time, not completion: the minutes answered when each block closed (see `minutesPutIn`),
+ * with plan × completion only where a block was never answered for. It used to be plan ×
+ * completion always, so a bar labelled as focus time moved with the score and ignored the
+ * time reported. The score keeps judging completion; this chart says how long. Days with
+ * nothing committed are omitted rather than reported as zero: not logging a day and
+ * working none of it are different facts, and the charts render the absence differently.
  */
 export function dailyEffort(period: Period): DayEffort[] {
   const byDay = new Map<string, CommitmentRecord[]>();
@@ -607,16 +609,14 @@ export function dailyEffort(period: Period): DayEffort[] {
     else byDay.set(commitment.dayDate, [commitment]);
   }
 
+  const putIn = minutesPutIn(period.commitments, period.days);
   return [...byDay.entries()]
     .map(([date, commitments]) => {
       const scored = commitments.filter((commitment) => commitment.status !== 'displaced');
       return {
         date,
         earnedMinutes: Math.round(
-          scored.reduce(
-            (sum, commitment) => sum + commitment.plannedMinutes * completionOf(commitment),
-            0,
-          ),
+          scored.reduce((sum, commitment) => sum + (putIn.get(commitment.id) ?? 0), 0),
         ),
         committedMinutes: scored.reduce((sum, c) => sum + c.plannedMinutes, 0),
       };

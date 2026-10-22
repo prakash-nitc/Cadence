@@ -308,6 +308,17 @@ away is gained — and coming back resumes it. Sessions are stored on the block 
 timer at a time. Closing the block offers the timed minutes plus any time before a late
 start, says so, and remains editable.
 
+**Hours are time, scores are completion.** Every figure measured in hours — the hours
+targets (`earnedMinutesTag`, `minutesTag`), the week's focus time, the activity heatmap and
+the month's focus charts — reads the time answered when each block closed (`minutesPutIn`):
+minutes commitments hold their `done`; count and done-or-not commitments share the block's
+answer by planned minutes, unless a minutes commitment on the block already holds it. Only a
+block nobody answered for, or work on no block, falls back to planned minutes × completion.
+Until this, the fallback was used always: two of four problems on a four-hour plan read as
+two hours however long the block was worked, and the time question changed nothing. The
+day's **score** is untouched — it judges what was finished (weight × completion), not how
+long it took, and the two can rightly differ.
+
 **Time worked.** A work block asks a second question when it closes — *How long did you
 work?* — whether it closes through `Done — contained` while running or through the prompt
 above after it ended. Meals, breaks and routines are not asked.

@@ -14,7 +14,7 @@
  */
 import type { CommitmentRecord } from '../db/schema';
 import type { ScheduledBlock } from './layout';
-import { statusForProgress } from './scoring';
+import { completionOf, statusForProgress } from './scoring';
 import { hasTimer, timedMinutes, timerLeadIn } from './timer';
 
 /** The picker's step, and what a default is rounded to. */
@@ -124,4 +124,68 @@ export function timeHeldByCommitment(
       commitment.targetType === 'minutes' &&
       commitment.status !== 'displaced',
   );
+}
+
+/**
+ * Minutes each commitment stands for, in time actually put in — SPEC §3.3.
+ *
+ * Hours used to be estimated from the plan: a commitment's planned minutes times the share
+ * of it finished. Two of four problems on a four-hour plan read as two hours whether the
+ * block was worked for one hour or five, and the answer to "how long did you work" changed
+ * nothing. Where a block was answered for, that answer is the time:
+ *
+ * - minutes commitments hold their `done`, which the answer was written into;
+ * - count and done-or-not commitments share the block's answer by planned minutes, unless a
+ *   minutes commitment on the block already holds it — then it is not counted twice;
+ * - anything on a block nobody answered for, or on no block, keeps the old estimate — there
+ *   is nothing better to go on, and a record from before this existed reads as it always has.
+ *
+ * Displaced work happened elsewhere and stands for nothing. Scoring does not read this: the
+ * day's score judges what was finished, not how long it took.
+ */
+export function minutesPutIn(
+  commitments: CommitmentRecord[],
+  days: { date: string; blocks: ScheduledBlock[] }[],
+): Map<string, number> {
+  const blocksOn = new Map(days.map((day) => [day.date, day.blocks]));
+  const standing = commitments.filter((commitment) => commitment.status !== 'displaced');
+
+  const sharing = (date: string, blockId: string): CommitmentRecord[] =>
+    standing.filter(
+      (commitment) =>
+        commitment.dayDate === date &&
+        commitment.blockId === blockId &&
+        commitment.targetType !== 'minutes',
+    );
+
+  const out = new Map<string, number>();
+  for (const commitment of standing) {
+    const block = commitment.blockId
+      ? blocksOn.get(commitment.dayDate)?.find((entry) => entry.blockId === commitment.blockId)
+      : undefined;
+    const answered = block?.workedMinutes;
+
+    if (answered === undefined) {
+      out.set(commitment.id, commitment.plannedMinutes * completionOf(commitment));
+      continue;
+    }
+    if (commitment.targetType === 'minutes') {
+      out.set(commitment.id, commitment.done);
+      continue;
+    }
+    if (timeHeldByCommitment(commitments, commitment.dayDate, commitment.blockId ?? '')) {
+      out.set(commitment.id, 0);
+      continue;
+    }
+
+    const others = sharing(commitment.dayDate, commitment.blockId ?? '');
+    const weight = others.reduce((sum, entry) => sum + Math.max(0, entry.plannedMinutes), 0);
+    out.set(
+      commitment.id,
+      weight > 0
+        ? (answered * Math.max(0, commitment.plannedMinutes)) / weight
+        : answered / Math.max(1, others.length),
+    );
+  }
+  return out;
 }
